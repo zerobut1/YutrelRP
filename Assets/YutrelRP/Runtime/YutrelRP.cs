@@ -30,7 +30,6 @@ namespace YutrelRP
             RTHandles.Initialize(Screen.width, Screen.height);
             m_render_graph = new RenderGraph("Example Render Graph")
             {
-                // nativeRenderPassesEnabled = ExampleRPUtils.IsSupportsNativeRenderPassRenderGraphCompiler(),
                 nativeRenderPassesEnabled = true,
             };
             m_render_graph_recorder = new YutrelRenderGraphRecorder();
@@ -80,7 +79,7 @@ namespace YutrelRP
             RecordAndExecuteRenderGraph(context, camera, cmd);
 
             context.ExecuteCommandBuffer(cmd);
-            cmd.Clear();
+            // cmd.Clear();
             CommandBufferPool.Release(cmd);
             context.Submit();
             EndCameraRendering(context, camera);
@@ -110,6 +109,7 @@ namespace YutrelRP
                 scriptableRenderContext = context,
                 currentFrameIndex = Time.frameCount,
             };
+            
             m_render_graph.BeginRecording(render_graph_parameters);
             m_render_graph_recorder.RecordRenderGraph(m_render_graph, m_context_container);
             m_render_graph.EndRecordingAndExecute();

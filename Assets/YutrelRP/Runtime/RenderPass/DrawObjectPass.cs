@@ -7,7 +7,7 @@ namespace YutrelRP
 {
     public partial class YutrelRenderGraphRecorder
     {
-        private static readonly ShaderTagId s_shader_tag_id = new ShaderTagId("ExampleLightModeTag");
+        // private static readonly ShaderTagId s_shader_tag_id = new ShaderTagId("ExampleLightModeTag");
 
         private static readonly ProfilingSampler s_draw_object_profiling_sampler =
             new ProfilingSampler("Draw Object Pass");

@@ -24,23 +24,36 @@ Shader "YutrelRP/Unlit"
                 float4 positionOS : POSITION;
             };
 
-            struct Varyings
+            struct v2f
             {
                 float4 positionCS : SV_POSITION;
             };
 
-            Varyings vert(Attributes IN)
+            struct RTStruct
             {
-                Varyings OUT;
+                float4 GBufferA : SV_Target0;
+                float4 GBufferB : SV_Target1;
+                float4 GBufferC : SV_Target2;
+            };
+
+            v2f vert(Attributes IN)
+            {
+                v2f OUT;
                 float4 worldPos = mul(unity_ObjectToWorld, IN.positionOS);
                 OUT.positionCS = mul(unity_MatrixVP, worldPos);
 
                 return OUT;
             }
 
-            float4 frag(Varyings IN) : SV_TARGET
+            RTStruct frag(v2f IN)
             {
-                return float4(0.4, 0.8, 1.0, 1.0);
+                RTStruct o;
+
+                o.GBufferA = float4(0.4, 0.4, 0.4, 0.4);
+                o.GBufferB = float4(0.8, 0.8, 0.8, 0.8);
+                o.GBufferC = float4(1.0, 1.0, 1.0, 1.0);
+
+                return o;
             }
             ENDHLSL
         }

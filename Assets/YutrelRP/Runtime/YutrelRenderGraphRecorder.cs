@@ -24,20 +24,23 @@ namespace YutrelRP
 
             if (!render_graph.nativeRenderPassesEnabled && clear_flags != CameraClearFlags.Nothing)
             {
-                AddClearRenderTargetPass(render_graph, camera_data);
+                // AddClearRenderTargetPass(render_graph, camera_data);
             }
 
-            AddDrawObjectPass(render_graph, camera_data);
+            // AddDrawObjectPass(render_graph, camera_data);
 
             if (clear_flags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
             {
-                AddDrawSkyboxPass(render_graph, camera_data);
+                // AddDrawSkyboxPass(render_graph, camera_data);
             }
 
 #if UNITY_EDITOR
-            AddDrawEditorGizmoPass(render_graph, camera_data, GizmoSubset.PreImageEffects);
-            AddDrawEditorGizmoPass(render_graph, camera_data, GizmoSubset.PostImageEffects);
+            // AddDrawEditorGizmoPass(render_graph, camera_data, GizmoSubset.PreImageEffects);
+            // AddDrawEditorGizmoPass(render_graph, camera_data, GizmoSubset.PostImageEffects);
 #endif
+
+            var base_pass_data = AddBasePass(render_graph, camera_data);
+            AddTempShadingPass(render_graph, base_pass_data);
         }
 
         public void Dispose()
