@@ -73,3 +73,4 @@ crashlytics-build.properties
 Packages/Graphics
 .idea
 Assembly-CSharp.csproj.DotSettings
+*.log

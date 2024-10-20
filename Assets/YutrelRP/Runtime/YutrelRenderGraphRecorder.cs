@@ -9,48 +9,41 @@ namespace YutrelRP
 {
     public partial class YutrelRenderGraphRecorder : IRenderGraphRecorder, IDisposable
     {
-        private TextureHandle m_backbuffer_color_handle = TextureHandle.nullHandle;
-        private RTHandle m_rt_color_handle = null;
+        private TextureHandle m_backbuffer_color = TextureHandle.nullHandle;
+        private RTHandle m_rt_color = null;
 
-        private TextureHandle m_backbuffer_depth_handle = TextureHandle.nullHandle;
-        private RTHandle m_rt_depth_handle = null;
+        private TextureHandle m_backbuffer_depth = TextureHandle.nullHandle;
+        private RTHandle m_rt_depth = null;
 
-        public void RecordRenderGraph(RenderGraph render_graph, ContextContainer frame_data)
+        public void RecordRenderGraph(RenderGraph graph, ContextContainer frame_data)
         {
             var camera_data = frame_data.Get<CameraData>();
-            CreateRenderGraphCameraRenderTargets(render_graph, camera_data);
-            AddSetupCameraPass(render_graph, camera_data);
+            CreateRenderGraphCameraRenderTargets(graph, camera_data);
+            AddSetupCameraPass(graph, camera_data);
             var clear_flags = camera_data.camera.clearFlags;
 
-            if (!render_graph.nativeRenderPassesEnabled && clear_flags != CameraClearFlags.Nothing)
+            if (!graph.nativeRenderPassesEnabled && clear_flags != CameraClearFlags.Nothing)
             {
                 // AddClearRenderTargetPass(render_graph, camera_data);
             }
-
-            // AddDrawObjectPass(render_graph, camera_data);
-
+            
             if (clear_flags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
             {
-                // AddDrawSkyboxPass(render_graph, camera_data);
+                // AddDrawSkyboxPass(graph, camera_data);
             }
 
-#if UNITY_EDITOR
-            // AddDrawEditorGizmoPass(render_graph, camera_data, GizmoSubset.PreImageEffects);
-            // AddDrawEditorGizmoPass(render_graph, camera_data, GizmoSubset.PostImageEffects);
-#endif
-
-            var base_pass_data = AddBasePass(render_graph, camera_data);
-            AddTempShadingPass(render_graph, base_pass_data);
+            var base_pass_data = AddBasePass(graph, camera_data);
+            AddTempShadingPass(graph, base_pass_data);
         }
 
         public void Dispose()
         {
-            RTHandles.Release(m_rt_color_handle);
-            RTHandles.Release(m_rt_depth_handle);
+            RTHandles.Release(m_rt_color);
+            RTHandles.Release(m_rt_depth);
             GC.SuppressFinalize(this);
         }
 
-        private void CreateRenderGraphCameraRenderTargets(RenderGraph render_graph, CameraData camera_data)
+        private void CreateRenderGraphCameraRenderTargets(RenderGraph graph, CameraData camera_data)
         {
             var camera_target_texture = camera_data.camera.targetTexture;
             var target_texture = camera_data.camera.targetTexture;
@@ -61,31 +54,31 @@ namespace YutrelRP
             var rt_color_id = is_builtin_texture
                 ? BuiltinRenderTextureType.CameraTarget
                 : new RenderTargetIdentifier(camera_target_texture);
-            if (m_rt_color_handle == null)
+            if (m_rt_color == null)
             {
-                m_rt_color_handle = RTHandles.Alloc((RenderTargetIdentifier)rt_color_id, "BackBuffer Color");
+                m_rt_color = RTHandles.Alloc((RenderTargetIdentifier)rt_color_id, "BackBuffer Color");
             }
-            else if (m_rt_color_handle.nameID != rt_color_id)
+            else if (m_rt_color.nameID != rt_color_id)
             {
-                RTHandleStaticHelpers.SetRTHandleUserManagedWrapper(ref m_rt_color_handle, rt_color_id);
+                RTHandleStaticHelpers.SetRTHandleUserManagedWrapper(ref m_rt_color, rt_color_id);
             }
 
             var rt_depth_id = is_builtin_texture
                 ? BuiltinRenderTextureType.Depth
                 : new RenderTargetIdentifier(camera_target_texture);
-            if (m_rt_depth_handle == null)
+            if (m_rt_depth == null)
             {
-                m_rt_depth_handle = RTHandles.Alloc((RenderTargetIdentifier)rt_depth_id, "BackBuffer Depth");
+                m_rt_depth = RTHandles.Alloc((RenderTargetIdentifier)rt_depth_id, "BackBuffer Depth");
             }
-            else if (m_rt_depth_handle.nameID != rt_depth_id)
+            else if (m_rt_depth.nameID != rt_depth_id)
             {
-                RTHandleStaticHelpers.SetRTHandleUserManagedWrapper(ref m_rt_depth_handle, rt_depth_id);
+                RTHandleStaticHelpers.SetRTHandleUserManagedWrapper(ref m_rt_depth, rt_depth_id);
             }
 
             var clear_color = camera_data.GetClearColor();
 
-            var clear_backbuffer_on_first_use = !render_graph.nativeRenderPassesEnabled;
-            var discard_color_backbuffer_on_last_use = !render_graph.nativeRenderPassesEnabled;
+            var clear_backbuffer_on_first_use = !graph.nativeRenderPassesEnabled;
+            var discard_color_backbuffer_on_last_use = !graph.nativeRenderPassesEnabled;
             var discard_depth_backbuffer_on_last_use = !is_camera_target_offscreen_depth;
 
             var import_backbuffer_color_params = new ImportResourceParams
@@ -129,10 +122,10 @@ namespace YutrelRP
             var depth_import_info = color_import_info;
             depth_import_info.format = SystemInfo.GetGraphicsFormat(DefaultFormat.DepthStencil);
 
-            m_backbuffer_color_handle =
-                render_graph.ImportTexture(m_rt_color_handle, color_import_info, import_backbuffer_color_params);
-            m_backbuffer_depth_handle =
-                render_graph.ImportTexture(m_rt_depth_handle, depth_import_info, import_backbuffer_depth_params);
+            m_backbuffer_color =
+                graph.ImportTexture(m_rt_color, color_import_info, import_backbuffer_color_params);
+            m_backbuffer_depth =
+                graph.ImportTexture(m_rt_depth, depth_import_info, import_backbuffer_depth_params);
         }
     }
 }

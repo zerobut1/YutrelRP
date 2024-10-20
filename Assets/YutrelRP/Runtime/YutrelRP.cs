@@ -48,7 +48,7 @@ namespace YutrelRP
 
         protected override void Render(ScriptableRenderContext context, Camera[] cameras)
         {
-            // donothing
+            // do nothing
         }
 
         protected override void Render(ScriptableRenderContext context, List<Camera> cameras)
@@ -79,7 +79,7 @@ namespace YutrelRP
             RecordAndExecuteRenderGraph(context, camera, cmd);
 
             context.ExecuteCommandBuffer(cmd);
-            // cmd.Clear();
+            cmd.Clear();
             CommandBufferPool.Release(cmd);
             context.Submit();
             EndCameraRendering(context, camera);
@@ -109,7 +109,7 @@ namespace YutrelRP
                 scriptableRenderContext = context,
                 currentFrameIndex = Time.frameCount,
             };
-            
+
             m_render_graph.BeginRecording(render_graph_parameters);
             m_render_graph_recorder.RecordRenderGraph(m_render_graph, m_context_container);
             m_render_graph.EndRecordingAndExecute();

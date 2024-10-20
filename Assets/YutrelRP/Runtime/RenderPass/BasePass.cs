@@ -21,8 +21,9 @@ namespace YutrelRP
 
         private BasePassData AddBasePass(RenderGraph graph, CameraData camera_data)
         {
-            using var builder = graph.AddRasterRenderPass<BasePassData>("Base Pass",
-                out var pass_data, new ProfilingSampler("Base Pass"));
+            using var builder =
+                graph.AddRasterRenderPass<BasePassData>("Base Pass", out var pass_data,
+                    new ProfilingSampler("Base Pass"));
 
             // GBuffer
             var camera = camera_data.camera;
@@ -49,8 +50,6 @@ namespace YutrelRP
                 };
             pass_data.opaque_renderer_list = graph.CreateRendererList(opaque_renderer_desc);
             builder.UseRendererList(pass_data.opaque_renderer_list);
-
-            builder.AllowPassCulling(false);
 
             builder.SetRenderFunc((BasePassData data, RasterGraphContext context) =>
             {

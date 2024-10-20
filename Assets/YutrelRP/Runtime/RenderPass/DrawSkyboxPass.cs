@@ -23,14 +23,14 @@ namespace YutrelRP
             pass_data.skybox_list_handle = render_graph.CreateSkyboxRendererList(camera_data.camera);
             builder.UseRendererList(pass_data.skybox_list_handle);
 
-            if (m_backbuffer_color_handle.IsValid())
+            if (m_backbuffer_color.IsValid())
             {
-                builder.SetRenderAttachment(m_backbuffer_color_handle, 0, AccessFlags.Write);
+                builder.SetRenderAttachment(m_backbuffer_color, 0, AccessFlags.Write);
             }
 
-            if (m_backbuffer_depth_handle.IsValid())
+            if (m_backbuffer_depth.IsValid())
             {
-                builder.SetRenderAttachmentDepth(m_backbuffer_depth_handle, AccessFlags.Write);
+                builder.SetRenderAttachmentDepth(m_backbuffer_depth, AccessFlags.Write);
             }
 
             // builder.AllowPassCulling(false);
