@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Unlit
+  m_Name: Unlit 1
   m_Shader: {fileID: 4800000, guid: e3542973b165f0d428dafa9c61735b3c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -26,6 +26,6 @@ Material:
     m_Ints: []
     m_Floats: []
     m_Colors:
-    - _Emissive: {r: 0.7169812, g: 0, b: 0, a: 1}
+    - _Emissive: {r: 0.17817731, g: 0.8584906, b: 0.41693276, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

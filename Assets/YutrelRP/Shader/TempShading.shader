@@ -31,7 +31,6 @@
                 float4 GBufferB = tex2D(_GBuffer_B, uv);
                 float4 GBufferC = tex2D(_GBuffer_C, uv);
 
-                
                 return float4(GBufferA.r, GBufferB.g, GBufferC.b, 1.0);
             }
             ENDHLSL

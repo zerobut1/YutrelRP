@@ -1,6 +1,9 @@
 Shader "YutrelRP/Unlit"
 {
-    Properties {}
+    Properties
+    {
+        _Emissive("Emissive", Color) = (0, 0, 0, 1)
+    }
 
     SubShader
     {
@@ -8,7 +11,7 @@ Shader "YutrelRP/Unlit"
         {
             Tags
             {
-                "LightMode" = "ExampleLightModeTag"
+                "LightMode" = "GBuffer"
             }
 
             HLSLPROGRAM
@@ -38,22 +41,27 @@ Shader "YutrelRP/Unlit"
 
             v2f vert(Attributes IN)
             {
-                v2f OUT;
-                float4 worldPos = mul(unity_ObjectToWorld, IN.positionOS);
-                OUT.positionCS = mul(unity_MatrixVP, worldPos);
+                v2f _out;
+                float4 world_pos = mul(unity_ObjectToWorld, IN.positionOS);
+                _out.positionCS = mul(unity_MatrixVP, world_pos);
 
-                return OUT;
+                return _out;
             }
+
+            float4 _Emissive;
 
             RTStruct frag(v2f IN)
             {
-                RTStruct o;
+                RTStruct _out;
 
-                o.GBufferA = float4(0.4, 0.4, 0.4, 0.4);
-                o.GBufferB = float4(0.8, 0.8, 0.8, 0.8);
-                o.GBufferC = float4(1.0, 1.0, 1.0, 1.0);
+                _out.GBufferA = _Emissive.rrrr;
+                // _out.GBufferA = float4(1, 1, 1, 1);
+                // _out.GBufferB = float4(1, 1, 1, 1);
+                // _out.GBufferC = float4(1, 1, 1, 1);
+                _out.GBufferB = _Emissive.gggg;
+                _out.GBufferC = _Emissive.bbbb;
 
-                return o;
+                return _out;
             }
             ENDHLSL
         }

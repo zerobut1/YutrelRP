@@ -7,14 +7,13 @@ namespace YutrelRP
 {
     public partial class YutrelRenderGraphRecorder
     {
-        private static readonly ShaderTagId s_shader_tag_id = new ShaderTagId("ExampleLightModeTag");
+        private static readonly ShaderTagId s_shader_tag_id = new ShaderTagId("GBuffer");
 
         internal class BasePassData
         {
             internal TextureHandle m_GBuffer_A;
             internal TextureHandle m_GBuffer_B;
             internal TextureHandle m_GBuffer_C;
-            internal TextureHandle m_scene_depth;
 
             internal RendererListHandle opaque_renderer_list;
         }
@@ -33,13 +32,11 @@ namespace YutrelRP
                 YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer B");
             pass_data.m_GBuffer_C =
                 YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer C");
-            pass_data.m_scene_depth =
-                YutrelRPUtils.CreateDepthTexture(graph, camera.pixelWidth, camera.pixelHeight, "Scene depth");
 
             builder.SetRenderAttachment(pass_data.m_GBuffer_A, 0, AccessFlags.Write);
             builder.SetRenderAttachment(pass_data.m_GBuffer_B, 1, AccessFlags.Write);
             builder.SetRenderAttachment(pass_data.m_GBuffer_C, 2, AccessFlags.Write);
-            builder.SetRenderAttachmentDepth(pass_data.m_scene_depth, AccessFlags.Write);
+            builder.SetRenderAttachmentDepth(m_backbuffer_depth, AccessFlags.Write);
 
             // 不透明
             var opaque_renderer_desc =
