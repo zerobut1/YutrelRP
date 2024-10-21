@@ -6,6 +6,7 @@ namespace YutrelRP
 {
     public partial class YutrelRenderGraphRecorder
     {
+        
         internal class SetupCameraPassData
         {
             internal CameraData camera_data;
@@ -15,10 +16,10 @@ namespace YutrelRP
         {
             using var builder = render_graph.AddRasterRenderPass<SetupCameraPassData>(
                 "Setup Camera Pass",
-                out var passData,
+                out var pass_data,
                 new ProfilingSampler("Setup Camera Pass"));
 
-            passData.camera_data = camera_data;
+            pass_data.camera_data = camera_data;
 
             builder.AllowGlobalStateModification(true);
 

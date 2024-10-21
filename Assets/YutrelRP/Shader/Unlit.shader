@@ -55,9 +55,6 @@ Shader "YutrelRP/Unlit"
                 RTStruct _out;
 
                 _out.GBufferA = _Emissive.rrrr;
-                // _out.GBufferA = float4(1, 1, 1, 1);
-                // _out.GBufferB = float4(1, 1, 1, 1);
-                // _out.GBufferC = float4(1, 1, 1, 1);
                 _out.GBufferB = _Emissive.gggg;
                 _out.GBufferC = _Emissive.bbbb;
 

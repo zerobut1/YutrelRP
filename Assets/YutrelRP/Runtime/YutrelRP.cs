@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -93,9 +94,19 @@ namespace YutrelRP
             }
 
             var culling_results = context.Cull(ref culling_parameters);
+
+            // camera
             var camera_data = m_context_container.GetOrCreate<CameraData>();
             camera_data.camera = camera;
             camera_data.culling_results = culling_results;
+
+            // directional light
+            var light_data = m_context_container.GetOrCreate<LightData>();
+            foreach (var light in
+                     culling_results.visibleLights.Where(light => light.lightType == LightType.Directional))
+            {
+                light_data.sun_light = light;
+            }
 
             return true;
         }

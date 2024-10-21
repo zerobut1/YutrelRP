@@ -23,6 +23,11 @@
             sampler2D _GBuffer_B;
             sampler2D _GBuffer_C;
 
+            CBUFFER_START(_light_buffer)
+                float4 _sun_light_direction;
+                float4 _sun_light_color;
+            CBUFFER_END
+
             float4 frag(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
@@ -31,7 +36,9 @@
                 float4 GBufferB = tex2D(_GBuffer_B, uv);
                 float4 GBufferC = tex2D(_GBuffer_C, uv);
 
-                return float4(GBufferA.r, GBufferB.g, GBufferC.b, 1.0);
+                float4 color =  float4(GBufferA.r, GBufferB.g, GBufferC.b, 1.0);
+                // return _sun_light_direction;
+                return _sun_light_color * color;
             }
             ENDHLSL
         }

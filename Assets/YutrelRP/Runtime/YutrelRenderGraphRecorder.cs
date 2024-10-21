@@ -20,13 +20,17 @@ namespace YutrelRP
             var camera_data = frame_data.Get<CameraData>();
             CreateRenderGraphCameraRenderTargets(graph, camera_data);
             AddSetupCameraPass(graph, camera_data);
+
+            var light_data = frame_data.Get<LightData>();
+            AddSetupLightPass(graph, light_data);
+
             var clear_flags = camera_data.camera.clearFlags;
 
             if (!graph.nativeRenderPassesEnabled && clear_flags != CameraClearFlags.Nothing)
             {
                 // AddClearRenderTargetPass(render_graph, camera_data);
             }
-            
+
             if (clear_flags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
             {
                 // AddDrawSkyboxPass(graph, camera_data);
