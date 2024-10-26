@@ -26,18 +26,19 @@ namespace YutrelRP
 
             var clear_flags = camera_data.camera.clearFlags;
 
+            var base_pass_data = AddBasePass(graph, camera_data);
+
             if (!graph.nativeRenderPassesEnabled && clear_flags != CameraClearFlags.Nothing)
             {
-                // AddClearRenderTargetPass(render_graph, camera_data);
+                // AddClearRenderTargetPass(graph, camera_data);
             }
+
+            AddTempShadingPass(graph, base_pass_data);
 
             if (clear_flags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
             {
-                // AddDrawSkyboxPass(graph, camera_data);
+                AddDrawSkyboxPass(graph, camera_data);
             }
-
-            var base_pass_data = AddBasePass(graph, camera_data);
-            AddTempShadingPass(graph, base_pass_data);
         }
 
         public void Dispose()
