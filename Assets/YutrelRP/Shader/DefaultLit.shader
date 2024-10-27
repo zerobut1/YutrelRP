@@ -16,7 +16,7 @@
 
         Pass
         {
-            CGPROGRAM
+            HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
 
@@ -35,22 +35,26 @@
             sampler2D _MainTex;
             float4 _MainTex_ST;
 
+            float4x4 unity_MatrixVP;
+            float4x4 unity_ObjectToWorld;
+
             v2f vert(appdata v)
             {
                 v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                float4 world_pos = mul(unity_ObjectToWorld, v.vertex);
+                o.vertex = mul(unity_MatrixVP, world_pos);
+                o.uv = v.uv;
                 return o;
             }
 
-            fixed4 frag(v2f i) : SV_Target
+            float4 frag(v2f i) : SV_Target
             {
                 // sample the texture
-                fixed4 col = tex2D(_MainTex, i.uv);
+                float4 col = tex2D(_MainTex, i.uv);
 
                 return col;
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

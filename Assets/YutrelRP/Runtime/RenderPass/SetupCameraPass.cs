@@ -4,17 +4,16 @@ using YutrelRP.FrameData;
 
 namespace YutrelRP
 {
-    public partial class YutrelRenderGraphRecorder
+    internal class SetupCameraPass : YutrelRenderPass
     {
-        
-        internal class SetupCameraPassData
+        private class PassData
         {
             internal CameraData camera_data;
         }
 
-        private void AddSetupCameraPass(RenderGraph render_graph, CameraData camera_data)
+        internal void Setup(RenderGraph render_graph, CameraData camera_data)
         {
-            using var builder = render_graph.AddRasterRenderPass<SetupCameraPassData>(
+            using var builder = render_graph.AddRasterRenderPass<PassData>(
                 "Setup Camera Pass",
                 out var pass_data,
                 new ProfilingSampler("Setup Camera Pass"));
@@ -23,7 +22,7 @@ namespace YutrelRP
 
             builder.AllowGlobalStateModification(true);
 
-            builder.SetRenderFunc((SetupCameraPassData data, RasterGraphContext context) =>
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
             {
                 context.cmd.SetupCameraProperties(data.camera_data.camera);
             });

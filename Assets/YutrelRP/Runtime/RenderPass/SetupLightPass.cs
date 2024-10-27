@@ -5,22 +5,22 @@ using YutrelRP.FrameData;
 
 namespace YutrelRP
 {
-    public partial class YutrelRenderGraphRecorder
+    internal class SetupLightPass : YutrelRenderPass
     {
-        internal static class ShaderLightData
+        private static class ShaderLightData
         {
             internal static readonly int sun_light_direction = Shader.PropertyToID("_sun_light_direction");
             internal static readonly int sun_light_color = Shader.PropertyToID("_sun_light_color");
         }
 
-        internal class SetupLightPassData
+        private class PassData
         {
             internal LightData light_data;
         }
 
-        private void AddSetupLightPass(RenderGraph render_graph, LightData light_data)
+        internal void Setup(RenderGraph render_graph, LightData light_data)
         {
-            using var builder = render_graph.AddRasterRenderPass<SetupLightPassData>(
+            using var builder = render_graph.AddRasterRenderPass<PassData>(
                 "Setup Light Pass",
                 out var pass_data,
                 new ProfilingSampler("Setup Light Pass"));
@@ -30,7 +30,7 @@ namespace YutrelRP
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
 
-            builder.SetRenderFunc((SetupLightPassData data, RasterGraphContext context) =>
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
             {
                 VisibleLight sun_light = data.light_data.sun_light;
                 Vector4 sun_light_direction = sun_light.localToWorldMatrix.MultiplyVector(Vector3.back);

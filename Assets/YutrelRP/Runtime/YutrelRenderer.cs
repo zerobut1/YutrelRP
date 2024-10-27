@@ -7,37 +7,57 @@ using YutrelRP.FrameData;
 
 namespace YutrelRP
 {
-    public partial class YutrelRenderGraphRecorder : IRenderGraphRecorder, IDisposable
+    public class YutrelRenderer : IDisposable
     {
         private TextureHandle m_backbuffer_color = TextureHandle.nullHandle;
         private RTHandle m_rt_color = null;
-
         private TextureHandle m_backbuffer_depth = TextureHandle.nullHandle;
         private RTHandle m_rt_depth = null;
+
+        private TextureHandle m_GBuffer_A;
+        private TextureHandle m_GBuffer_B;
+        private TextureHandle m_GBuffer_C;
+
+        private SetupCameraPass m_setup_camera_pass;
+        private SetupLightPass m_setup_light_pass;
+        private BasePass m_base_pass;
+        private DrawSkyboxPass m_draw_skybox_pass;
+
+        private TempShadingPass m_temp_shading_pass;
+
+        public YutrelRenderer()
+        {
+            m_setup_camera_pass = new SetupCameraPass();
+            m_setup_light_pass = new SetupLightPass();
+            m_base_pass = new BasePass();
+            m_draw_skybox_pass = new DrawSkyboxPass();
+
+            m_temp_shading_pass = new TempShadingPass();
+        }
 
         public void RecordRenderGraph(RenderGraph graph, ContextContainer frame_data)
         {
             var camera_data = frame_data.Get<CameraData>();
-            CreateRenderGraphCameraRenderTargets(graph, camera_data);
-            AddSetupCameraPass(graph, camera_data);
-
             var light_data = frame_data.Get<LightData>();
-            AddSetupLightPass(graph, light_data);
+            
+
+            CreateRenderGraphCameraRenderTargets(graph, camera_data);
+
+            CreateGBufferRenderTarget(graph, camera_data);
+
+            m_setup_camera_pass.Setup(graph, camera_data);
+
+            m_setup_light_pass.Setup(graph, light_data);
 
             var clear_flags = camera_data.camera.clearFlags;
 
-            var base_pass_data = AddBasePass(graph, camera_data);
+            m_base_pass.Render(graph, camera_data, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_depth);
 
-            if (!graph.nativeRenderPassesEnabled && clear_flags != CameraClearFlags.Nothing)
-            {
-                // AddClearRenderTargetPass(graph, camera_data);
-            }
-
-            AddTempShadingPass(graph, base_pass_data);
+            m_temp_shading_pass.Render(graph, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_color);
 
             if (clear_flags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
             {
-                AddDrawSkyboxPass(graph, camera_data);
+                m_draw_skybox_pass.Render(graph, camera_data, m_backbuffer_color, m_backbuffer_depth);
             }
         }
 
@@ -131,6 +151,18 @@ namespace YutrelRP
                 graph.ImportTexture(m_rt_color, color_import_info, import_backbuffer_color_params);
             m_backbuffer_depth =
                 graph.ImportTexture(m_rt_depth, depth_import_info, import_backbuffer_depth_params);
+        }
+
+        private void CreateGBufferRenderTarget(RenderGraph graph, CameraData camera_data)
+        {
+            var camera = camera_data.camera;
+
+            m_GBuffer_A =
+                YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer A");
+            m_GBuffer_B =
+                YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer B");
+            m_GBuffer_C =
+                YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer C");
         }
     }
 }

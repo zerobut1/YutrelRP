@@ -42,5 +42,27 @@ namespace YutrelRP
 
             return graph.CreateTexture(desc);
         }
+
+        internal static Mesh CreateFullscreenMesh()
+        {
+            // Simple full-screen triangle.
+            Vector3[] positions =
+            {
+                new Vector3(-1.0f, 1.0f, 0.0f),
+                new Vector3(-1.0f, -3.0f, 0.0f),
+                new Vector3(3.0f, 1.0f, 0.0f)
+            };
+
+            int[] indices = { 0, 1, 2 };
+
+            var mesh = new Mesh
+            {
+                indexFormat = IndexFormat.UInt16,
+                vertices = positions,
+                triangles = indices
+            };
+
+            return mesh;
+        }
     }
 }

@@ -10,8 +10,11 @@ namespace YutrelRP
     public class YutrelRP : RenderPipeline
     {
         private YutrelRPAsset m_rp_asset;
+
         private RenderGraph m_render_graph;
-        private YutrelRenderGraphRecorder m_render_graph_recorder;
+
+        // private YutrelRenderGraphRecorder m_render_graph_recorder;
+        private YutrelRenderer m_renderer;
         private ContextContainer m_context_container;
 
         public YutrelRP(YutrelRPAsset asset)
@@ -33,7 +36,8 @@ namespace YutrelRP
             {
                 nativeRenderPassesEnabled = true,
             };
-            m_render_graph_recorder = new YutrelRenderGraphRecorder();
+            // m_render_graph_recorder = new YutrelRenderGraphRecorder();
+            m_renderer = new YutrelRenderer();
             m_context_container = new ContextContainer();
         }
 
@@ -41,8 +45,10 @@ namespace YutrelRP
         {
             m_context_container?.Dispose();
             m_context_container = null;
-            m_render_graph_recorder?.Dispose();
-            m_render_graph_recorder = null;
+            m_renderer?.Dispose();
+            m_renderer = null;
+            // m_render_graph_recorder?.Dispose();
+            // m_render_graph_recorder = null;
             m_render_graph?.Cleanup();
             m_render_graph = null;
         }
@@ -122,7 +128,8 @@ namespace YutrelRP
             };
 
             m_render_graph.BeginRecording(render_graph_parameters);
-            m_render_graph_recorder.RecordRenderGraph(m_render_graph, m_context_container);
+            // m_render_graph_recorder.RecordRenderGraph(m_render_graph, m_context_container);
+            m_renderer.RecordRenderGraph(m_render_graph, m_context_container);
             m_render_graph.EndRecordingAndExecute();
         }
     }

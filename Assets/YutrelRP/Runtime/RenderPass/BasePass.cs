@@ -1,15 +1,16 @@
 ﻿using UnityEngine.Rendering;
 using UnityEngine.Rendering.RendererUtils;
 using UnityEngine.Rendering.RenderGraphModule;
-using YutrelRP.FrameData;
+using UnityEngine.Rendering.Universal;
+using CameraData = YutrelRP.FrameData.CameraData;
 
 namespace YutrelRP
 {
-    public partial class YutrelRenderGraphRecorder
+    internal class BasePass : YutrelRenderPass
     {
         private static readonly ShaderTagId s_shader_tag_id = new ShaderTagId("GBuffer");
 
-        internal class BasePassData
+        private class PassData
         {
             internal TextureHandle m_GBuffer_A;
             internal TextureHandle m_GBuffer_B;
@@ -18,25 +19,23 @@ namespace YutrelRP
             internal RendererListHandle opaque_renderer_list;
         }
 
-        private BasePassData AddBasePass(RenderGraph graph, CameraData camera_data)
+        internal void Render(RenderGraph graph, CameraData camera_data, TextureHandle GBuffer_A,
+            TextureHandle GBuffer_B, TextureHandle GBuffer_C, TextureHandle scene_depth)
         {
             using var builder =
-                graph.AddRasterRenderPass<BasePassData>("Base Pass", out var pass_data,
+                graph.AddRasterRenderPass<PassData>("Base Pass", out var pass_data,
                     new ProfilingSampler("Base Pass"));
 
             // GBuffer
             var camera = camera_data.camera;
-            pass_data.m_GBuffer_A =
-                YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer A");
-            pass_data.m_GBuffer_B =
-                YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer B");
-            pass_data.m_GBuffer_C =
-                YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer C");
+            pass_data.m_GBuffer_A = GBuffer_A;
+            pass_data.m_GBuffer_B = GBuffer_B;
+            pass_data.m_GBuffer_C = GBuffer_C;
 
             builder.SetRenderAttachment(pass_data.m_GBuffer_A, 0, AccessFlags.Write);
             builder.SetRenderAttachment(pass_data.m_GBuffer_B, 1, AccessFlags.Write);
             builder.SetRenderAttachment(pass_data.m_GBuffer_C, 2, AccessFlags.Write);
-            builder.SetRenderAttachmentDepth(m_backbuffer_depth, AccessFlags.Write);
+            builder.SetRenderAttachmentDepth(scene_depth, AccessFlags.Write);
 
             // 不透明
             var opaque_renderer_desc =
@@ -48,12 +47,10 @@ namespace YutrelRP
             pass_data.opaque_renderer_list = graph.CreateRendererList(opaque_renderer_desc);
             builder.UseRendererList(pass_data.opaque_renderer_list);
 
-            builder.SetRenderFunc((BasePassData data, RasterGraphContext context) =>
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
             {
                 context.cmd.DrawRendererList(data.opaque_renderer_list);
             });
-
-            return pass_data;
         }
     }
 }
