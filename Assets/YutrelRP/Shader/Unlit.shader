@@ -2,11 +2,17 @@ Shader "YutrelRP/Unlit"
 {
     Properties
     {
-        _Emissive("Emissive", Color) = (0, 0, 0, 1)
+        _MainTex ("MainTex", 2D) = "white" {}
+        _Emissive ("Emissive", Color) = (0, 0, 0, 1)
     }
 
     SubShader
     {
+        Tags
+        {
+            "RenderType" = "Opaque"
+        }
+
         Pass
         {
             Tags
@@ -18,45 +24,58 @@ Shader "YutrelRP/Unlit"
             #pragma enable_d3d11_debug_symbols
             #pragma vertex vert
             #pragma fragment frag
+            #include "Utils/Transformation.hlsl"
 
-            float4x4 unity_MatrixVP;
-            float4x4 unity_ObjectToWorld;
-
-            struct Attributes
+            struct a2v
             {
-                float4 positionOS : POSITION;
+                float4 position_os : POSITION;
+                float3 normal_os : NORMAL;
+                float2 uv : TEXCOORD0;
             };
 
             struct v2f
             {
-                float4 positionCS : SV_POSITION;
+                float4 vertex : SV_POSITION;
+                float3 normal_ws : NORMAL;
+                float2 uv : TEXCOORD0;
             };
 
             struct RTStruct
             {
-                float4 GBufferA : SV_Target0;
-                float4 GBufferB : SV_Target1;
-                float4 GBufferC : SV_Target2;
+                float4 scene_color : SV_Target0;
+                // float4 GBuffer_A : SV_Target1;
+                // float4 GBuffer_B : SV_Target2;
+                // float4 GBuffer_C : SV_Target3;
             };
 
-            v2f vert(Attributes IN)
+            CBUFFER_START(UnityPerMaterial)
+                sampler2D _MainTex;
+                float4 _MainTex_ST;
+                float4 _Emissive;
+            CBUFFER_END
+
+            v2f vert(a2v _in)
             {
                 v2f _out;
-                float4 world_pos = mul(unity_ObjectToWorld, IN.positionOS);
-                _out.positionCS = mul(unity_MatrixVP, world_pos);
+
+                float3 position_ws = TransformObjectToWorld(_in.position_os);
+                _out.vertex = TransformWorldToHClip(position_ws);
+                _out.normal_ws = TransformObjectToWorldNormal(_in.normal_os);
+                _out.uv = TRANSFORM_TEX(_in.uv, _MainTex);
 
                 return _out;
             }
 
-            float4 _Emissive;
-
-            RTStruct frag(v2f IN)
+            RTStruct frag(v2f _in)
             {
                 RTStruct _out;
 
-                _out.GBufferA = _Emissive.rrrr;
-                _out.GBufferB = _Emissive.gggg;
-                _out.GBufferC = _Emissive.bbbb;
+                float4 albedo = tex2D(_MainTex, _in.uv) * _Emissive;
+
+                _out.scene_color = albedo;
+                // _out.GBufferA = albedo;
+                // _out.GBufferB = float4(_in.normal_ws, 0.0f);
+                // _out.GBufferC = float4(0, 0, 0, 0);
 
                 return _out;
             }

@@ -39,7 +39,7 @@ namespace YutrelRP
         {
             var camera_data = frame_data.Get<CameraData>();
             var light_data = frame_data.Get<LightData>();
-            
+
 
             CreateRenderGraphCameraRenderTargets(graph, camera_data);
 
@@ -51,7 +51,8 @@ namespace YutrelRP
 
             var clear_flags = camera_data.camera.clearFlags;
 
-            m_base_pass.Render(graph, camera_data, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_depth);
+            m_base_pass.Render(graph, camera_data, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_color,
+                m_backbuffer_depth);
 
             m_temp_shading_pass.Render(graph, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_color);
 

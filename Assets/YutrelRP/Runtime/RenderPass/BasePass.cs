@@ -11,29 +11,30 @@ namespace YutrelRP
 
         private class PassData
         {
-            internal TextureHandle m_GBuffer_A;
-            internal TextureHandle m_GBuffer_B;
-            internal TextureHandle m_GBuffer_C;
+            // internal TextureHandle m_GBuffer_A;
+            // internal TextureHandle m_GBuffer_B;
+            // internal TextureHandle m_GBuffer_C;
 
             internal RendererListHandle opaque_renderer_list;
         }
 
         internal void Render(RenderGraph graph, CameraData camera_data, TextureHandle GBuffer_A,
-            TextureHandle GBuffer_B, TextureHandle GBuffer_C, TextureHandle scene_depth)
+            TextureHandle GBuffer_B, TextureHandle GBuffer_C, TextureHandle scene_color, TextureHandle scene_depth)
         {
             using var builder =
                 graph.AddRasterRenderPass<PassData>("Base Pass", out var pass_data,
                     new ProfilingSampler("Base Pass"));
 
             // GBuffer
-            var camera = camera_data.camera;
-            pass_data.m_GBuffer_A = GBuffer_A;
-            pass_data.m_GBuffer_B = GBuffer_B;
-            pass_data.m_GBuffer_C = GBuffer_C;
+            // var camera = camera_data.camera;
+            // pass_data.m_GBuffer_A = GBuffer_A;
+            // pass_data.m_GBuffer_B = GBuffer_B;
+            // pass_data.m_GBuffer_C = GBuffer_C;
 
-            builder.SetRenderAttachment(pass_data.m_GBuffer_A, 0, AccessFlags.Write);
-            builder.SetRenderAttachment(pass_data.m_GBuffer_B, 1, AccessFlags.Write);
-            builder.SetRenderAttachment(pass_data.m_GBuffer_C, 2, AccessFlags.Write);
+            builder.SetRenderAttachment(scene_color, 0, AccessFlags.Write);
+            builder.SetRenderAttachment(GBuffer_A, 1, AccessFlags.Write);
+            builder.SetRenderAttachment(GBuffer_B, 2, AccessFlags.Write);
+            builder.SetRenderAttachment(GBuffer_C, 3, AccessFlags.Write);
             builder.SetRenderAttachmentDepth(scene_depth, AccessFlags.Write);
 
             // 不透明

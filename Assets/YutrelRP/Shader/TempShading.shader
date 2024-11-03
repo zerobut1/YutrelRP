@@ -10,29 +10,18 @@
 
             ZWrite Off
             ZTest Always
-            Blend Off
+            Blend One One
             Cull Off
 
             HLSLPROGRAM
             #pragma enable_d3d11_debug_symbols
             #pragma vertex vert
             #pragma fragment frag
+            #include "Utils/Transformation.hlsl"
 
-            #include "Core.hlsl"
-
-            sampler2D _GBuffer_A;
-            sampler2D _GBuffer_B;
-            sampler2D _GBuffer_C;
-
-            CBUFFER_START(_light_buffer)
-                float4 _sun_light_direction;
-                float4 _sun_light_color;
-            CBUFFER_END
-
-            struct appdata
+            struct a2v
             {
                 float4 vertex : POSITION;
-                // float2 uv : TEXCOORD0;
             };
 
             struct v2f
@@ -41,33 +30,36 @@
                 float4 vertex : SV_POSITION;
             };
 
+            CBUFFER_START(_light_buffer)
+                float4 _sun_light_direction;
+                float4 _sun_light_color;
+            CBUFFER_END
 
-            float4x4 unity_MatrixVP;
-            float4x4 unity_ObjectToWorld;
+            sampler2D _GBuffer_A;
+            sampler2D _GBuffer_B;
+            sampler2D _GBuffer_C;
 
-            v2f vert(appdata IN)
+            v2f vert(a2v _in)
             {
                 v2f _out;
-                // float4 world_pos = mul(unity_ObjectToWorld, IN.vertex);
-                // _out.vertex = mul(unity_MatrixVP, world_pos);
-                _out.vertex = IN.vertex;
-                _out.uv = IN.vertex * float2(0.5, -0.5) + 0.5;
+                _out.vertex = _in.vertex;
+                _out.uv = _in.vertex * float2(0.5, -0.5) + 0.5;
 
                 return _out;
             }
 
-            float4 frag(v2f input) : SV_Target
+            float4 frag(v2f _in) : SV_Target
             {
-                float2 uv = input.uv;
+                float4 GBuffer_A = tex2D(_GBuffer_A, _in.uv);
+                float4 GBuffer_B = tex2D(_GBuffer_B, _in.uv);
+                float4 GBuffer_C = tex2D(_GBuffer_C, _in.uv);
 
-                float4 GBufferA = tex2D(_GBuffer_A, uv);
-                float4 GBufferB = tex2D(_GBuffer_B, uv);
-                float4 GBufferC = tex2D(_GBuffer_C, uv);
-
-                float4 color = float4(GBufferA.r, GBufferB.g, GBufferC.b, 1.0);
+                // float4 color = float4(GBufferA.r, GBufferB.g, GBufferC.b, 1.0);
                 // return _sun_light_direction;
-                return _sun_light_color * color;
+                // return _sun_light_color * color;
                 // return float4(uv, 0, 0);
+                // return GBufferB;
+                return float4(GBuffer_A.rgb * _sun_light_color, 1.0);
             }
             ENDHLSL
         }
