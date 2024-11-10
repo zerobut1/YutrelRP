@@ -17,6 +17,7 @@ namespace YutrelRP
         private TextureHandle m_GBuffer_A;
         private TextureHandle m_GBuffer_B;
         private TextureHandle m_GBuffer_C;
+        private TextureHandle m_scene_depth;
 
         private SetupCameraPass m_setup_camera_pass;
         private SetupLightPass m_setup_light_pass;
@@ -40,7 +41,6 @@ namespace YutrelRP
             var camera_data = frame_data.Get<CameraData>();
             var light_data = frame_data.Get<LightData>();
 
-
             CreateRenderGraphCameraRenderTargets(graph, camera_data);
 
             CreateGBufferRenderTarget(graph, camera_data);
@@ -52,13 +52,14 @@ namespace YutrelRP
             var clear_flags = camera_data.camera.clearFlags;
 
             m_base_pass.Render(graph, camera_data, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_color,
-                m_backbuffer_depth);
+                m_scene_depth);
 
-            m_temp_shading_pass.Render(graph, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_color);
+            m_temp_shading_pass.Render(graph, m_GBuffer_A, m_GBuffer_B, m_GBuffer_C, m_backbuffer_color,
+                m_scene_depth);
 
             if (clear_flags == CameraClearFlags.Skybox && RenderSettings.skybox != null)
             {
-                m_draw_skybox_pass.Render(graph, camera_data, m_backbuffer_color, m_backbuffer_depth);
+                m_draw_skybox_pass.Render(graph, camera_data, m_backbuffer_color, m_scene_depth);
             }
         }
 
@@ -164,6 +165,8 @@ namespace YutrelRP
                 YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer B");
             m_GBuffer_C =
                 YutrelRPUtils.CreateColorTexture(graph, camera.pixelWidth, camera.pixelHeight, "GBuffer C");
+            m_scene_depth =
+                YutrelRPUtils.CreateDepthTexture(graph, camera.pixelWidth, camera.pixelHeight, "Scene Depth");
         }
     }
 }
