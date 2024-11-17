@@ -5,6 +5,8 @@
         _Emissive ("Color", Color) = (1,1,1,1)
         _MainTex ("BaseColor", 2D) = "white" {}
         _NormalTex ("Normal", 2D) = "blue" {}
+        _RoughnessTex ("Roughness", 2D) = "white" {}
+        _MetallicTex ("Metallic", 2D) = "black" {}
     }
     SubShader
     {
@@ -41,7 +43,6 @@
                 float3 normal_ws : NORMAL;
                 float3 tangent_ws : TANGENT;
                 float2 uv : TEXCOORD0;
-                // float2 uv2 : TEXCOORD1;
                 float3 position_ws : TEXCOORD2;
             };
 
@@ -57,7 +58,8 @@
                 sampler2D _MainTex;
                 float4 _MainTex_ST;
                 sampler2D _NormalTex;
-                float4 _NormalTex_ST;
+                sampler2D _RoughnessTex;
+                sampler2D _MetallicTex;
                 float4 _Emissive;
             CBUFFER_END
 
@@ -70,10 +72,7 @@
                 _out.normal_ws = TransformObjectToWorldNormal(_in.normal_os);
                 _out.tangent_ws = TransformObjectToWorldNormal(_in.tangent_os);
                 _out.uv = TRANSFORM_TEX(_in.uv, _MainTex);
-                // _out.uv2 = TRANSFORM_TEX(_in.uv, _NormalTex);
                 _out.position_ws = position_ws;
-                // _out.tangent_to_world = CreateTangentToWorld(_in.normal_os, _in.tangent_os, 1.0f);
-
 
                 return _out;
             }
@@ -87,10 +86,13 @@
                 float3x3 tangent_to_wolrd = CreateTangentToWorld(_in.normal_ws, _in.tangent_ws, -1.0f);
                 normal = TransformTangentToWorld(normal, tangent_to_wolrd);
 
+                float roughness = tex2D(_RoughnessTex, _in.uv).r;
+                float metallic = tex2D(_MetallicTex, _in.uv).r;
+
                 _out.scene_color = float4(0, 0, 0, 0);
                 _out.GBuffer_A = albedo;
                 _out.GBuffer_B = float4(normal, 0.0f);
-                _out.GBuffer_C = float4(_in.position_ws, 0);
+                _out.GBuffer_C = float4(roughness, metallic, 0, 0);
 
                 return _out;
             }

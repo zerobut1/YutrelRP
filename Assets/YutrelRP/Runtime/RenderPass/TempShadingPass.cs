@@ -52,8 +52,6 @@ namespace YutrelRP
                 m_temp_shading_material.SetTexture("_GBuffer_C", data.m_GBuffer_C);
                 m_temp_shading_material.SetTexture("_SceneDepth", data.m_scene_depth);
 
-                // Blitter.BlitTexture(context.cmd, graph.defaultResources.whiteTexture, Vector4.one,
-                // m_temp_shading_material, 0);
                 context.cmd.DrawMesh(m_full_screen_mesh, Matrix4x4.identity, m_temp_shading_material, 0, 0);
             });
         }

@@ -3,7 +3,6 @@
     Properties {}
     SubShader
     {
-
         Pass
         {
             Name "TempShading"
@@ -60,8 +59,11 @@
                 float4 GBuffer_C = tex2D(_GBuffer_C, _in.uv);
                 float device_z = tex2D(_SceneDepth, _in.uv).r;
 
+                // decode gbuffer
                 float3 albedo = GBuffer_A.rgb;
                 float3 normal_ws = GBuffer_B.rgb;
+                float roughness = GBuffer_C.r;
+                float metallic = GBuffer_C.g;
 
                 float3 light_dir_ws = normalize(_sun_light_direction);
                 float3 world_position = ComputeWorldSpacePosition(_in.uv, device_z, _inverse_VP_matrix);
@@ -79,7 +81,9 @@
                 float ambient = 0.1f;
 
                 float3 out_color = (specular + diffuse + ambient) * albedo;
-                
+                // out_color = roughness.rrrr;
+                // out_color = metallic.rrrr;
+
                 return float4(out_color, 1.0f);
             }
             ENDHLSL
