@@ -74,3 +74,5 @@ Packages/Graphics
 .idea
 Assembly-CSharp.csproj.DotSettings
 *.log
+Assets/Scene
+Assets/Texture
