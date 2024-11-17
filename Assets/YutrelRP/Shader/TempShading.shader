@@ -35,6 +35,10 @@
                 float4 _sun_light_color;
             CBUFFER_END
 
+            CBUFFER_START(_camera_buffer)
+                float4x4 _inverse_VP_matrix;
+            CBUFFER_END
+
             sampler2D _GBuffer_A;
             sampler2D _GBuffer_B;
             sampler2D _GBuffer_C;
@@ -56,17 +60,12 @@
                 float4 GBuffer_C = tex2D(_GBuffer_C, _in.uv);
                 float device_z = tex2D(_SceneDepth, _in.uv).r;
 
-                // float4 position_ndc = float4(_in.uv * 2.0 - 1.0, device_z * 2.0 - 1.0, 1.0);
-                float4 position_ndc = float4(_in.uv, device_z, 1.0);
-
                 float3 albedo = GBuffer_A.rgb;
                 float3 normal_ws = GBuffer_B.rgb;
 
                 float3 light_dir_ws = normalize(_sun_light_direction);
-                // float3 world_position = ComputeWorldSpacePosition(_in.uv, device_z, UNITY_MATRIX_I_VP);
-                // float4 world_position = mul(UNITY_MATRIX_I_VP, position_ndc);
-                // world_position /= world_position.w;
-                float3 world_position = GBuffer_C.xyz;
+                float3 world_position = ComputeWorldSpacePosition(_in.uv, device_z, _inverse_VP_matrix);
+
                 float3 view_dir_ws = normalize(_WorldSpaceCameraPos - world_position);
 
                 float3 h = normalize(light_dir_ws + view_dir_ws);
@@ -80,11 +79,7 @@
                 float ambient = 0.1f;
 
                 float3 out_color = (specular + diffuse + ambient) * albedo;
-                // out_color = normal_ws;
-                // out_color = light_dir_ws;
-                // out_color = world_position;
-                // out_color = view_dir_ws;
-
+                
                 return float4(out_color, 1.0f);
             }
             ENDHLSL

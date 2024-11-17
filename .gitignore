@@ -76,3 +76,5 @@ Assembly-CSharp.csproj.DotSettings
 *.log
 Assets/Scene
 Assets/Texture
+Assets/Scene.meta
+Assets/Texture.meta
