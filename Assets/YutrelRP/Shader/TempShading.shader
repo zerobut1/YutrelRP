@@ -14,9 +14,9 @@
 
             HLSLPROGRAM
             #pragma enable_d3d11_debug_symbols
-            #pragma vertex vert
-            #pragma fragment frag
-            #include "Utils/Transformation.hlsl"
+#pragma vertex vert
+#pragma fragment frag
+#include "Utils/Transformation.hlsl"
 
             struct a2v
             {
@@ -81,8 +81,7 @@
                 float ambient = 0.1f;
 
                 float3 out_color = (specular + diffuse + ambient) * albedo;
-                // out_color = roughness.rrrr;
-                // out_color = metallic.rrrr;
+                out_color = albedo;
 
                 return float4(out_color, 1.0f);
             }

@@ -12,3 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f7b5d84d095461cb4dd09acced4b112, type: 3}
   m_Name: YutrelRP Asset
   m_EditorClassIdentifier: 
+  m_settings:
+    renderer_shader: {fileID: 4800000, guid: e991848cf4830c1449423578f3a37211, type: 3}

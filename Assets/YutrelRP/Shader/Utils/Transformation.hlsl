@@ -9,7 +9,8 @@
 
 float3 TransformObjectToViewPos(float3 positionOS)
 {
-    return mul(GetWorldToViewMatrix(), mul(GetObjectToWorldMatrix(), float4(positionOS, 1.0))).xyz;
+    //return mul(GetWorldToViewMatrix(), mul(GetObjectToWorldMatrix(), float4(positionOS, 1.0))).xyz;
+
 }
 
 float4 ComputeScreenPos(float4 positionCS)

@@ -78,3 +78,5 @@ Assets/Scene
 Assets/Texture
 Assets/Scene.meta
 Assets/Texture.meta
+.vsconfig
+.vscode

@@ -1,56 +1,46 @@
-﻿using UnityEngine.Rendering;
+﻿using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.RendererUtils;
 using UnityEngine.Rendering.RenderGraphModule;
-using CameraData = YutrelRP.FrameData.CameraData;
 
 namespace YutrelRP
 {
-    internal class BasePass : YutrelRenderPass
+    internal class BasePass
     {
-        private static readonly ShaderTagId s_shader_tag_id = new ShaderTagId("GBuffer");
+        private static readonly ProfilingSampler sampler = new("Base Pass");
 
-        private class PassData
+        private static readonly ShaderTagId shader_tag_id = new("GBuffer");
+
+        // data
+        private RendererListHandle opaque_renderer_list;
+
+        private void Render(RasterGraphContext context)
         {
-            // internal TextureHandle m_GBuffer_A;
-            // internal TextureHandle m_GBuffer_B;
-            // internal TextureHandle m_GBuffer_C;
-
-            internal RendererListHandle opaque_renderer_list;
+            context.cmd.DrawRendererList(opaque_renderer_list);
         }
 
-        internal void Render(RenderGraph graph, CameraData camera_data, TextureHandle GBuffer_A,
-            TextureHandle GBuffer_B, TextureHandle GBuffer_C, TextureHandle scene_color, TextureHandle scene_depth)
+        public static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
+            RenderTargets textures)
         {
-            using var builder =
-                graph.AddRasterRenderPass<PassData>("Base Pass", out var pass_data,
-                    new ProfilingSampler("Base Pass"));
+            using var builder = render_graph.AddRasterRenderPass<BasePass>("Base Pass", out var pass, sampler);
 
-            // GBuffer
-            // var camera = camera_data.camera;
-            // pass_data.m_GBuffer_A = GBuffer_A;
-            // pass_data.m_GBuffer_B = GBuffer_B;
-            // pass_data.m_GBuffer_C = GBuffer_C;
-
-            builder.SetRenderAttachment(scene_color, 0, AccessFlags.Write);
-            builder.SetRenderAttachment(GBuffer_A, 1, AccessFlags.Write);
-            builder.SetRenderAttachment(GBuffer_B, 2, AccessFlags.Write);
-            builder.SetRenderAttachment(GBuffer_C, 3, AccessFlags.Write);
-            builder.SetRenderAttachmentDepth(scene_depth, AccessFlags.Write);
+            builder.SetRenderAttachment(textures.scene_color, 0);
+            builder.SetRenderAttachment(textures.GBuffer_A, 1);
+            builder.SetRenderAttachment(textures.GBuffer_B, 2);
+            builder.SetRenderAttachment(textures.GBuffer_C, 3);
+            builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);
 
             // 不透明
             var opaque_renderer_desc =
-                new RendererListDesc(s_shader_tag_id, camera_data.culling_results, camera_data.camera)
+                new RendererListDesc(shader_tag_id, culling_results, camera)
                 {
                     sortingCriteria = SortingCriteria.CommonOpaque,
                     renderQueueRange = RenderQueueRange.opaque
                 };
-            pass_data.opaque_renderer_list = graph.CreateRendererList(opaque_renderer_desc);
-            builder.UseRendererList(pass_data.opaque_renderer_list);
+            pass.opaque_renderer_list = render_graph.CreateRendererList(opaque_renderer_desc);
+            builder.UseRendererList(pass.opaque_renderer_list);
 
-            builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
-            {
-                context.cmd.DrawRendererList(data.opaque_renderer_list);
-            });
+            builder.SetRenderFunc<BasePass>(static (pass, context) => pass.Render(context));
         }
     }
 }

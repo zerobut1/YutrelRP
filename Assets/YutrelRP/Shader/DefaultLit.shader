@@ -2,7 +2,7 @@
 {
     Properties
     {
-        _Emissive ("Color", Color) = (1,1,1,1)
+        _Emissive ("Color", Color) = (0, 0, 0, 1)
         _MainTex ("BaseColor", 2D) = "white" {}
         _NormalTex ("Normal", 2D) = "blue" {}
         _RoughnessTex ("Roughness", 2D) = "white" {}
@@ -25,9 +25,9 @@
 
             HLSLPROGRAM
             #pragma enable_d3d11_debug_symbols
-            #pragma vertex vert
-            #pragma fragment frag
-            #include "Utils/Transformation.hlsl"
+#pragma vertex vert
+#pragma fragment frag
+#include "Utils/Transformation.hlsl"
 
             struct a2v
             {
@@ -81,7 +81,7 @@
             {
                 RTStruct _out;
 
-                float4 albedo = tex2D(_MainTex, _in.uv) * _Emissive;
+                float4 albedo = tex2D(_MainTex, _in.uv);
                 float3 normal = tex2D(_NormalTex, _in.uv).bgr * 2.0 - 1.0;
                 float3x3 tangent_to_wolrd = CreateTangentToWorld(_in.normal_ws, _in.tangent_ws, -1.0f);
                 normal = TransformTangentToWorld(normal, tangent_to_wolrd);
@@ -89,7 +89,7 @@
                 float roughness = tex2D(_RoughnessTex, _in.uv).r;
                 float metallic = tex2D(_MetallicTex, _in.uv).r;
 
-                _out.scene_color = float4(0, 0, 0, 0);
+                _out.scene_color = _Emissive;
                 _out.GBuffer_A = albedo;
                 _out.GBuffer_B = float4(normal, 0.0f);
                 _out.GBuffer_C = float4(roughness, metallic, 0, 0);

@@ -6,11 +6,11 @@ namespace YutrelRP
     [CreateAssetMenu(menuName = "Rendering/YutrelRP Asset")]
     public class YutrelRPAsset : RenderPipelineAsset<YutrelRP>
     {
+        [SerializeField] private YutrelRPSettings m_settings;
+
         protected override RenderPipeline CreatePipeline()
         {
-            QualitySettings.antiAliasing = 1;
-            Screen.SetMSAASamples(1);
-            return new YutrelRP(this);
+            return new YutrelRP(m_settings);
         }
     }
 }
