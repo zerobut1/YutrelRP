@@ -2,7 +2,7 @@
 #define YUTREL_COMMON_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-//#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
 #include "UnityInput.hlsl"
 
 #define UNITY_MATRIX_M unity_ObjectToWorld
@@ -15,41 +15,38 @@
 #define UNITY_PREV_MATRIX_I_M unity_prev_MatrixIM
 
 #if defined(_SHADOW_MASK_ALWAYS) || defined(_SHADOW_MASK_DISTANCE)
-	#define SHADOWS_SHADOWMASK
+#define SHADOWS_SHADOWMASK
 #endif
 
-//#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
-//#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
-//#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 
 SAMPLER(sampler_linear_clamp);
 SAMPLER(sampler_point_clamp);
 
 bool IsOrthographicCamera()
 {
-	return unity_OrthoParams.w;
+    return unity_OrthoParams.w;
 }
 
 float OrthographicDepthBufferToLinear(float rawDepth)
 {
-	#if UNITY_REVERSED_Z
-		rawDepth = 1.0 - rawDepth;
-	#endif
-	return (_ProjectionParams.z - _ProjectionParams.y) * rawDepth +
-		_ProjectionParams.y;
+#if UNITY_REVERSED_Z
+    rawDepth = 1.0 - rawDepth;
+#endif
+    return (_ProjectionParams.z - _ProjectionParams.y) * rawDepth +
+           _ProjectionParams.y;
 }
-
-//#include "Fragment.hlsl"
-//#include "ForwardPlus.hlsl"
 
 float Square(float x)
 {
-	return x * x;
+    return x * x;
 }
 
 float DistanceSquared(float3 pA, float3 pB)
 {
-	return dot(pA - pB, pA - pB);
+    return dot(pA - pB, pA - pB);
 }
 
 #endif

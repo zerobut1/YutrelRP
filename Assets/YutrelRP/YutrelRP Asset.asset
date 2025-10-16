@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: YutrelRP Asset
   m_EditorClassIdentifier: 
   m_settings:
-    renderer_shader: {fileID: 4800000, guid: e991848cf4830c1449423578f3a37211, type: 3}
+    useSRPBatcher: 1

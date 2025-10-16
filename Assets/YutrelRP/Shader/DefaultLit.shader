@@ -27,7 +27,7 @@
             #pragma enable_d3d11_debug_symbols
 #pragma vertex vert
 #pragma fragment frag
-#include "Utils/Transformation.hlsl"
+#include "Utils/Common.hlsl"
 
             struct a2v
             {

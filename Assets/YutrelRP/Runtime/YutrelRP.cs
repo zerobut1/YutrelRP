@@ -14,6 +14,7 @@ namespace YutrelRP
         public YutrelRP(YutrelRPSettings settings)
         {
             m_settings = settings;
+            GraphicsSettings.useScriptableRenderPipelineBatching = settings.useSRPBatcher;
             m_renderer = new YutrelRenderer();
         }
 

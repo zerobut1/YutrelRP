@@ -1,85 +1,32 @@
 Shader "YutrelRP/Unlit"
 {
-    Properties
-    {
-        _MainTex ("MainTex", 2D) = "white" {}
-        _Emissive ("Emissive", Color) = (0, 0, 0, 1)
-    }
+	Properties
+	{
+		_MainTex ("MainTex", 2D) = "white" {}
+		_Emissive ("Emissive", Color) = (0, 0, 0, 1)
+	}
 
-    SubShader
-    {
-        Tags
-        {
-            "RenderType" = "Opaque"
-        }
+	SubShader
+	{
+		HLSLINCLUDE
+		#include "Utils/Common.hlsl"
+#include "UnlitInput.hlsl"
+		ENDHLSL
 
-        Pass
-        {
-            Tags
-            {
-                "LightMode" = "GBuffer"
-            }
+		Pass
+		{
+			Tags
+			{
+				"LightMode" = "GBuffer"
+			}
 
-            HLSLPROGRAM
-            #pragma enable_d3d11_debug_symbols
-            #pragma vertex vert
-            #pragma fragment frag
-            #include "Utils/Transformation.hlsl"
-
-            struct a2v
-            {
-                float4 position_os : POSITION;
-                float3 normal_os : NORMAL;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float4 vertex : SV_POSITION;
-                float3 normal_ws : NORMAL;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct RTStruct
-            {
-                float4 scene_color : SV_Target0;
-                // float4 GBuffer_A : SV_Target1;
-                // float4 GBuffer_B : SV_Target2;
-                // float4 GBuffer_C : SV_Target3;
-            };
-
-            CBUFFER_START(UnityPerMaterial)
-                sampler2D _MainTex;
-                float4 _MainTex_ST;
-                float4 _Emissive;
-            CBUFFER_END
-
-            v2f vert(a2v _in)
-            {
-                v2f _out;
-
-                float3 position_ws = TransformObjectToWorld(_in.position_os);
-                _out.vertex = TransformWorldToHClip(position_ws);
-                _out.normal_ws = TransformObjectToWorldNormal(_in.normal_os);
-                _out.uv = TRANSFORM_TEX(_in.uv, _MainTex);
-
-                return _out;
-            }
-
-            RTStruct frag(v2f _in)
-            {
-                RTStruct _out;
-
-                float4 albedo = tex2D(_MainTex, _in.uv) * _Emissive;
-
-                _out.scene_color = albedo;
-                // _out.GBufferA = albedo;
-                // _out.GBufferB = float4(_in.normal_ws, 0.0f);
-                // _out.GBufferC = float4(0, 0, 0, 0);
-
-                return _out;
-            }
-            ENDHLSL
-        }
-    }
+			HLSLPROGRAM
+			#pragma enable_d3d11_debug_symbols
+#pragma multi_compile_instancing
+#pragma vertex UnlitVertex
+#pragma fragment UnlitFragment
+#include "Unlit.hlsl"
+			ENDHLSL
+		}
+	}
 }

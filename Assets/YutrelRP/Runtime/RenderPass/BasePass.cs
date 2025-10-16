@@ -35,7 +35,7 @@ namespace YutrelRP
                 new RendererListDesc(shader_tag_id, culling_results, camera)
                 {
                     sortingCriteria = SortingCriteria.CommonOpaque,
-                    renderQueueRange = RenderQueueRange.opaque
+                    renderQueueRange = RenderQueueRange.opaque,
                 };
             pass.opaque_renderer_list = render_graph.CreateRendererList(opaque_renderer_desc);
             builder.UseRendererList(pass.opaque_renderer_list);
