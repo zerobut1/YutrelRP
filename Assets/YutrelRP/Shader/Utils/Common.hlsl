@@ -32,11 +32,11 @@ bool IsOrthographicCamera()
 
 float OrthographicDepthBufferToLinear(float rawDepth)
 {
-#if UNITY_REVERSED_Z
+    #if UNITY_REVERSED_Z
     rawDepth = 1.0 - rawDepth;
-#endif
+    #endif
     return (_ProjectionParams.z - _ProjectionParams.y) * rawDepth +
-           _ProjectionParams.y;
+        _ProjectionParams.y;
 }
 
 float Square(float x)

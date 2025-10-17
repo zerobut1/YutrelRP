@@ -40,7 +40,7 @@ namespace YutrelRP
 
                 BasePass.Record(render_graph, camera, culling_results, textures);
 
-                TempShadingPass.Record(render_graph, textures);
+                DirectionalLightPass.Record(render_graph, textures);
 
                 SkyboxPass.Record(render_graph, camera, textures);
 

@@ -1,6 +1,8 @@
 #ifndef YUTREL_UNLIT_INCLUDED
 #define YUTREL_UNLIT_INCLUDED
 
+#include "UnlitInput.hlsl"
+
 struct Attributes
 {
     float3 position_OS : POSITION;

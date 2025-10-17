@@ -72,7 +72,7 @@ namespace YutrelRP
                 msaaSamples = MSAASamples.None,
                 enableRandomWrite = false,
                 clearBuffer = true,
-                clearColor = Color.black,
+                clearColor = new Color(0, 0, 0, 0),
                 name = "GBuffer A"
             };
             pass.GBuffer_A = render_graph.CreateTexture(gbuffer_desc);

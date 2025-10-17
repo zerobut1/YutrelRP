@@ -1,14 +1,14 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
-    internal class TempShadingPass
+    internal class DirectionalLightPass
     {
-        private static readonly ProfilingSampler sampler = new ProfilingSampler("Temp Shading Pass");
+        private static readonly ProfilingSampler sampler = new ProfilingSampler("Directional Light Pass");
 
-        private static readonly Shader m_temp_shading_shader = Shader.Find("YutrelRP/TempShading");
+        private static readonly Shader m_temp_shading_shader = Shader.Find("YutrelRP/DirectionalLightPass");
         private static Material m_temp_shading_material;
         private static Mesh m_full_screen_mesh;
 
@@ -36,7 +36,8 @@ namespace YutrelRP
             if (m_full_screen_mesh == null)
                 m_full_screen_mesh = CreateFullscreenMesh();
 
-            using var builder = graph.AddRasterRenderPass<TempShadingPass>("Temp Shading Pass", out var pass, sampler);
+            using var builder =
+                graph.AddRasterRenderPass<DirectionalLightPass>("Temp Shading Pass", out var pass, sampler);
 
             pass.GBuffer_A = textures.GBuffer_A;
             pass.GBuffer_B = textures.GBuffer_B;
@@ -49,7 +50,7 @@ namespace YutrelRP
 
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.Write);
 
-            builder.SetRenderFunc<TempShadingPass>(static (pass, context) => pass.Render(context));
+            builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));
         }
 
         static Mesh CreateFullscreenMesh()

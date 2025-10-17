@@ -10,7 +10,7 @@ Shader "YutrelRP/Unlit"
 	{
 		HLSLINCLUDE
 		#include "Utils/Common.hlsl"
-#include "UnlitInput.hlsl"
+		#include "UnlitInput.hlsl"
 		ENDHLSL
 
 		Pass
@@ -22,10 +22,10 @@ Shader "YutrelRP/Unlit"
 
 			HLSLPROGRAM
 			#pragma enable_d3d11_debug_symbols
-#pragma multi_compile_instancing
-#pragma vertex UnlitVertex
-#pragma fragment UnlitFragment
-#include "Unlit.hlsl"
+			#pragma multi_compile_instancing
+			#pragma vertex UnlitVertex
+			#pragma fragment UnlitFragment
+			#include "Unlit.hlsl"
 			ENDHLSL
 		}
 	}
