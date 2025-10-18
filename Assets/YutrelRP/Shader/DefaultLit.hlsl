@@ -48,10 +48,11 @@ RTStruct DefaultlitFragment(Varyings input)
     float3 texture_color = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, input.uv).rgb;
     float3 emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb;
     float3 normal_WS = normalize(input.normal_WS);
+    float3 encoded_normal = normal_WS * 0.5f + 0.5f;
 
     output.scene_color = float4(texture_color * emissive, 1.0f);
     output.GBuffer_A = float4(texture_color.rgb, 1.0f);
-    output.GBuffer_B = float4(normal_WS, 0.0f);
+    output.GBuffer_B = float4(encoded_normal, 0.0f);
     output.GBuffer_C = float4(0, 0, 0, 0);
 
     return output;

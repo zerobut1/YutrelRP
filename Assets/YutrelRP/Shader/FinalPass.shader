@@ -74,6 +74,7 @@ Shader "YutrelRP/FinalPass"
 			ZWrite On
 
 			HLSLPROGRAM
+			#pragma target 5.0
 			#pragma vertex DefaultPassVertex
 			#pragma fragment CopyDepthPassFragment
 			ENDHLSL

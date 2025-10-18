@@ -36,15 +36,9 @@ float4 DirectionalLightFragment(Varyings input) : SV_Target
 
     Surface surface;
     surface.base_color = GBuffer_A.rgb;
-    surface.normal = GBuffer_B.xyz;
+    surface.normal = GBuffer_B.xyz * 2.0f - 1.0f;
 
-    // temp
-    DirectionalLight light;
-    light.color = float3(1, 0, 0);
-    light.direction = float3(0, 1, 0);
-    // temp
-
-    float3 out_color = GetLighting(surface, light);
+    float3 out_color = GetLighting(surface);
 
     return float4(out_color, 1.0f);
 }

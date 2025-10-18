@@ -23,7 +23,7 @@ namespace YutrelRP
             GBuffer_B,
             GBuffer_C;
 
-        private void Render(UnsafeGraphContext context)
+        private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
 
@@ -38,7 +38,7 @@ namespace YutrelRP
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,
             Vector2Int attachment_size)
         {
-            using var builder = render_graph.AddUnsafePass<SetupPass>(sampler.name, out var pass, sampler);
+            using var builder = render_graph.AddComputePass<SetupPass>(sampler.name, out var pass, sampler);
             pass.rt_size = attachment_size;
             pass.camera = camera;
 
@@ -82,6 +82,7 @@ namespace YutrelRP
             pass.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
 
             builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
 

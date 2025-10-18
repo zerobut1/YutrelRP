@@ -17,6 +17,7 @@ Shader "YutrelRP/DirectionalLightPass"
 
 			HLSLPROGRAM
 			#pragma enable_d3d11_debug_symbols
+			#pragma target 5.0
 			#pragma vertex DirectionalLightVertex
 			#pragma fragment DirectionalLightFragment
 			#include "DirectionalLightPass.hlsl"

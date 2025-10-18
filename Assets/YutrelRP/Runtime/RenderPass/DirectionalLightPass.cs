@@ -28,7 +28,7 @@ namespace YutrelRP
             context.cmd.DrawMesh(m_full_screen_mesh, Matrix4x4.identity, m_temp_shading_material, 0, 0);
         }
 
-        public static void Record(RenderGraph graph, RenderTargets textures)
+        public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources)
         {
             if (m_temp_shading_material == null)
                 m_temp_shading_material = CoreUtils.CreateEngineMaterial(m_temp_shading_shader);
@@ -47,9 +47,10 @@ namespace YutrelRP
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.scene_depth);
-
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.Write);
 
+            builder.UseBuffer(light_resources.directional_light_data_buffer);
+            
             builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));
         }
 

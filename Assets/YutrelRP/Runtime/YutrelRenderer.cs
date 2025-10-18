@@ -34,13 +34,16 @@ namespace YutrelRP
             using (new RenderGraphProfilingScope(render_graph, camera_sampler))
             {
                 var textures = m_frame_data.GetOrCreate<RenderTargets>();
+                var light_resources = m_frame_data.GetOrCreate<LightResources>();
 
                 SetupPass.Record(render_graph, camera, ref textures,
                     new Vector2Int(camera.pixelWidth, camera.pixelHeight));
 
+                LightDataPass.Record(render_graph, culling_results, ref light_resources);
+
                 BasePass.Record(render_graph, camera, culling_results, textures);
 
-                DirectionalLightPass.Record(render_graph, textures);
+                DirectionalLightPass.Record(render_graph, textures, light_resources);
 
                 SkyboxPass.Record(render_graph, camera, textures);
 
