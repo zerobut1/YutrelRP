@@ -1,6 +1,8 @@
 #ifndef YUTREL_DEFAULTLIT_INCLUDED
 #define YUTREL_DEFAULTLIT_INCLUDED
 
+#include "Utils/GBuffer.hlsl"
+
 struct Attributes
 {
     float3 position_OS : POSITION;
@@ -33,11 +35,10 @@ Varyings DefaultlitVertex(Attributes input)
     float3 position_WS = TransformObjectToWorld(input.position_OS.xyz);
     float4 positon_CS = TransformWorldToHClip(position_WS);
     float3 normal_WS = TransformObjectToWorldNormal(input.normal_OS);
-    float4 base_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
 
     output.position_CS = positon_CS;
     output.normal_WS = normal_WS;
-    output.uv = input.uv * base_ST.xy + base_ST.zw;
+    output.uv = input.uv;
     return output;
 }
 
@@ -45,15 +46,26 @@ RTStruct DefaultlitFragment(Varyings input)
 {
     RTStruct output;
     UNITY_SETUP_INSTANCE_ID(input);
-    float3 texture_color = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, input.uv).rgb;
-    float3 emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb;
-    float3 normal_WS = normalize(input.normal_WS);
-    float3 encoded_normal = normal_WS * 0.5f + 0.5f;
 
-    output.scene_color = float4(texture_color * emissive, 1.0f);
-    output.GBuffer_A = float4(texture_color.rgb, 1.0f);
-    output.GBuffer_B = float4(encoded_normal, 0.0f);
-    output.GBuffer_C = float4(0, 0, 0, 0);
+    GBufferData gbuffer;
+    float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
+    float2 base_color_uv = input.uv * base_color_ST.xy + base_color_ST.zw;
+    // gbuffer.base_color = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv).rgb;
+    gbuffer.base_color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor).rgb;
+    gbuffer.emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb;
+    gbuffer.normal_WS = input.normal_WS;
+    // gbuffer.roughness = SAMPLE_TEXTURE2D(_RoughnessTex, sampler_RoughnessTex, base_color_uv).rgb;
+    gbuffer.roughness = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Roughness);
+    // gbuffer.metallic = SAMPLE_TEXTURE2D(_MetallicTex, sampler_MetallicTex, base_color_uv).r;
+    gbuffer.metallic = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Metallic);
+    gbuffer.specular = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Specular);
+    gbuffer.shading_model_id = 1;
+
+    EncodedGBuffer encoded_gbuffer = EncodeGBuffer(gbuffer);
+    output.scene_color = encoded_gbuffer.scene_color;
+    output.GBuffer_A = encoded_gbuffer.GBuffer_A;
+    output.GBuffer_B = encoded_gbuffer.GBuffer_B;
+    output.GBuffer_C = encoded_gbuffer.GBuffer_C;
 
     return output;
 }

@@ -15,7 +15,7 @@ namespace YutrelRP
         {
             m_settings = settings;
             GraphicsSettings.useScriptableRenderPipelineBatching = settings.useSRPBatcher;
-            m_renderer = new YutrelRenderer();
+            m_renderer = new YutrelRenderer(m_settings);
         }
 
         protected override void Dispose(bool is_disposing)

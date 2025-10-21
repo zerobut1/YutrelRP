@@ -11,6 +11,8 @@ namespace YutrelRP
             new("Setup Pass");
 
         private static readonly int rt_size_ID = Shader.PropertyToID("_CameraBufferSize");
+        private static readonly int inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP");
+
         private Camera camera;
 
         private Vector2Int rt_size;
@@ -33,6 +35,12 @@ namespace YutrelRP
                     1.0f / rt_size.y,
                     rt_size.x,
                     rt_size.y));
+
+            Matrix4x4 view_matrix = camera.worldToCameraMatrix;
+            Matrix4x4 projection_matrix = camera.projectionMatrix;
+            projection_matrix = GL.GetGPUProjectionMatrix(projection_matrix, true);
+            Matrix4x4 inverse_VP = (projection_matrix * view_matrix).inverse;
+            context.cmd.SetGlobalMatrix(inverseViewAndProjectionMatrix, inverse_VP);
         }
 
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,

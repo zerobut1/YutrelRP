@@ -6,7 +6,13 @@ namespace YutrelRP
 {
     public class YutrelRenderer
     {
+        private readonly YutrelRPSettings m_settings;
         private readonly ContextContainer m_frame_data = new();
+
+        public YutrelRenderer(YutrelRPSettings settings)
+        {
+            m_settings = settings;
+        }
 
         public void Dispose()
         {
@@ -39,7 +45,7 @@ namespace YutrelRP
                 SetupPass.Record(render_graph, camera, ref textures,
                     new Vector2Int(camera.pixelWidth, camera.pixelHeight));
 
-                LightDataPass.Record(render_graph, culling_results, ref light_resources);
+                SetupLightPass.Record(render_graph, culling_results, m_settings, ref light_resources);
 
                 BasePass.Record(render_graph, camera, culling_results, textures);
 

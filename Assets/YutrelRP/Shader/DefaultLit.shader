@@ -2,8 +2,12 @@
 {
 	Properties
 	{
+		_BaseColor ("Base Color", Color) = (0.4, 0.8, 1.0, 1)
 		_Emissive ("Emissive", Color) = (0, 0, 0, 1)
-		_BaseColorTex ("BaseColor", 2D) = "white" {}
+		_Roughness ("Roughness", Range(0, 1)) = 0.5
+		_Metallic ("Metallic", Range(0, 1)) = 0.0
+		_Specular ("Specular", Range(0, 1)) = 0.5
+		_BaseColorTex ("Base Color", 2D) = "white" {}
 		_NormalTex ("Normal", 2D) = "blue" {}
 		_RoughnessTex ("Roughness", 2D) = "white" {}
 		_MetallicTex ("Metallic", 2D) = "black" {}

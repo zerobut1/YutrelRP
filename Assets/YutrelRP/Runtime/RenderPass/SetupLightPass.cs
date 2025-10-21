@@ -6,11 +6,12 @@ using Unity.Collections;
 
 namespace YutrelRP
 {
-    internal class LightDataPass
+    internal class SetupLightPass
     {
         private static readonly ProfilingSampler sampler = new("Light Data Pass");
 
         static readonly int
+            brdf_lut_Id = Shader.PropertyToID("_BRDF_LUT"),
             directional_light_count_Id = Shader.PropertyToID("_DirectionalLightCount"),
             directional_light_data_Id = Shader.PropertyToID("_DirectionalLightData");
 
@@ -20,12 +21,16 @@ namespace YutrelRP
         {
             public const int stride = 4 * 4 * 2;
 
-            public Vector4 color;
+            public Vector3 color;
+            public float intensity;
             public Vector4 direction;
 
             public DirectionalLightData(ref VisibleLight visiable_light)
             {
-                color = visiable_light.finalColor;
+                color.x = visiable_light.light.color.r;
+                color.y = visiable_light.light.color.g;
+                color.z = visiable_light.light.color.b;
+                intensity = visiable_light.light.intensity;
                 direction = -visiable_light.localToWorldMatrix.GetColumn(2);
             }
         }
@@ -39,6 +44,8 @@ namespace YutrelRP
 
         // Data
         BufferHandle directional_light_data_buffer;
+
+        TextureHandle BRDF_LUT;
 
         void Setup(CullingResults culling_results)
         {
@@ -69,12 +76,13 @@ namespace YutrelRP
             cmd.SetGlobalInt(directional_light_count_Id, directional_light_count);
             cmd.SetBufferData(directional_light_data_buffer, directional_light_data, 0, 0, directional_light_count);
             cmd.SetGlobalBuffer(directional_light_data_Id, directional_light_data_buffer);
+            cmd.SetGlobalTexture(brdf_lut_Id, BRDF_LUT);
         }
 
-        internal static void Record(RenderGraph render_graph, CullingResults culling_results,
+        internal static void Record(RenderGraph render_graph, CullingResults culling_results, YutrelRPSettings settings,
             ref LightResources light_resources)
         {
-            using var builder = render_graph.AddComputePass<LightDataPass>(sampler.name, out var pass, sampler);
+            using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
 
             pass.Setup(culling_results);
 
@@ -85,12 +93,17 @@ namespace YutrelRP
                 });
             builder.UseBuffer(pass.directional_light_data_buffer, AccessFlags.WriteAll);
 
+            pass.BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(settings.BRDF_LUT));
+            builder.UseTexture(pass.BRDF_LUT);
+
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
 
-            builder.SetRenderFunc<LightDataPass>(static (pass, context) => { pass.Render(context); });
+            builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
 
             light_resources.directional_light_data_buffer = pass.directional_light_data_buffer;
+            light_resources.brdf_lut_Id = brdf_lut_Id;
+            light_resources.BRDF_LUT = pass.BRDF_LUT;
         }
     }
 }
