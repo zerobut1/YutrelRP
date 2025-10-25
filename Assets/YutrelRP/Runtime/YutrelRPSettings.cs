@@ -8,6 +8,8 @@ namespace YutrelRP
     {
         public bool useSRPBatcher = true;
 
-        public Texture2D BRDF_LUT = null;
+        public Texture2D BRDF_LUT;
+
+        public PostProcessSettings postProcessSettings;
     }
 }

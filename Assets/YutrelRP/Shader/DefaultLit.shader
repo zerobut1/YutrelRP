@@ -27,7 +27,6 @@
 			}
 
 			HLSLPROGRAM
-			#pragma enable_d3d11_debug_symbols
 			#pragma target 5.0
 			#pragma multi_compile_instancing
 			#pragma vertex DefaultlitVertex

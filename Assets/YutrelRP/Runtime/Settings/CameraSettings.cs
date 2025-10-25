@@ -25,9 +25,6 @@ namespace YutrelRP
         // [Range(YutrelRenderer.render_scale_min, YutrelRenderer.render_scale_max)]
         public float render_scale = 1f;
 
-        public bool override_postFX;
-
-        // public PostFXSettings postFXSettings = default;
 
         public bool allow_FXAA;
 

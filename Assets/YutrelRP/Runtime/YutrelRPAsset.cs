@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace YutrelRP
 {
-    [CreateAssetMenu(menuName = "Rendering/YutrelRP Asset")]
+    [CreateAssetMenu(menuName = "YutrelRP/YutrelRP Asset")]
     public class YutrelRPAsset : RenderPipelineAsset<YutrelRP>
     {
         [SerializeField] private YutrelRPSettings m_settings;

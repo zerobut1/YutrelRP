@@ -17,14 +17,6 @@ namespace YutrelRP
 
         private Vector2Int rt_size;
 
-        // datas
-        private TextureHandle
-            scene_color,
-            scene_depth,
-            GBuffer_A,
-            GBuffer_B,
-            GBuffer_C;
-
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
@@ -50,27 +42,28 @@ namespace YutrelRP
             pass.rt_size = attachment_size;
             pass.camera = camera;
 
+            // camera output
+            textures.camera_output = CreateRenderGraphCameraRenderTarget(render_graph, camera);
+
             // scene color
-            var color_desc = new TextureDesc(attachment_size.x, attachment_size.y)
+            var scene_color_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
-                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.ARGBFloat, false),
+                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.DefaultHDR, false),
                 clearBuffer = camera.clearFlags <= CameraClearFlags.Color,
                 clearColor = camera.clearFlags == CameraClearFlags.Color ? camera.backgroundColor.linear : Color.clear,
                 name = "Scene Color"
             };
-            pass.scene_color = render_graph.CreateTexture(color_desc);
-            builder.UseTexture(pass.scene_color, AccessFlags.WriteAll);
+            textures.scene_color = render_graph.CreateTexture(scene_color_desc);
 
             // scene depth
-            var depth_desc = new TextureDesc(attachment_size.x, attachment_size.y)
+            var scene_depth_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
                 colorFormat = SystemInfo.GetGraphicsFormat(DefaultFormat.LDR),
                 depthBufferBits = DepthBits.Depth32,
                 clearBuffer = camera.clearFlags <= CameraClearFlags.Depth,
                 name = "Scene Depth"
             };
-            pass.scene_depth = render_graph.CreateTexture(depth_desc);
-            builder.UseTexture(pass.scene_depth, AccessFlags.WriteAll);
+            textures.scene_depth = render_graph.CreateTexture(scene_depth_desc);
 
             // GBuffer
             var gbuffer_desc = new TextureDesc(attachment_size.x, attachment_size.y)
@@ -83,23 +76,26 @@ namespace YutrelRP
                 clearColor = new Color(0, 0, 0, 0),
                 name = "GBuffer A"
             };
-            pass.GBuffer_A = render_graph.CreateTexture(gbuffer_desc);
+            textures.GBuffer_A = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer B";
-            pass.GBuffer_B = render_graph.CreateTexture(gbuffer_desc);
+            textures.GBuffer_B = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer C";
-            pass.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
+            textures.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
+
+            // final color
+            var final_color_desc = new TextureDesc(attachment_size.x, attachment_size.y)
+            {
+                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, true),
+                clearBuffer = camera.clearFlags <= CameraClearFlags.Color,
+                clearColor = camera.clearFlags == CameraClearFlags.Color ? camera.backgroundColor.linear : Color.clear,
+                name = "Final Color"
+            };
+            textures.final_color = render_graph.CreateTexture(final_color_desc);
 
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
-
-            textures.camera_output = CreateRenderGraphCameraRenderTarget(render_graph, camera);
-            textures.scene_color = pass.scene_color;
-            textures.scene_depth = pass.scene_depth;
-            textures.GBuffer_A = pass.GBuffer_A;
-            textures.GBuffer_B = pass.GBuffer_B;
-            textures.GBuffer_C = pass.GBuffer_C;
         }
 
         public static TextureHandle CreateRenderGraphCameraRenderTarget(RenderGraph render_graph, Camera camera)

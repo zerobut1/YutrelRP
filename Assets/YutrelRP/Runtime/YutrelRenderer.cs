@@ -20,8 +20,6 @@ namespace YutrelRP
 
         public void Render(RenderGraph render_graph, ScriptableRenderContext context, Camera camera)
         {
-            CameraSettings camera_settings = new();
-
             var camera_sampler = ProfilingSampler.Get(camera.cameraType);
 
             // culling
@@ -54,6 +52,8 @@ namespace YutrelRP
                 SkyboxPass.Record(render_graph, camera, textures);
 
                 DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
+
+                ToneMappingPass.Record(render_graph, textures, m_settings.postProcessSettings);
 
                 FinalPass.Record(render_graph, textures);
             }

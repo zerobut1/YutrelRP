@@ -49,6 +49,7 @@ namespace YutrelRP
             builder.UseTexture(pass.scene_depth);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.Write);
 
+            builder.UseTexture(light_resources.BRDF_LUT);
             builder.UseBuffer(light_resources.directional_light_data_buffer);
             
             builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));
