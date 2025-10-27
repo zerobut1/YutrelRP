@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
-using System.Runtime.InteropServices;
 using Unity.Collections;
 
 namespace YutrelRP
@@ -10,100 +9,102 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new("Light Data Pass");
 
-        static readonly int
-            brdf_lut_Id = Shader.PropertyToID("_BRDF_LUT"),
-            directional_light_count_Id = Shader.PropertyToID("_DirectionalLightCount"),
-            directional_light_data_Id = Shader.PropertyToID("_DirectionalLightData");
-
-        // Directional Light
-        [StructLayout(LayoutKind.Sequential)]
-        struct DirectionalLightData
+        internal static void Record(RenderGraph render_graph, CullingResults culling_results, YutrelRPSettings settings,
+            ref LightResources light_resources, ref ShadowResources shadow_resources)
         {
-            public const int stride = 4 * 4 * 2;
+            using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
 
-            public Vector3 color;
-            public float intensity;
-            public Vector4 direction;
+            // -------------- Light --------------
+            light_resources.Setup(render_graph, builder, culling_results, settings.BRDF_LUT, ref shadow_resources);
 
-            public DirectionalLightData(ref VisibleLight visiable_light)
+            pass.directional_light_count = light_resources.directional_light_count;
+            pass.directional_light_data = light_resources.directional_light_data;
+            pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
+
+            // -------------- Shadow --------------
+            shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
+
+            var shadow_settings = settings.shadowSettings;
+
+            pass.shadow_cascade_count = shadow_settings.directional.cascade_count;
+            pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
+            pass.shadow_directional_vp_matrices =
+                new Matrix4x4[shadow_settings.directional.cascade_count];
+            for (int cascade_index = 0; cascade_index < pass.shadow_cascade_count; cascade_index++)
             {
-                color.x = visiable_light.light.color.r;
-                color.y = visiable_light.light.color.g;
-                color.z = visiable_light.light.color.b;
-                intensity = visiable_light.light.intensity;
-                direction = -visiable_light.localToWorldMatrix.GetColumn(2);
+                var render_info = shadow_resources.directional_render_info[cascade_index];
+
+                pass.shadow_directional_vp_matrices[cascade_index] =
+                    ConvertToAtlasMatrix(render_info.projection * render_info.view,
+                        new Vector2(0.0f, cascade_index),
+                        new Vector2(1.0f, 1.0f / pass.shadow_cascade_count));
             }
+
+            pass.shadow_directional_cascade_data_buffer = shadow_resources.directional_cascade_data_buffer;
+            pass.shadow_directional_cascade_data = shadow_resources.directional_cascade_data;
+
+            // ------------------------------------
+
+            builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
         }
-
-        private const int max_directional_light_count = 1;
-
-        static readonly DirectionalLightData[] directional_light_data =
-            new DirectionalLightData[max_directional_light_count];
-
-        int directional_light_count = 0;
 
         // Data
-        BufferHandle directional_light_data_buffer;
+        // ------------- Light -------------
+        private int directional_light_count;
 
-        TextureHandle BRDF_LUT;
+        private LightResources.DirectionalLightData[] directional_light_data;
 
-        void Setup(CullingResults culling_results)
-        {
-            NativeArray<VisibleLight> visible_lights = culling_results.visibleLights;
+        private BufferHandle directional_light_data_buffer;
 
-            directional_light_count = 0;
-            for (int i = 0; i < visible_lights.Length; i++)
-            {
-                VisibleLight visible_light = visible_lights[i];
-                switch (visible_light.lightType)
-                {
-                    case LightType.Directional:
-                        if (directional_light_count < max_directional_light_count)
-                        {
-                            directional_light_data[directional_light_count++] =
-                                new DirectionalLightData(ref visible_light);
-                        }
+        private TextureHandle BRDF_LUT;
 
-                        break;
-                }
-            }
-        }
+        // ------------ Shadow -------------
+        private int shadow_cascade_count;
+
+        private Matrix4x4[] shadow_directional_vp_matrices;
+        private ShadowResources.DirectionalShadowCascadeData[] shadow_directional_cascade_data;
+
+        private BufferHandle shadow_directional_vp_matrices_buffer;
+        private BufferHandle shadow_directional_cascade_data_buffer;
 
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
 
-            cmd.SetGlobalInt(directional_light_count_Id, directional_light_count);
+            // Light
             cmd.SetBufferData(directional_light_data_buffer, directional_light_data, 0, 0, directional_light_count);
-            cmd.SetGlobalBuffer(directional_light_data_Id, directional_light_data_buffer);
-            cmd.SetGlobalTexture(brdf_lut_Id, BRDF_LUT);
+
+            // Shadow
+            cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,
+                shadow_cascade_count);
+            cmd.SetBufferData(shadow_directional_cascade_data_buffer, shadow_directional_cascade_data, 0, 0,
+                shadow_cascade_count);
         }
 
-        internal static void Record(RenderGraph render_graph, CullingResults culling_results, YutrelRPSettings settings,
-            ref LightResources light_resources)
+        private static Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 m, Vector2 offset, Vector2 scale)
         {
-            using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
+            if (SystemInfo.usesReversedZBuffer)
+            {
+                m.m20 = -m.m20;
+                m.m21 = -m.m21;
+                m.m22 = -m.m22;
+                m.m23 = -m.m23;
+            }
 
-            pass.Setup(culling_results);
+            m.m00 = (0.5f * (m.m00 + m.m30) + offset.x * m.m30) * scale.x;
+            m.m01 = (0.5f * (m.m01 + m.m31) + offset.x * m.m31) * scale.x;
+            m.m02 = (0.5f * (m.m02 + m.m32) + offset.x * m.m32) * scale.x;
+            m.m03 = (0.5f * (m.m03 + m.m33) + offset.x * m.m33) * scale.x;
+            m.m10 = (0.5f * (m.m10 + m.m30) + offset.y * m.m30) * scale.y;
+            m.m11 = (0.5f * (m.m11 + m.m31) + offset.y * m.m31) * scale.y;
+            m.m12 = (0.5f * (m.m12 + m.m32) + offset.y * m.m32) * scale.y;
+            m.m13 = (0.5f * (m.m13 + m.m33) + offset.y * m.m33) * scale.y;
+            m.m20 = 0.5f * (m.m20 + m.m30);
+            m.m21 = 0.5f * (m.m21 + m.m31);
+            m.m22 = 0.5f * (m.m22 + m.m32);
+            m.m23 = 0.5f * (m.m23 + m.m33);
 
-            pass.directional_light_data_buffer = render_graph.CreateBuffer(
-                new BufferDesc(max_directional_light_count, DirectionalLightData.stride)
-                {
-                    name = "Directional Light Data"
-                });
-            builder.UseBuffer(pass.directional_light_data_buffer, AccessFlags.WriteAll);
-
-            pass.BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(settings.BRDF_LUT));
-            builder.UseTexture(pass.BRDF_LUT);
-
-            builder.AllowPassCulling(false);
-            builder.AllowGlobalStateModification(true);
-
-            builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
-
-            light_resources.directional_light_data_buffer = pass.directional_light_data_buffer;
-            light_resources.brdf_lut_Id = brdf_lut_Id;
-            light_resources.BRDF_LUT = pass.BRDF_LUT;
+            return m;
         }
     }
 }

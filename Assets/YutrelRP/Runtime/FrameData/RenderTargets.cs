@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
@@ -5,6 +6,15 @@ namespace YutrelRP
 {
     public class RenderTargets : ContextItem
     {
+        public static readonly int
+            GBuffer_A_ID = Shader.PropertyToID("_GBuffer_A"),
+            GBuffer_B_ID = Shader.PropertyToID("_GBuffer_B"),
+            GBuffer_C_ID = Shader.PropertyToID("_GBuffer_C"),
+            scene_color_ID = Shader.PropertyToID("_SceneColor"),
+            scene_depth_ID = Shader.PropertyToID("_SceneDepth"),
+            final_color_ID = Shader.PropertyToID("_FinalColor"),
+            shadow_mask_ID = Shader.PropertyToID("_ShadowMask");
+
         public TextureHandle camera_output;
         public TextureHandle GBuffer_A;
         public TextureHandle GBuffer_B;
@@ -12,6 +22,7 @@ namespace YutrelRP
         public TextureHandle scene_color;
         public TextureHandle scene_depth;
         public TextureHandle final_color;
+        public TextureHandle shadow_mask;
 
         public override void Reset()
         {
@@ -22,6 +33,7 @@ namespace YutrelRP
             GBuffer_B = TextureHandle.nullHandle;
             GBuffer_C = TextureHandle.nullHandle;
             final_color = TextureHandle.nullHandle;
+            shadow_mask = TextureHandle.nullHandle;
         }
     }
 }

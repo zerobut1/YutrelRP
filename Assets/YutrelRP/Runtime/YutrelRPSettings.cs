@@ -10,6 +10,8 @@ namespace YutrelRP
 
         public Texture2D BRDF_LUT;
 
+        public ShadowSettings shadowSettings;
+
         public PostProcessSettings postProcessSettings;
     }
 }

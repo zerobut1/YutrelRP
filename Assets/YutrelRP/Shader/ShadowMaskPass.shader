@@ -1,25 +1,25 @@
-Shader "YutrelRP/DirectionalLightPass"
+Shader "YutrelRP/ShadowMask"
 {
-	Properties {}
-
 	SubShader
 	{
+		Cull Off
+		ZTest Always
+		ZWrite Off
+
 		HLSLINCLUDE
 		#include "Utils/Common.hlsl"
+		#include "ShadowMaskPass.hlsl"
 		ENDHLSL
 
 		Pass
 		{
-			ZWrite Off
-			Blend One One
-			Cull Off
-
 			HLSLPROGRAM
+			#pragma enable_d3d11_debug_symbols
 			#pragma target 5.0
 			#pragma vertex DefaultFullScreenPassVertex
-			#pragma fragment DirectionalLightFragment
-			#include "DirectionalLightPass.hlsl"
+			#pragma fragment ShadowMaskPassFragment
 			ENDHLSL
 		}
+
 	}
 }

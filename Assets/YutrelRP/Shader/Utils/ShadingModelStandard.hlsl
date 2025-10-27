@@ -59,8 +59,8 @@ float3 StandardShading(StandardSurface surface, Light light)
 
     out_color = Fd + Fr * surface.energy_compensation;
 
-    out_color = out_color * light.color * light.intensity * NoL;
-    
+    out_color = out_color * light.color * light.intensity * NoL * light.occlusion;
+
     return out_color;
 }
 

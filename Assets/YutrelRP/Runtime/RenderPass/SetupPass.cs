@@ -7,33 +7,11 @@ namespace YutrelRP
 {
     internal class SetupPass
     {
-        private static readonly ProfilingSampler sampler =
-            new("Setup Pass");
+        private static readonly ProfilingSampler sampler = new("Setup Pass");
 
-        private static readonly int rt_size_ID = Shader.PropertyToID("_CameraBufferSize");
-        private static readonly int inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP");
-
-        private Camera camera;
-
-        private Vector2Int rt_size;
-
-        private void Render(ComputeGraphContext context)
-        {
-            var cmd = context.cmd;
-
-            cmd.SetupCameraProperties(camera);
-            cmd.SetGlobalVector(rt_size_ID,
-                new Vector4(1.0f / rt_size.x,
-                    1.0f / rt_size.y,
-                    rt_size.x,
-                    rt_size.y));
-
-            Matrix4x4 view_matrix = camera.worldToCameraMatrix;
-            Matrix4x4 projection_matrix = camera.projectionMatrix;
-            projection_matrix = GL.GetGPUProjectionMatrix(projection_matrix, true);
-            Matrix4x4 inverse_VP = (projection_matrix * view_matrix).inverse;
-            context.cmd.SetGlobalMatrix(inverseViewAndProjectionMatrix, inverse_VP);
-        }
+        private static readonly int
+            rt_size_ID = Shader.PropertyToID("_CameraBufferSize"),
+            inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP");
 
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,
             Vector2Int attachment_size)
@@ -98,7 +76,29 @@ namespace YutrelRP
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
         }
 
-        public static TextureHandle CreateRenderGraphCameraRenderTarget(RenderGraph render_graph, Camera camera)
+        // data
+        private Camera camera;
+        private Vector2Int rt_size;
+
+        private void Render(ComputeGraphContext context)
+        {
+            var cmd = context.cmd;
+
+            cmd.SetupCameraProperties(camera);
+            cmd.SetGlobalVector(rt_size_ID,
+                new Vector4(1.0f / rt_size.x,
+                    1.0f / rt_size.y,
+                    rt_size.x,
+                    rt_size.y));
+
+            Matrix4x4 view_matrix = camera.worldToCameraMatrix;
+            Matrix4x4 projection_matrix = camera.projectionMatrix;
+            projection_matrix = GL.GetGPUProjectionMatrix(projection_matrix, true);
+            Matrix4x4 inverse_VP = (projection_matrix * view_matrix).inverse;
+            cmd.SetGlobalMatrix(inverseViewAndProjectionMatrix, inverse_VP);
+        }
+
+        private static TextureHandle CreateRenderGraphCameraRenderTarget(RenderGraph render_graph, Camera camera)
         {
             var camera_target_texture = camera.targetTexture;
             var is_builtin_texture = camera_target_texture == null;
