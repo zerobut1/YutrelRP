@@ -24,6 +24,7 @@ namespace YutrelRP
 
             // culling
             if (!camera.TryGetCullingParameters(out var culling_parameters)) return;
+            culling_parameters.shadowDistance = Mathf.Min(m_settings.shadowSettings.max_distance, camera.farClipPlane);
             var culling_results = context.Cull(ref culling_parameters);
 
             // render graph
@@ -39,11 +40,16 @@ namespace YutrelRP
             {
                 var textures = m_frame_data.GetOrCreate<RenderTargets>();
                 var light_resources = m_frame_data.GetOrCreate<LightResources>();
+                var shadow_reources = m_frame_data.GetOrCreate<ShadowResources>();
+                shadow_reources.Reset();
+
+                SetupLightPass.Record(render_graph, culling_results, m_settings, ref light_resources,
+                    ref shadow_reources);
+
+                ShadowPass.Record(render_graph, shadow_reources);
 
                 SetupPass.Record(render_graph, camera, ref textures,
                     new Vector2Int(camera.pixelWidth, camera.pixelHeight));
-
-                SetupLightPass.Record(render_graph, culling_results, m_settings, ref light_resources);
 
                 BasePass.Record(render_graph, camera, culling_results, textures);
 

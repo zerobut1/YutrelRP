@@ -34,5 +34,23 @@
 			#include "DefaultLit.hlsl"
 			ENDHLSL
 		}
+
+		Pass
+		{
+			Tags
+			{
+				"LightMode" = "ShadowCaster"
+			}
+
+			ColorMask 0
+
+			HLSLPROGRAM
+			#pragma target 5.0
+			#pragma multi_compile_instancing
+			#pragma vertex ShadowCasterPassVertex
+			#pragma fragment ShadowCasterPassFragment
+			#include "ShadowCaster.hlsl"
+			ENDHLSL
+		}
 	}
 }

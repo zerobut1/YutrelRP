@@ -15,4 +15,8 @@ MonoBehaviour:
   m_settings:
     useSRPBatcher: 1
     BRDF_LUT: {fileID: 2800000, guid: d0036d62c68affa4f8af6d4bd69b882c, type: 3}
+    shadowSettings:
+      max_distance: 10
+      directional:
+        atlas_size: 2048
     postProcessSettings: {fileID: 11400000, guid: 67dc4f13b5d0445469abea26b93a3efd, type: 2}

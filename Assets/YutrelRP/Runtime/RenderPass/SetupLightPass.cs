@@ -47,21 +47,22 @@ namespace YutrelRP
 
         TextureHandle BRDF_LUT;
 
-        void Setup(CullingResults culling_results)
+        static void Setup(SetupLightPass pass, CullingResults culling_results, ref ShadowResources shadow_resources)
         {
             NativeArray<VisibleLight> visible_lights = culling_results.visibleLights;
 
-            directional_light_count = 0;
+            pass.directional_light_count = 0;
             for (int i = 0; i < visible_lights.Length; i++)
             {
                 VisibleLight visible_light = visible_lights[i];
                 switch (visible_light.lightType)
                 {
                     case LightType.Directional:
-                        if (directional_light_count < max_directional_light_count)
+                        if (pass.directional_light_count < max_directional_light_count)
                         {
-                            directional_light_data[directional_light_count++] =
+                            directional_light_data[pass.directional_light_count++] =
                                 new DirectionalLightData(ref visible_light);
+                            shadow_resources.ReserveDirectionalShadows(visible_light.light, i, culling_results);
                         }
 
                         break;
@@ -80,11 +81,11 @@ namespace YutrelRP
         }
 
         internal static void Record(RenderGraph render_graph, CullingResults culling_results, YutrelRPSettings settings,
-            ref LightResources light_resources)
+            ref LightResources light_resources, ref ShadowResources shadow_resources)
         {
             using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
 
-            pass.Setup(culling_results);
+            Setup(pass, culling_results, ref shadow_resources);
 
             pass.directional_light_data_buffer = render_graph.CreateBuffer(
                 new BufferDesc(max_directional_light_count, DirectionalLightData.stride)
@@ -96,7 +97,8 @@ namespace YutrelRP
             pass.BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(settings.BRDF_LUT));
             builder.UseTexture(pass.BRDF_LUT);
 
-            builder.AllowPassCulling(false);
+            shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
+
             builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });

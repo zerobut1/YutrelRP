@@ -98,7 +98,7 @@ namespace YutrelRP
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
         }
 
-        public static TextureHandle CreateRenderGraphCameraRenderTarget(RenderGraph render_graph, Camera camera)
+        private static TextureHandle CreateRenderGraphCameraRenderTarget(RenderGraph render_graph, Camera camera)
         {
             var camera_target_texture = camera.targetTexture;
             var is_builtin_texture = camera_target_texture == null;
