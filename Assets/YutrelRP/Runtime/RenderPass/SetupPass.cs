@@ -32,7 +32,7 @@ namespace YutrelRP
             Matrix4x4 projection_matrix = camera.projectionMatrix;
             projection_matrix = GL.GetGPUProjectionMatrix(projection_matrix, true);
             Matrix4x4 inverse_VP = (projection_matrix * view_matrix).inverse;
-            context.cmd.SetGlobalMatrix(inverseViewAndProjectionMatrix, inverse_VP);
+            cmd.SetGlobalMatrix(inverseViewAndProjectionMatrix, inverse_VP);
         }
 
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,

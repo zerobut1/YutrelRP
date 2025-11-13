@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
-using System.Runtime.InteropServices;
 using Unity.Collections;
 
 namespace YutrelRP
@@ -10,65 +9,19 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new("Light Data Pass");
 
-        static readonly int
-            brdf_lut_Id = Shader.PropertyToID("_BRDF_LUT"),
-            directional_light_count_Id = Shader.PropertyToID("_DirectionalLightCount"),
-            directional_light_data_Id = Shader.PropertyToID("_DirectionalLightData");
-
-        // Directional Light
-        [StructLayout(LayoutKind.Sequential)]
-        struct DirectionalLightData
-        {
-            public const int stride = 4 * 4 * 2;
-
-            public Vector3 color;
-            public float intensity;
-            public Vector4 direction;
-
-            public DirectionalLightData(ref VisibleLight visiable_light)
-            {
-                color.x = visiable_light.light.color.r;
-                color.y = visiable_light.light.color.g;
-                color.z = visiable_light.light.color.b;
-                intensity = visiable_light.light.intensity;
-                direction = -visiable_light.localToWorldMatrix.GetColumn(2);
-            }
-        }
-
-        private const int max_directional_light_count = 1;
-
-        static readonly DirectionalLightData[] directional_light_data =
-            new DirectionalLightData[max_directional_light_count];
-
-        int directional_light_count = 0;
-
         // Data
-        BufferHandle directional_light_data_buffer;
+        private int
+            directional_light_count_Id,
+            directional_light_data_Id,
+            brdf_lut_Id;
 
-        TextureHandle BRDF_LUT;
+        private int directional_light_count;
 
-        static void Setup(SetupLightPass pass, CullingResults culling_results, ref ShadowResources shadow_resources)
-        {
-            NativeArray<VisibleLight> visible_lights = culling_results.visibleLights;
+        private LightResources.DirectionalLightData[] directional_light_data;
 
-            pass.directional_light_count = 0;
-            for (int i = 0; i < visible_lights.Length; i++)
-            {
-                VisibleLight visible_light = visible_lights[i];
-                switch (visible_light.lightType)
-                {
-                    case LightType.Directional:
-                        if (pass.directional_light_count < max_directional_light_count)
-                        {
-                            directional_light_data[pass.directional_light_count++] =
-                                new DirectionalLightData(ref visible_light);
-                            shadow_resources.ReserveDirectionalShadows(visible_light.light, i, culling_results);
-                        }
+        private BufferHandle directional_light_data_buffer;
 
-                        break;
-                }
-            }
-        }
+        private TextureHandle BRDF_LUT;
 
         private void Render(ComputeGraphContext context)
         {
@@ -85,27 +38,25 @@ namespace YutrelRP
         {
             using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
 
-            Setup(pass, culling_results, ref shadow_resources);
 
-            pass.directional_light_data_buffer = render_graph.CreateBuffer(
-                new BufferDesc(max_directional_light_count, DirectionalLightData.stride)
-                {
-                    name = "Directional Light Data"
-                });
-            builder.UseBuffer(pass.directional_light_data_buffer, AccessFlags.WriteAll);
+            // -------------- Light --------------
+            light_resources.Setup(render_graph, builder, culling_results, settings.BRDF_LUT, ref shadow_resources);
 
-            pass.BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(settings.BRDF_LUT));
-            builder.UseTexture(pass.BRDF_LUT);
+            pass.directional_light_count_Id = LightResources.directional_light_count_Id;
+            pass.directional_light_data_Id = LightResources.directional_light_data_Id;
+            pass.brdf_lut_Id = LightResources.brdf_lut_Id;
+            pass.directional_light_count = light_resources.directional_light_count;
+            pass.directional_light_data = light_resources.directional_light_data;
+            pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
+            pass.BRDF_LUT = light_resources.BRDF_LUT;
 
+            // -------------- Shadow --------------
             shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
 
+            // ------------------------------------
             builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
-
-            light_resources.directional_light_data_buffer = pass.directional_light_data_buffer;
-            light_resources.brdf_lut_Id = brdf_lut_Id;
-            light_resources.BRDF_LUT = pass.BRDF_LUT;
         }
     }
 }

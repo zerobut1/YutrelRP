@@ -6,7 +6,7 @@ namespace YutrelRP
 {
     public class ShadowResources : ContextItem
     {
-        private const int max_shadowed_directional_light_count = 1;
+        public const int max_shadowed_directional_light_count = 1;
 
         public struct ShadowedDirectionalLight
         {
@@ -66,7 +66,7 @@ namespace YutrelRP
             if (shadowed_directional_light_count > 0)
             {
                 directional_atlas = render_graph.CreateTexture(desc);
-                builder.UseTexture(directional_atlas, AccessFlags.WriteAll);
+                // builder.UseTexture(directional_atlas, AccessFlags.WriteAll);
             }
             else
             {
