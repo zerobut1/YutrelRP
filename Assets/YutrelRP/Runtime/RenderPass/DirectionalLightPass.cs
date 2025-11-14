@@ -12,18 +12,21 @@ namespace YutrelRP
         private static Material m_temp_shading_material;
         private static Mesh m_full_screen_mesh;
 
-        private TextureHandle GBuffer_A;
-        private TextureHandle GBuffer_B;
-        private TextureHandle GBuffer_C;
-        private TextureHandle scene_depth;
+        private TextureHandle
+            GBuffer_A,
+            GBuffer_B,
+            GBuffer_C,
+            scene_depth,
+            shadow_mask;
 
         private void Render(RasterGraphContext context)
         {
             var cmd = context.cmd;
-            m_temp_shading_material.SetTexture("_GBuffer_A", GBuffer_A);
-            m_temp_shading_material.SetTexture("_GBuffer_B", GBuffer_B);
-            m_temp_shading_material.SetTexture("_GBuffer_C", GBuffer_C);
-            m_temp_shading_material.SetTexture("_SceneDepth", scene_depth);
+            m_temp_shading_material.SetTexture(Shader.PropertyToID("_GBuffer_A"), GBuffer_A);
+            m_temp_shading_material.SetTexture(Shader.PropertyToID("_GBuffer_B"), GBuffer_B);
+            m_temp_shading_material.SetTexture(Shader.PropertyToID("_GBuffer_C"), GBuffer_C);
+            m_temp_shading_material.SetTexture(Shader.PropertyToID("_SceneDepth"), scene_depth);
+            m_temp_shading_material.SetTexture(Shader.PropertyToID("_ShadowMask"), shadow_mask);
 
             context.cmd.DrawMesh(m_full_screen_mesh, Matrix4x4.identity, m_temp_shading_material, 0, 0);
         }
@@ -43,15 +46,17 @@ namespace YutrelRP
             pass.GBuffer_B = textures.GBuffer_B;
             pass.GBuffer_C = textures.GBuffer_C;
             pass.scene_depth = textures.scene_depth;
+            pass.shadow_mask = textures.shadow_mask;
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.scene_depth);
+            builder.UseTexture(pass.shadow_mask);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.Write);
 
             builder.UseTexture(light_resources.BRDF_LUT);
             builder.UseBuffer(light_resources.directional_light_data_buffer);
-            
+
             builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));
         }
 

@@ -9,8 +9,6 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new("Shadow Pass");
 
-        static int dir_shadow_atlas_Id = Shader.PropertyToID("_DirectionalShadowAtlas");
-
         // data
         private ShadowResources.RenderInfo render_info;
 
@@ -25,8 +23,7 @@ namespace YutrelRP
 
             pass.render_info = shadow_resources.directional_render_info[0];
 
-            // builder.SetRenderAttachment(shadow_resources.directional_atlas, 0);
-            builder.SetRenderAttachmentDepth(shadow_resources.directional_atlas, AccessFlags.Write);
+            builder.SetRenderAttachmentDepth(shadow_resources.directional_atlas);
             builder.UseRendererList(pass.render_info.renderer_list);
 
             builder.SetRenderFunc<ShadowPass>(static (pass, context) => pass.Render(context));

@@ -19,7 +19,8 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
 
-            Blitter.BlitTexture(cmd, source_color, new Vector4(1, 1, 0, 0), material, pass_id);
+            material.SetTexture(Shader.PropertyToID("_BlitTexture"), source_color);
+            CoreUtils.DrawFullScreen(cmd, material, null, pass_id);
         }
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, PostProcessSettings settings)

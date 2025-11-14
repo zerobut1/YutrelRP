@@ -12,6 +12,7 @@ namespace YutrelRP
         public TextureHandle scene_color;
         public TextureHandle scene_depth;
         public TextureHandle final_color;
+        public TextureHandle shadow_mask;
 
         public override void Reset()
         {
@@ -22,6 +23,7 @@ namespace YutrelRP
             GBuffer_B = TextureHandle.nullHandle;
             GBuffer_C = TextureHandle.nullHandle;
             final_color = TextureHandle.nullHandle;
+            shadow_mask = TextureHandle.nullHandle;
         }
     }
 }

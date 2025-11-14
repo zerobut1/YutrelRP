@@ -6,7 +6,6 @@ Shader "YutrelRP/DirectionalLightPass"
 	{
 		HLSLINCLUDE
 		#include "Utils/Common.hlsl"
-		#include "DirectionalLightPassInput.hlsl"
 		ENDHLSL
 
 		Pass

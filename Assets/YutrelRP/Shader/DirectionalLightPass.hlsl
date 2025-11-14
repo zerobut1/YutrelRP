@@ -39,7 +39,7 @@ float4 DirectionalLightFragment(Varyings input) : SV_Target
     {
     case 1:
         StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
-        Light light = GetDirectionalLight(0);
+        Light light = GetDirectionalLight(0, gbuffer.uv);
 
         out_color = StandardShading(surface, light);
         break;
@@ -47,7 +47,7 @@ float4 DirectionalLightFragment(Varyings input) : SV_Target
         discard;
         break;
     }
-    
+
     return float4(out_color, 0.0f);
 }
 

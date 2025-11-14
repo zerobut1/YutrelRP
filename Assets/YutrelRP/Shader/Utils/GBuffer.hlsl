@@ -3,6 +3,11 @@
 
 #include "Common.hlsl"
 
+SAMPLER(_GBuffer_A);
+SAMPLER(_GBuffer_B);
+SAMPLER(_GBuffer_C);
+SAMPLER(_SceneDepth);
+
 struct GBufferData
 {
     float3 base_color;

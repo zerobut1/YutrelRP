@@ -8,29 +8,31 @@ namespace YutrelRP
 {
     public class LightResources : ContextItem
     {
-        public const int max_directional_light_count = 1;
-
         public static readonly int
             brdf_lut_Id = Shader.PropertyToID("_BRDF_LUT"),
             directional_light_count_Id = Shader.PropertyToID("_DirectionalLightCount"),
             directional_light_data_Id = Shader.PropertyToID("_DirectionalLightData");
 
+        public const int max_directional_light_count = 1;
+
         [StructLayout(LayoutKind.Sequential)]
         public struct DirectionalLightData
         {
-            public const int stride = 4 * 4 * 2;
+            public const int stride = 4 * 4 * 3;
 
             public Vector3 color;
             public float intensity;
             public Vector4 direction;
+            public Vector4 shadow_data; // x: shadow index
 
-            public DirectionalLightData(ref VisibleLight visiable_light)
+            public DirectionalLightData(VisibleLight visiable_light, Vector4 shadow_data)
             {
                 color.x = visiable_light.light.color.r;
                 color.y = visiable_light.light.color.g;
                 color.z = visiable_light.light.color.b;
                 intensity = visiable_light.light.intensity;
                 direction = -visiable_light.localToWorldMatrix.GetColumn(2);
+                this.shadow_data = shadow_data;
             }
         }
 
@@ -64,8 +66,9 @@ namespace YutrelRP
                         if (directional_light_count < LightResources.max_directional_light_count)
                         {
                             directional_light_data[directional_light_count++] =
-                                new DirectionalLightData(ref visible_light);
-                            shadow_resources.ReserveDirectionalShadows(visible_light.light, i, culling_results);
+                                new DirectionalLightData(visible_light,
+                                    shadow_resources.ReserveDirectionalShadows(visible_light.light, i,
+                                        culling_results));
                         }
 
                         break;

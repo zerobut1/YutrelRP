@@ -10,6 +10,7 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("Light Data Pass");
 
         // Data
+        // ------------- Light -------------
         private int
             directional_light_count_Id,
             directional_light_data_Id,
@@ -23,14 +24,34 @@ namespace YutrelRP
 
         private TextureHandle BRDF_LUT;
 
+        // ------------ Shadow -------------
+        private int
+            shadow_directional_atlas_Id,
+            shadow_directional_vp_matrices_Id;
+
+        private int shadow_directional_light_count;
+
+        private TextureHandle shadow_directional_atlas;
+
+        private Matrix4x4[] shadow_directional_vp_matrices;
+
+        private BufferHandle shadow_directional_vp_matrices_buffer;
+
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
 
+            // Light
             cmd.SetGlobalInt(directional_light_count_Id, directional_light_count);
             cmd.SetBufferData(directional_light_data_buffer, directional_light_data, 0, 0, directional_light_count);
             cmd.SetGlobalBuffer(directional_light_data_Id, directional_light_data_buffer);
             cmd.SetGlobalTexture(brdf_lut_Id, BRDF_LUT);
+
+            // Shadow
+            cmd.SetGlobalTexture(shadow_directional_atlas_Id, shadow_directional_atlas);
+            cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,
+                shadow_directional_light_count);
+            cmd.SetGlobalBuffer(shadow_directional_vp_matrices_Id, shadow_directional_vp_matrices_buffer);
         }
 
         internal static void Record(RenderGraph render_graph, CullingResults culling_results, YutrelRPSettings settings,
@@ -52,11 +73,46 @@ namespace YutrelRP
 
             // -------------- Shadow --------------
             shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
+            var render_info = shadow_resources.directional_render_info[0];
+
+            pass.shadow_directional_atlas_Id = ShadowResources.directional_shadow_atlas_Id;
+            pass.shadow_directional_light_count = shadow_resources.shadowed_directional_light_count;
+            pass.shadow_directional_atlas = shadow_resources.directional_atlas;
+            pass.shadow_directional_vp_matrices_Id = ShadowResources.directional_vp_matrices_Id;
+            pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
+            pass.shadow_directional_vp_matrices = new Matrix4x4[1];
+            pass.shadow_directional_vp_matrices[0] = ConvertToAtlasMatrix(render_info.projection * render_info.view);
 
             // ------------------------------------
             builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
+        }
+
+        private static Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 mat)
+        {
+            if (SystemInfo.usesReversedZBuffer)
+            {
+                mat.m20 = -mat.m20;
+                mat.m21 = -mat.m21;
+                mat.m22 = -mat.m22;
+                mat.m23 = -mat.m23;
+            }
+
+            mat.m00 = 0.5f * (mat.m00 + mat.m30);
+            mat.m01 = 0.5f * (mat.m01 + mat.m31);
+            mat.m02 = 0.5f * (mat.m02 + mat.m32);
+            mat.m03 = 0.5f * (mat.m03 + mat.m33);
+            mat.m10 = 0.5f * (mat.m10 + mat.m30);
+            mat.m11 = 0.5f * (mat.m11 + mat.m31);
+            mat.m12 = 0.5f * (mat.m12 + mat.m32);
+            mat.m13 = 0.5f * (mat.m13 + mat.m33);
+            mat.m20 = 0.5f * (mat.m20 + mat.m30);
+            mat.m21 = 0.5f * (mat.m21 + mat.m31);
+            mat.m22 = 0.5f * (mat.m22 + mat.m32);
+            mat.m23 = 0.5f * (mat.m23 + mat.m33);
+
+            return mat;
         }
     }
 }

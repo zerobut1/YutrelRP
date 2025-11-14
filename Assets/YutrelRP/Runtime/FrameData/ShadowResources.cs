@@ -6,6 +6,10 @@ namespace YutrelRP
 {
     public class ShadowResources : ContextItem
     {
+        public static readonly int
+            directional_shadow_atlas_Id = Shader.PropertyToID("_DirectionalShadowAtlas"),
+            directional_vp_matrices_Id = Shader.PropertyToID("_DirectionalShadowVPMatrices");
+
         public const int max_shadowed_directional_light_count = 1;
 
         public struct ShadowedDirectionalLight
@@ -29,6 +33,8 @@ namespace YutrelRP
 
         private int directional_atlas_tile_size;
 
+        public BufferHandle directional_vp_matrices_buffer;
+
         public override void Reset()
         {
             shadowed_directional_light_count = 0;
@@ -37,7 +43,7 @@ namespace YutrelRP
             directional_render_info = new RenderInfo[max_shadowed_directional_light_count];
         }
 
-        public void ReserveDirectionalShadows(Light light, int visible_light_index, CullingResults culling_results)
+        public Vector4 ReserveDirectionalShadows(Light light, int visible_light_index, CullingResults culling_results)
         {
             if (shadowed_directional_light_count < max_shadowed_directional_light_count
                 && light.shadows != LightShadows.None
@@ -45,11 +51,15 @@ namespace YutrelRP
                 && culling_results.GetShadowCasterBounds(visible_light_index, out var bounds)
                )
             {
-                shadowed_directional_Lights[shadowed_directional_light_count++] = new ShadowedDirectionalLight
+                shadowed_directional_Lights[shadowed_directional_light_count] = new ShadowedDirectionalLight
                 {
                     visible_light_index = visible_light_index
                 };
+
+                return new Vector4(shadowed_directional_light_count++, 0, 0, 0);
             }
+
+            return new Vector4(-1, 0, 0, 0);
         }
 
         public void Setup(RenderGraph render_graph, IComputeRenderGraphBuilder builder, CullingResults culling_results,
@@ -57,6 +67,7 @@ namespace YutrelRP
         {
             directional_atlas_tile_size = (int)settings.directional.atlas_size;
 
+            // shadow atlas
             var desc = new TextureDesc(directional_atlas_tile_size, directional_atlas_tile_size)
             {
                 depthBufferBits = DepthBits.Depth32,
@@ -66,13 +77,22 @@ namespace YutrelRP
             if (shadowed_directional_light_count > 0)
             {
                 directional_atlas = render_graph.CreateTexture(desc);
-                // builder.UseTexture(directional_atlas, AccessFlags.WriteAll);
+                builder.UseTexture(directional_atlas, AccessFlags.WriteAll);
             }
             else
             {
                 directional_atlas = render_graph.defaultResources.defaultShadowTexture;
             }
 
+            // shadow vp matrices
+            directional_vp_matrices_buffer = render_graph.CreateBuffer(
+                new BufferDesc(max_shadowed_directional_light_count, 16 * 4)
+                {
+                    name = "Directional Shadow VP Matrices"
+                });
+            builder.UseBuffer(directional_vp_matrices_buffer, AccessFlags.WriteAll);
+
+            // render lists
             BuildRendererList(render_graph, builder, culling_results);
         }
 
