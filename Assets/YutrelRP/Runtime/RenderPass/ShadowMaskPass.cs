@@ -24,9 +24,9 @@ namespace YutrelRP
 
             var shadow_mask_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
-                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, true),
+                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.RFloat, true),
                 clearBuffer = true,
-                clearColor = Color.black,
+                clearColor = Color.white,
                 name = "Shadow Mask"
             };
             textures.shadow_mask = render_graph.CreateTexture(shadow_mask_desc);

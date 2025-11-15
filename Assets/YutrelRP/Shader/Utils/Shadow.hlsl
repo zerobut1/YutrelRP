@@ -10,7 +10,7 @@ struct DirectionalLightShadowData
 };
 
 TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
-#define SHADOW_SAMPLER sampler_linear_clamp_compare
+#define SHADOW_SAMPLER sampler_DirectionalShadowAtlas
 SAMPLER_CMP(SHADOW_SAMPLER);
 
 StructuredBuffer<float4x4> _DirectionalShadowVPMatrices;

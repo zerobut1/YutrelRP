@@ -39,8 +39,13 @@ float SampleDirectioanalShadowAtlas(float3 shadow_uv)
 float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, float3 position_WS)
 {
     float3 shadow_uv = mul(_DirectionalShadowVPMatrices[light_shadow_data.index], float4(position_WS, 1.0));
+    float shadow = 1.0f;
+    if (shadow_uv.z > 0 && shadow_uv.z < 1)
+    {
+        shadow = SampleDirectioanalShadowAtlas(shadow_uv);
+    }
 
-    return SampleDirectioanalShadowAtlas(shadow_uv);
+    return shadow;
 }
 
 float GetDirectionalShadowAttenuation(DirectionalLightShadowData light_shadow_data, float3 position_WS)
