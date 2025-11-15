@@ -83,15 +83,6 @@ namespace YutrelRP
             builder.UseBuffer(directional_light_data_buffer, AccessFlags.WriteAll);
 
             BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(_BRDF_LUT));
-            builder.UseTexture(BRDF_LUT);
-        }
-
-        public void Render(ComputeCommandBuffer cmd)
-        {
-            cmd.SetGlobalInt(directional_light_count_Id, directional_light_count);
-            cmd.SetBufferData(directional_light_data_buffer, directional_light_data, 0, 0, directional_light_count);
-            cmd.SetGlobalBuffer(directional_light_data_Id, directional_light_data_buffer);
-            cmd.SetGlobalTexture(brdf_lut_Id, BRDF_LUT);
         }
     };
 }

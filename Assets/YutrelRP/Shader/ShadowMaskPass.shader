@@ -16,7 +16,7 @@ Shader "YutrelRP/ShadowMask"
 			HLSLPROGRAM
 			#pragma enable_d3d11_debug_symbols
 			#pragma target 5.0
-			#pragma vertex ShadowMaskPassVertex
+			#pragma vertex DefaultFullScreenPassVertex
 			#pragma fragment ShadowMaskPassFragment
 			ENDHLSL
 		}

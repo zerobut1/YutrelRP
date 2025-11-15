@@ -53,7 +53,7 @@ namespace YutrelRP
 
                 BasePass.Record(render_graph, camera, culling_results, textures);
 
-                ShadowMaskPass.Record(render_graph, textures, shadow_reources,
+                ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_reources,
                     new Vector2Int(camera.pixelWidth, camera.pixelHeight));
 
                 DirectionalLightPass.Record(render_graph, textures, light_resources);

@@ -27,7 +27,7 @@ namespace YutrelRP
         {
             using var builder = render_graph.AddRasterRenderPass<ToneMappingPass>(sampler.name, out var pass, sampler);
 
-            if (material == null) material = new Material(Shader.Find("YutrelRP/ToneMapping"));
+            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ToneMapping"));
 
             pass.source_color = textures.scene_color;
             pass.pass_id = (int)settings.tone_mapping.mode;

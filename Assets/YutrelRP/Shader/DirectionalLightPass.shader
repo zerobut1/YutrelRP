@@ -16,7 +16,7 @@ Shader "YutrelRP/DirectionalLightPass"
 
 			HLSLPROGRAM
 			#pragma target 5.0
-			#pragma vertex DirectionalLightVertex
+			#pragma vertex DefaultFullScreenPassVertex
 			#pragma fragment DirectionalLightFragment
 			#include "DirectionalLightPass.hlsl"
 			ENDHLSL

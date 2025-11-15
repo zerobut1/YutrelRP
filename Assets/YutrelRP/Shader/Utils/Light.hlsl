@@ -3,10 +3,6 @@
 
 #include "Shadow.hlsl"
 
-CBUFFER_START(_YutrelLight)
-    int _DirectionalLightCount;
-CBUFFER_END
-
 struct DirectionalLightData
 {
     float3 color;

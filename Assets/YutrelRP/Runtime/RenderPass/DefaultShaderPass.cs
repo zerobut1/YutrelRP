@@ -16,7 +16,8 @@ namespace YutrelRP
             using var builder = render_graph.AddRasterRenderPass<DefaultShaderPass>("Default Shader Pass", out var pass,
                 sampler);
 
-            if (error_material == null) error_material = new Material(Shader.Find("Hidden/InternalErrorShader"));
+            if (error_material == null)
+                error_material = CoreUtils.CreateEngineMaterial(Shader.Find("Hidden/InternalErrorShader"));
 
             pass.list = render_graph.CreateRendererList(
                 new RendererListDesc(shader_tag_ids, culling_reuslts, camera)

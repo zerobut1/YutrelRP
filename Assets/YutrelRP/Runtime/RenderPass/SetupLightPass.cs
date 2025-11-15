@@ -25,13 +25,9 @@ namespace YutrelRP
         private TextureHandle BRDF_LUT;
 
         // ------------ Shadow -------------
-        private int
-            shadow_directional_atlas_Id,
-            shadow_directional_vp_matrices_Id;
+        private int shadow_directional_vp_matrices_Id;
 
         private int shadow_directional_light_count;
-
-        private TextureHandle shadow_directional_atlas;
 
         private Matrix4x4[] shadow_directional_vp_matrices;
 
@@ -42,16 +38,11 @@ namespace YutrelRP
             var cmd = context.cmd;
 
             // Light
-            cmd.SetGlobalInt(directional_light_count_Id, directional_light_count);
             cmd.SetBufferData(directional_light_data_buffer, directional_light_data, 0, 0, directional_light_count);
-            cmd.SetGlobalBuffer(directional_light_data_Id, directional_light_data_buffer);
-            cmd.SetGlobalTexture(brdf_lut_Id, BRDF_LUT);
 
             // Shadow
-            // cmd.SetGlobalTexture(shadow_directional_atlas_Id, shadow_directional_atlas);
             cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,
                 shadow_directional_light_count);
-            cmd.SetGlobalBuffer(shadow_directional_vp_matrices_Id, shadow_directional_vp_matrices_buffer);
         }
 
         internal static void Record(RenderGraph render_graph, CullingResults culling_results, YutrelRPSettings settings,
@@ -68,7 +59,6 @@ namespace YutrelRP
             pass.directional_light_count = light_resources.directional_light_count;
             pass.directional_light_data = light_resources.directional_light_data;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
-            pass.BRDF_LUT = light_resources.BRDF_LUT;
 
             // -------------- Shadow --------------
             shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
@@ -76,16 +66,13 @@ namespace YutrelRP
             var shadow_settings = settings.shadowSettings;
             var render_info = shadow_resources.directional_render_info[0];
 
-            pass.shadow_directional_atlas_Id = ShadowResources.directional_shadow_atlas_Id;
             pass.shadow_directional_light_count = shadow_resources.shadowed_directional_light_count;
-            pass.shadow_directional_atlas = shadow_resources.directional_atlas;
             pass.shadow_directional_vp_matrices_Id = ShadowResources.directional_vp_matrices_Id;
             pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
             pass.shadow_directional_vp_matrices = new Matrix4x4[shadow_settings.directional.cascade_count];
             pass.shadow_directional_vp_matrices[0] = ConvertToAtlasMatrix(render_info.projection * render_info.view);
 
             // ------------------------------------
-            builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
         }

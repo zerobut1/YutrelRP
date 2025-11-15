@@ -8,76 +8,59 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new ProfilingSampler("Directional Light Pass");
 
-        private static readonly Shader m_temp_shading_shader = Shader.Find("YutrelRP/DirectionalLightPass");
-        private static Material m_temp_shading_material;
-        private static Mesh m_full_screen_mesh;
+        private static Material material;
 
         private TextureHandle
             GBuffer_A,
             GBuffer_B,
             GBuffer_C,
             scene_depth,
+            BRDF_LUT,
             shadow_mask;
+
+        private BufferHandle
+            directional_light_data_buffer;
 
         private void Render(RasterGraphContext context)
         {
             var cmd = context.cmd;
-            m_temp_shading_material.SetTexture(Shader.PropertyToID("_GBuffer_A"), GBuffer_A);
-            m_temp_shading_material.SetTexture(Shader.PropertyToID("_GBuffer_B"), GBuffer_B);
-            m_temp_shading_material.SetTexture(Shader.PropertyToID("_GBuffer_C"), GBuffer_C);
-            m_temp_shading_material.SetTexture(Shader.PropertyToID("_SceneDepth"), scene_depth);
-            m_temp_shading_material.SetTexture(Shader.PropertyToID("_ShadowMask"), shadow_mask);
+            material.SetTexture(Shader.PropertyToID("_GBuffer_A"), GBuffer_A);
+            material.SetTexture(Shader.PropertyToID("_GBuffer_B"), GBuffer_B);
+            material.SetTexture(Shader.PropertyToID("_GBuffer_C"), GBuffer_C);
+            material.SetTexture(Shader.PropertyToID("_SceneDepth"), scene_depth);
+            material.SetTexture(Shader.PropertyToID("_ShadowMask"), shadow_mask);
+            material.SetBuffer(Shader.PropertyToID("_DirectionalLightData"),
+                directional_light_data_buffer);
 
-            context.cmd.DrawMesh(m_full_screen_mesh, Matrix4x4.identity, m_temp_shading_material, 0, 0);
+            CoreUtils.DrawFullScreen(cmd, material);
         }
 
         public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources)
         {
-            if (m_temp_shading_material == null)
-                m_temp_shading_material = CoreUtils.CreateEngineMaterial(m_temp_shading_shader);
-
-            if (m_full_screen_mesh == null)
-                m_full_screen_mesh = CreateFullscreenMesh();
+            if (material == null)
+                material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/DirectionalLightPass"));
 
             using var builder =
-                graph.AddRasterRenderPass<DirectionalLightPass>("Temp Shading Pass", out var pass, sampler);
+                graph.AddRasterRenderPass<DirectionalLightPass>("Directional Light Pass", out var pass, sampler);
 
             pass.GBuffer_A = textures.GBuffer_A;
             pass.GBuffer_B = textures.GBuffer_B;
             pass.GBuffer_C = textures.GBuffer_C;
             pass.scene_depth = textures.scene_depth;
+            pass.BRDF_LUT = light_resources.BRDF_LUT;
             pass.shadow_mask = textures.shadow_mask;
+            pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
+
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.scene_depth);
+            builder.UseTexture(pass.BRDF_LUT);
             builder.UseTexture(pass.shadow_mask);
+            builder.UseBuffer(pass.directional_light_data_buffer);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.Write);
 
-            builder.UseTexture(light_resources.BRDF_LUT);
-            builder.UseBuffer(light_resources.directional_light_data_buffer);
-
             builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));
-        }
-
-        static Mesh CreateFullscreenMesh()
-        {
-            // Simple full-screen triangle.
-            Vector3[] positions =
-            {
-                new Vector3(-1.0f, 1.0f, 0.0f),
-                new Vector3(-1.0f, -3.0f, 0.0f),
-                new Vector3(3.0f, 1.0f, 0.0f)
-            };
-
-            int[] indices = { 0, 1, 2 };
-
-            Mesh mesh = new Mesh();
-            mesh.indexFormat = IndexFormat.UInt16;
-            mesh.vertices = positions;
-            mesh.triangles = indices;
-
-            return mesh;
         }
     }
 }

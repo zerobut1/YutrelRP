@@ -17,7 +17,7 @@ Shader "YutrelRP/ToneMapping"
 
 			HLSLPROGRAM
 			#pragma target 5.0
-			#pragma vertex DefaultPassVertex
+			#pragma vertex DefaultFullScreenPassVertex
 			#pragma fragment CopyPassFragment
 			ENDHLSL
 		}
@@ -28,7 +28,7 @@ Shader "YutrelRP/ToneMapping"
 
 			HLSLPROGRAM
 			#pragma target 5.0
-			#pragma vertex DefaultPassVertex
+			#pragma vertex DefaultFullScreenPassVertex
 			#pragma fragment ToneMappingACESFragment
 			ENDHLSL
 		}
