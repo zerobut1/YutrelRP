@@ -11,18 +11,10 @@ namespace YutrelRP
 
         private static readonly ShaderTagId shader_tag_id = new("GBuffer");
 
-        // data
-        private RendererListHandle opaque_renderer_list;
-
-        private void Render(RasterGraphContext context)
-        {
-            context.cmd.DrawRendererList(opaque_renderer_list);
-        }
-
         public static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
             RenderTargets textures)
         {
-            using var builder = render_graph.AddRasterRenderPass<BasePass>("Base Pass", out var pass, sampler);
+            using var builder = render_graph.AddRasterRenderPass<BasePass>(sampler.name, out var pass, sampler);
 
             builder.SetRenderAttachment(textures.scene_color, 0);
             builder.SetRenderAttachment(textures.GBuffer_A, 1);
@@ -41,6 +33,14 @@ namespace YutrelRP
             builder.UseRendererList(pass.opaque_renderer_list);
 
             builder.SetRenderFunc<BasePass>(static (pass, context) => pass.Render(context));
+        }
+
+        // data
+        private RendererListHandle opaque_renderer_list;
+
+        private void Render(RasterGraphContext context)
+        {
+            context.cmd.DrawRendererList(opaque_renderer_list);
         }
     }
 }

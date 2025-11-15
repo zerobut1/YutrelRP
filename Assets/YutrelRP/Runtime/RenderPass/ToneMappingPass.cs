@@ -10,19 +10,6 @@ namespace YutrelRP
 
         private static Material material;
 
-        // data
-        TextureHandle source_color;
-
-        int pass_id;
-
-        private void Render(RasterGraphContext context)
-        {
-            var cmd = context.cmd;
-
-            material.SetTexture(Shader.PropertyToID("_BlitTexture"), source_color);
-            CoreUtils.DrawFullScreen(cmd, material, null, pass_id);
-        }
-
         internal static void Record(RenderGraph render_graph, RenderTargets textures, PostProcessSettings settings)
         {
             using var builder = render_graph.AddRasterRenderPass<ToneMappingPass>(sampler.name, out var pass, sampler);
@@ -35,6 +22,20 @@ namespace YutrelRP
             builder.SetRenderAttachment(textures.final_color, 0);
 
             builder.SetRenderFunc<ToneMappingPass>(static (pass, context) => { pass.Render(context); });
+        }
+
+        // data
+        private TextureHandle source_color;
+
+        private int pass_id;
+
+        private void Render(RasterGraphContext context)
+        {
+            var cmd = context.cmd;
+
+            material.SetTexture(Shader.PropertyToID("_BlitTexture"), source_color);
+
+            CoreUtils.DrawFullScreen(cmd, material, null, pass_id);
         }
     }
 }

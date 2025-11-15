@@ -8,12 +8,28 @@ namespace YutrelRP
 {
     internal class DefaultShaderPass
     {
+#if UNITY_EDITOR
+        private static readonly ProfilingSampler sampler = new("Default Shader Pass");
+
+        private static readonly ShaderTagId[] shader_tag_ids =
+        {
+            new("Always"),
+            new("ForwardBase"),
+            new("PrepassBase"),
+            new("Vertex"),
+            new("VertexLMRGBM"),
+            new("VertexLM")
+        };
+
+        private static Material error_material;
+#endif
+
         [Conditional("UNITY_EDITOR")]
         public static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_reuslts,
             in RenderTargets textures)
         {
 #if UNITY_EDITOR
-            using var builder = render_graph.AddRasterRenderPass<DefaultShaderPass>("Default Shader Pass", out var pass,
+            using var builder = render_graph.AddRasterRenderPass<DefaultShaderPass>(sampler.name, out var pass,
                 sampler);
 
             if (error_material == null)
@@ -32,21 +48,9 @@ namespace YutrelRP
             builder.SetRenderFunc<DefaultShaderPass>(static (pass, context) => pass.Render(context));
 #endif
         }
+
 #if UNITY_EDITOR
-        private static readonly ProfilingSampler sampler = new("Default Shader Pass");
-
-        private static readonly ShaderTagId[] shader_tag_ids =
-        {
-            new("Always"),
-            new("ForwardBase"),
-            new("PrepassBase"),
-            new("Vertex"),
-            new("VertexLMRGBM"),
-            new("VertexLM")
-        };
-
-        private static Material error_material;
-
+        // data
         private RendererListHandle list;
 
         private void Render(RasterGraphContext context)

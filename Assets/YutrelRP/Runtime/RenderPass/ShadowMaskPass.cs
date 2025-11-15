@@ -8,16 +8,8 @@ namespace YutrelRP
     internal class ShadowMaskPass
     {
         private static readonly ProfilingSampler sampler = new("Shadow Mask Pass");
+
         private static Material material;
-
-        // data
-        private TextureHandle
-            directional_shadow_atlas,
-            scene_depth;
-
-        private BufferHandle
-            directional_light_data_buffer,
-            directional_shadow_vp_matrices_buffer;
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, LightResources light_resources,
             ShadowResources shadow_resources, Vector2Int attachment_size)
@@ -48,6 +40,15 @@ namespace YutrelRP
 
             builder.SetRenderFunc<ShadowMaskPass>(static (pass, context) => { pass.Render(context); });
         }
+
+        // data
+        private TextureHandle
+            directional_shadow_atlas,
+            scene_depth;
+
+        private BufferHandle
+            directional_light_data_buffer,
+            directional_shadow_vp_matrices_buffer;
 
         private void Render(RasterGraphContext context)
         {
