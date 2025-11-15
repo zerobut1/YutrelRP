@@ -3,11 +3,11 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
-TEXTURE2D(_BlitTexture);
+TEXTURE2D(_SourceColor);
 
 float4 GetSource(float2 screenUV)
 {
-    return SAMPLE_TEXTURE2D_LOD(_BlitTexture, sampler_linear_clamp, screenUV, 0);
+    return SAMPLE_TEXTURE2D_LOD(_SourceColor, sampler_linear_clamp, screenUV, 0);
 }
 
 float4 CopyPassFragment(FullScreenVaryings input) : SV_TARGET

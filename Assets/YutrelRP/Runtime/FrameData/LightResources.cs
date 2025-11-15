@@ -9,9 +9,9 @@ namespace YutrelRP
     public class LightResources : ContextItem
     {
         public static readonly int
-            brdf_lut_Id = Shader.PropertyToID("_BRDF_LUT"),
-            directional_light_count_Id = Shader.PropertyToID("_DirectionalLightCount"),
-            directional_light_data_Id = Shader.PropertyToID("_DirectionalLightData");
+            brdf_lut_ID = Shader.PropertyToID("_BRDF_LUT"),
+            directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount"),
+            directional_light_data_ID = Shader.PropertyToID("_DirectionalLightData");
 
         public const int max_directional_light_count = 1;
 

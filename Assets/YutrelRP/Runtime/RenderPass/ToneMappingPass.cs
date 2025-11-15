@@ -33,7 +33,7 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
 
-            material.SetTexture(Shader.PropertyToID("_BlitTexture"), source_color);
+            material.SetTexture(Shader.PropertyToID("_SourceColor"), source_color);
 
             CoreUtils.DrawFullScreen(cmd, material, null, pass_id);
         }

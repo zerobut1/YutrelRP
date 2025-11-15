@@ -31,7 +31,9 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
 
-            Blitter.BlitTexture(cmd, source_color, new Vector4(1, 1, 0, 0), material, 0);
+            material.SetTexture(Shader.PropertyToID("_SourceColor"), source_color);
+
+            CoreUtils.DrawFullScreen(cmd, material);
         }
     }
 }

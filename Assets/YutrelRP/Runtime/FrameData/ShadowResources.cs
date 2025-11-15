@@ -7,8 +7,8 @@ namespace YutrelRP
     public class ShadowResources : ContextItem
     {
         public static readonly int
-            directional_shadow_atlas_Id = Shader.PropertyToID("_DirectionalShadowAtlas"),
-            directional_vp_matrices_Id = Shader.PropertyToID("_DirectionalShadowVPMatrices");
+            directional_shadow_atlas_ID = Shader.PropertyToID("_DirectionalShadowAtlas"),
+            directional_vp_matrices_ID = Shader.PropertyToID("_DirectionalShadowVPMatrices");
 
         public const int max_shadowed_directional_light_count = 1;
         public const int max_cascades = 4;

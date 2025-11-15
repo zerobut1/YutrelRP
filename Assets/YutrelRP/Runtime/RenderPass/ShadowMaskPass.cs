@@ -27,6 +27,10 @@ namespace YutrelRP
             };
             textures.shadow_mask = render_graph.CreateTexture(shadow_mask_desc);
 
+            pass.directional_shadow_atlas_ID = ShadowResources.directional_shadow_atlas_ID;
+            pass.scene_depth_ID = RenderTargets.scene_depth_ID;
+            pass.directional_light_data_ID = LightResources.directional_light_data_ID;
+            pass.directional_shadow_vp_matrices_ID = ShadowResources.directional_vp_matrices_ID;
             pass.directional_shadow_atlas = shadow_resources.directional_atlas;
             pass.scene_depth = textures.scene_depth;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
@@ -42,6 +46,12 @@ namespace YutrelRP
         }
 
         // data
+        private int
+            directional_shadow_atlas_ID,
+            scene_depth_ID,
+            directional_light_data_ID,
+            directional_shadow_vp_matrices_ID;
+
         private TextureHandle
             directional_shadow_atlas,
             scene_depth;
@@ -54,11 +64,10 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
 
-            material.SetTexture(Shader.PropertyToID("_DirectionalShadowAtlas"), directional_shadow_atlas);
-            material.SetTexture(Shader.PropertyToID("_SceneDepth"), scene_depth);
-            material.SetBuffer(Shader.PropertyToID("_DirectionalLightData"), directional_light_data_buffer);
-            material.SetBuffer(Shader.PropertyToID("_DirectionalShadowVPMatrices"),
-                directional_shadow_vp_matrices_buffer);
+            material.SetTexture(directional_shadow_atlas_ID, directional_shadow_atlas);
+            material.SetTexture(scene_depth_ID, scene_depth);
+            material.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
+            material.SetBuffer(directional_shadow_vp_matrices_ID, directional_shadow_vp_matrices_buffer);
 
             CoreUtils.DrawFullScreen(cmd, material);
         }

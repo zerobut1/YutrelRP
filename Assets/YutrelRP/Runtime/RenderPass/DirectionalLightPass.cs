@@ -18,6 +18,13 @@ namespace YutrelRP
             using var builder =
                 graph.AddRasterRenderPass<DirectionalLightPass>(sampler.name, out var pass, sampler);
 
+            pass.GBuffer_A_ID = RenderTargets.GBuffer_A_ID;
+            pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
+            pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
+            pass.scene_depth_ID = RenderTargets.scene_depth_ID;
+            pass.BRDF_LUT_ID = LightResources.brdf_lut_ID;
+            pass.shadow_mask_ID = RenderTargets.shadow_mask_ID;
+            pass.directional_light_data_ID = LightResources.directional_light_data_ID;
             pass.GBuffer_A = textures.GBuffer_A;
             pass.GBuffer_B = textures.GBuffer_B;
             pass.GBuffer_C = textures.GBuffer_C;
@@ -39,6 +46,15 @@ namespace YutrelRP
         }
 
         // data
+        private int
+            GBuffer_A_ID,
+            GBuffer_B_ID,
+            GBuffer_C_ID,
+            scene_depth_ID,
+            BRDF_LUT_ID,
+            shadow_mask_ID,
+            directional_light_data_ID;
+
         private TextureHandle
             GBuffer_A,
             GBuffer_B,
@@ -53,13 +69,13 @@ namespace YutrelRP
         private void Render(RasterGraphContext context)
         {
             var cmd = context.cmd;
-            material.SetTexture(Shader.PropertyToID("_GBuffer_A"), GBuffer_A);
-            material.SetTexture(Shader.PropertyToID("_GBuffer_B"), GBuffer_B);
-            material.SetTexture(Shader.PropertyToID("_GBuffer_C"), GBuffer_C);
-            material.SetTexture(Shader.PropertyToID("_SceneDepth"), scene_depth);
-            material.SetTexture(Shader.PropertyToID("_ShadowMask"), shadow_mask);
-            material.SetBuffer(Shader.PropertyToID("_DirectionalLightData"),
-                directional_light_data_buffer);
+            material.SetTexture(GBuffer_A_ID, GBuffer_A);
+            material.SetTexture(GBuffer_B_ID, GBuffer_B);
+            material.SetTexture(GBuffer_C_ID, GBuffer_C);
+            material.SetTexture(scene_depth_ID, scene_depth);
+            material.SetTexture(BRDF_LUT_ID, BRDF_LUT);
+            material.SetTexture(shadow_mask_ID, shadow_mask);
+            material.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
 
             CoreUtils.DrawFullScreen(cmd, material);
         }

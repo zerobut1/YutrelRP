@@ -17,9 +17,6 @@ namespace YutrelRP
             // -------------- Light --------------
             light_resources.Setup(render_graph, builder, culling_results, settings.BRDF_LUT, ref shadow_resources);
 
-            pass.directional_light_count_Id = LightResources.directional_light_count_Id;
-            pass.directional_light_data_Id = LightResources.directional_light_data_Id;
-            pass.brdf_lut_Id = LightResources.brdf_lut_Id;
             pass.directional_light_count = light_resources.directional_light_count;
             pass.directional_light_data = light_resources.directional_light_data;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
@@ -31,7 +28,6 @@ namespace YutrelRP
             var render_info = shadow_resources.directional_render_info[0];
 
             pass.shadow_directional_light_count = shadow_resources.shadowed_directional_light_count;
-            pass.shadow_directional_vp_matrices_Id = ShadowResources.directional_vp_matrices_Id;
             pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
             pass.shadow_directional_vp_matrices = new Matrix4x4[shadow_settings.directional.cascade_count];
             pass.shadow_directional_vp_matrices[0] = ConvertToAtlasMatrix(render_info.projection * render_info.view);
@@ -43,11 +39,6 @@ namespace YutrelRP
 
         // Data
         // ------------- Light -------------
-        private int
-            directional_light_count_Id,
-            directional_light_data_Id,
-            brdf_lut_Id;
-
         private int directional_light_count;
 
         private LightResources.DirectionalLightData[] directional_light_data;
@@ -57,8 +48,6 @@ namespace YutrelRP
         private TextureHandle BRDF_LUT;
 
         // ------------ Shadow -------------
-        private int shadow_directional_vp_matrices_Id;
-
         private int shadow_directional_light_count;
 
         private Matrix4x4[] shadow_directional_vp_matrices;
