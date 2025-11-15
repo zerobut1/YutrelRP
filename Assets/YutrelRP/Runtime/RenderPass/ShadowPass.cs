@@ -23,7 +23,8 @@ namespace YutrelRP
 
             pass.render_info = shadow_resources.directional_render_info[0];
 
-            builder.SetRenderAttachmentDepth(shadow_resources.directional_atlas);
+            builder.SetRenderAttachmentDepth(shadow_resources.directional_atlas, AccessFlags.Write, 0, 0);
+            
             builder.UseRendererList(pass.render_info.renderer_list);
 
             builder.SetRenderFunc<ShadowPass>(static (pass, context) => pass.Render(context));

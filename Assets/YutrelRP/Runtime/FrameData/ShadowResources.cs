@@ -11,6 +11,7 @@ namespace YutrelRP
             directional_vp_matrices_Id = Shader.PropertyToID("_DirectionalShadowVPMatrices");
 
         public const int max_shadowed_directional_light_count = 1;
+        public const int max_cascades = 4;
 
         public struct ShadowedDirectionalLight
         {
@@ -70,6 +71,8 @@ namespace YutrelRP
             // shadow atlas
             var desc = new TextureDesc(directional_atlas_tile_size, directional_atlas_tile_size)
             {
+                dimension = TextureDimension.Tex2DArray,
+                slices = settings.directional.cascade_count,
                 depthBufferBits = DepthBits.Depth32,
                 isShadowMap = true,
                 name = "Directional Shadow Atlas",

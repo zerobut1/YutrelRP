@@ -48,7 +48,7 @@ namespace YutrelRP
             cmd.SetGlobalTexture(brdf_lut_Id, BRDF_LUT);
 
             // Shadow
-            cmd.SetGlobalTexture(shadow_directional_atlas_Id, shadow_directional_atlas);
+            // cmd.SetGlobalTexture(shadow_directional_atlas_Id, shadow_directional_atlas);
             cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,
                 shadow_directional_light_count);
             cmd.SetGlobalBuffer(shadow_directional_vp_matrices_Id, shadow_directional_vp_matrices_buffer);
@@ -58,7 +58,6 @@ namespace YutrelRP
             ref LightResources light_resources, ref ShadowResources shadow_resources)
         {
             using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
-
 
             // -------------- Light --------------
             light_resources.Setup(render_graph, builder, culling_results, settings.BRDF_LUT, ref shadow_resources);
@@ -73,6 +72,8 @@ namespace YutrelRP
 
             // -------------- Shadow --------------
             shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
+
+            var shadow_settings = settings.shadowSettings;
             var render_info = shadow_resources.directional_render_info[0];
 
             pass.shadow_directional_atlas_Id = ShadowResources.directional_shadow_atlas_Id;
@@ -80,7 +81,7 @@ namespace YutrelRP
             pass.shadow_directional_atlas = shadow_resources.directional_atlas;
             pass.shadow_directional_vp_matrices_Id = ShadowResources.directional_vp_matrices_Id;
             pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
-            pass.shadow_directional_vp_matrices = new Matrix4x4[1];
+            pass.shadow_directional_vp_matrices = new Matrix4x4[shadow_settings.directional.cascade_count];
             pass.shadow_directional_vp_matrices[0] = ConvertToAtlasMatrix(render_info.projection * render_info.view);
 
             // ------------------------------------

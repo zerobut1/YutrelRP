@@ -33,7 +33,7 @@ Varyings ShadowMaskPassVertex(uint vertexID : SV_VertexID)
 
 float SampleDirectioanalShadowAtlas(float3 shadow_uv)
 {
-    return SAMPLE_TEXTURE2D_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, shadow_uv);
+    return SAMPLE_TEXTURE2D_ARRAY_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, shadow_uv, 0);
 }
 
 float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, float3 position_WS)

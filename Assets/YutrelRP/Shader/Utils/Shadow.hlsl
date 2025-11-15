@@ -9,7 +9,7 @@ struct DirectionalLightShadowData
     float3 _padding;
 };
 
-TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
+TEXTURE2D_ARRAY_SHADOW(_DirectionalShadowAtlas);
 #define SHADOW_SAMPLER sampler_DirectionalShadowAtlas
 SAMPLER_CMP(SHADOW_SAMPLER);
 

@@ -22,11 +22,23 @@ namespace YutrelRP
         public struct Directional
         {
             public MapSize atlas_size;
+
+            [Range(1, 4)]
+            public int cascade_count;
+
+            [Range(0.0f, 1.0f)]
+            public float cascade_ratio_1, cascade_ratio_2, cascade_ratio_3;
+
+            public readonly Vector3 CascadeRatios => new(cascade_ratio_1, cascade_ratio_2, cascade_ratio_3);
         }
 
         public Directional directional = new Directional
         {
             atlas_size = MapSize._2048,
+            cascade_count = 4,
+            cascade_ratio_1 = 0.1f,
+            cascade_ratio_2 = 0.25f,
+            cascade_ratio_3 = 0.5f
         };
     }
 }

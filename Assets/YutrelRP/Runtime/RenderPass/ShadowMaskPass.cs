@@ -45,7 +45,7 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
 
-            // material.SetTexture(Shader.PropertyToID("_DirectionalShadowAtlas"), directional_shadow_atlas);
+            material.SetTexture(Shader.PropertyToID("_DirectionalShadowAtlas"), directional_shadow_atlas);
             material.SetTexture(Shader.PropertyToID("_SceneDepth"), scene_depth);
 
             CoreUtils.DrawFullScreen(cmd, material);
