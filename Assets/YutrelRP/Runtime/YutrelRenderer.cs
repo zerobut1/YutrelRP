@@ -46,7 +46,7 @@ namespace YutrelRP
                 SetupLightPass.Record(render_graph, culling_results, settings, ref light_resources,
                     ref shadow_reources);
 
-                ShadowPass.Record(render_graph, shadow_reources);
+                ShadowPass.Record(render_graph, shadow_reources, settings.shadowSettings);
 
                 SetupPass.Record(render_graph, camera, ref textures,
                     new Vector2Int(camera.pixelWidth, camera.pixelHeight));

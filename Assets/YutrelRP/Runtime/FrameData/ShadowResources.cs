@@ -41,7 +41,7 @@ namespace YutrelRP
             shadowed_directional_light_count = 0;
             shadowed_directional_Lights = new ShadowedDirectionalLight[max_shadowed_directional_light_count];
             directional_atlas = TextureHandle.nullHandle;
-            directional_render_info = new RenderInfo[max_shadowed_directional_light_count];
+            directional_render_info = new RenderInfo[max_shadowed_directional_light_count * max_cascades];
         }
 
         public Vector4 ReserveDirectionalShadows(Light light, int visible_light_index, CullingResults culling_results)
@@ -73,7 +73,7 @@ namespace YutrelRP
             {
                 dimension = TextureDimension.Tex2DArray,
                 slices = settings.directional.cascade_count,
-                depthBufferBits = DepthBits.Depth32,
+                depthBufferBits = DepthBits.Depth16,
                 isShadowMap = true,
                 name = "Directional Shadow Atlas",
             };
@@ -96,23 +96,23 @@ namespace YutrelRP
             builder.UseBuffer(directional_vp_matrices_buffer, AccessFlags.WriteAll);
 
             // render lists
-            BuildRendererList(render_graph, builder, culling_results);
+            BuildRendererList(render_graph, builder, culling_results, settings);
         }
 
         private void BuildRendererList(RenderGraph render_graph, IComputeRenderGraphBuilder builder,
-            CullingResults culling_results)
+            CullingResults culling_results, ShadowSettings settings)
         {
             if (shadowed_directional_light_count > 0)
             {
                 for (int i = 0; i < shadowed_directional_light_count; i++)
                 {
-                    BuildDirectionalRendererList(i, render_graph, builder, culling_results);
+                    BuildDirectionalRendererList(i, render_graph, builder, culling_results, settings);
                 }
             }
         }
 
         private void BuildDirectionalRendererList(int index, RenderGraph render_graph,
-            IComputeRenderGraphBuilder builder, CullingResults culling_results)
+            IComputeRenderGraphBuilder builder, CullingResults culling_results, ShadowSettings settings)
         {
             ShadowedDirectionalLight light = shadowed_directional_Lights[index];
             var shadow_settings = new ShadowDrawingSettings(culling_results, light.visible_light_index)
@@ -120,19 +120,24 @@ namespace YutrelRP
                 useRenderingLayerMaskTest = true,
             };
 
-            ref var render_info = ref directional_render_info[index];
-            culling_results.ComputeDirectionalShadowMatricesAndCullingPrimitives(
-                light.visible_light_index,
-                0,
-                1,
-                Vector3.zero,
-                directional_atlas_tile_size,
-                0.0f,
-                out render_info.view,
-                out render_info.projection,
-                out var split_data
-            );
-            render_info.renderer_list = render_graph.CreateShadowRendererList(ref shadow_settings);
+            var cascade_count = settings.directional.cascade_count;
+
+            for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
+            {
+                ref var render_info = ref directional_render_info[index * cascade_count + cascade_index];
+                culling_results.ComputeDirectionalShadowMatricesAndCullingPrimitives(
+                    light.visible_light_index,
+                    0,
+                    1,
+                    Vector3.zero,
+                    directional_atlas_tile_size,
+                    0.0f,
+                    out render_info.view,
+                    out render_info.projection,
+                    out var split_data
+                );
+                render_info.renderer_list = render_graph.CreateShadowRendererList(ref shadow_settings);
+            }
         }
     };
 }
