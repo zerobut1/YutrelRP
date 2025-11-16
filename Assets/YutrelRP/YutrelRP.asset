@@ -16,9 +16,9 @@ MonoBehaviour:
     useSRPBatcher: 1
     BRDF_LUT: {fileID: 2800000, guid: d0036d62c68affa4f8af6d4bd69b882c, type: 3}
     shadowSettings:
-      max_distance: 10
+      max_distance: 100
       directional:
-        atlas_size: 2048
+        atlas_tile_size: 2048
         cascade_count: 4
         cascade_ratio_1: 0.1
         cascade_ratio_2: 0.25

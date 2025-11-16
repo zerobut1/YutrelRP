@@ -66,13 +66,12 @@ namespace YutrelRP
         public void Setup(RenderGraph render_graph, IComputeRenderGraphBuilder builder, CullingResults culling_results,
             ShadowSettings settings)
         {
-            directional_atlas_tile_size = (int)settings.directional.atlas_size;
+            directional_atlas_tile_size = (int)settings.directional.atlas_tile_size;
 
             // shadow atlas
-            var desc = new TextureDesc(directional_atlas_tile_size, directional_atlas_tile_size)
+            var desc = new TextureDesc(directional_atlas_tile_size,
+                directional_atlas_tile_size * settings.directional.cascade_count)
             {
-                dimension = TextureDimension.Tex2DArray,
-                slices = settings.directional.cascade_count,
                 depthBufferBits = DepthBits.Depth16,
                 isShadowMap = true,
                 name = "Directional Shadow Atlas",
@@ -89,7 +88,7 @@ namespace YutrelRP
 
             // shadow vp matrices
             directional_vp_matrices_buffer = render_graph.CreateBuffer(
-                new BufferDesc(max_shadowed_directional_light_count, 16 * 4)
+                new BufferDesc(settings.directional.cascade_count, 16 * 4)
                 {
                     name = "Directional Shadow VP Matrices"
                 });
@@ -121,15 +120,16 @@ namespace YutrelRP
             };
 
             var cascade_count = settings.directional.cascade_count;
+            Vector3 cascade_ratios = settings.directional.cascade_ratios;
 
             for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
             {
                 ref var render_info = ref directional_render_info[index * cascade_count + cascade_index];
                 culling_results.ComputeDirectionalShadowMatricesAndCullingPrimitives(
                     light.visible_light_index,
-                    0,
-                    1,
-                    Vector3.zero,
+                    cascade_index,
+                    cascade_count,
+                    cascade_ratios,
                     directional_atlas_tile_size,
                     0.0f,
                     out render_info.view,

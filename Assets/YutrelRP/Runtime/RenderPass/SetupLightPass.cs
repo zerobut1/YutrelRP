@@ -25,12 +25,22 @@ namespace YutrelRP
             shadow_resources.Setup(render_graph, builder, culling_results, settings.shadowSettings);
 
             var shadow_settings = settings.shadowSettings;
-            var render_info = shadow_resources.directional_render_info[0];
 
             pass.shadow_directional_light_count = shadow_resources.shadowed_directional_light_count;
+            pass.shadow_cascade_count = shadow_settings.directional.cascade_count;
             pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
-            pass.shadow_directional_vp_matrices = new Matrix4x4[shadow_settings.directional.cascade_count];
-            pass.shadow_directional_vp_matrices[0] = ConvertToAtlasMatrix(render_info.projection * render_info.view);
+            pass.shadow_directional_vp_matrices =
+                new Matrix4x4[shadow_settings.directional.cascade_count];
+
+            for (int cascade_index = 0; cascade_index < pass.shadow_cascade_count; cascade_index++)
+            {
+                var render_info = shadow_resources.directional_render_info[0];
+
+                pass.shadow_directional_vp_matrices[cascade_index] =
+                    ConvertToAtlasMatrix(render_info.projection * render_info.view,
+                        new Vector2(0.0f, cascade_index),
+                        new Vector2(1.0f, 1.0f / pass.shadow_cascade_count));
+            }
 
             // ------------------------------------
 
@@ -49,6 +59,7 @@ namespace YutrelRP
 
         // ------------ Shadow -------------
         private int shadow_directional_light_count;
+        private int shadow_cascade_count;
 
         private Matrix4x4[] shadow_directional_vp_matrices;
 
@@ -63,33 +74,33 @@ namespace YutrelRP
 
             // Shadow
             cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,
-                shadow_directional_light_count);
+                shadow_cascade_count);
         }
 
-        private static Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 mat)
+        private static Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 m, Vector2 offset, Vector2 scale)
         {
             if (SystemInfo.usesReversedZBuffer)
             {
-                mat.m20 = -mat.m20;
-                mat.m21 = -mat.m21;
-                mat.m22 = -mat.m22;
-                mat.m23 = -mat.m23;
+                m.m20 = -m.m20;
+                m.m21 = -m.m21;
+                m.m22 = -m.m22;
+                m.m23 = -m.m23;
             }
 
-            mat.m00 = 0.5f * (mat.m00 + mat.m30);
-            mat.m01 = 0.5f * (mat.m01 + mat.m31);
-            mat.m02 = 0.5f * (mat.m02 + mat.m32);
-            mat.m03 = 0.5f * (mat.m03 + mat.m33);
-            mat.m10 = 0.5f * (mat.m10 + mat.m30);
-            mat.m11 = 0.5f * (mat.m11 + mat.m31);
-            mat.m12 = 0.5f * (mat.m12 + mat.m32);
-            mat.m13 = 0.5f * (mat.m13 + mat.m33);
-            mat.m20 = 0.5f * (mat.m20 + mat.m30);
-            mat.m21 = 0.5f * (mat.m21 + mat.m31);
-            mat.m22 = 0.5f * (mat.m22 + mat.m32);
-            mat.m23 = 0.5f * (mat.m23 + mat.m33);
+            m.m00 = (0.5f * (m.m00 + m.m30) + offset.x * m.m30) * scale.x;
+            m.m01 = (0.5f * (m.m01 + m.m31) + offset.x * m.m31) * scale.x;
+            m.m02 = (0.5f * (m.m02 + m.m32) + offset.x * m.m32) * scale.x;
+            m.m03 = (0.5f * (m.m03 + m.m33) + offset.x * m.m33) * scale.x;
+            m.m10 = (0.5f * (m.m10 + m.m30) + offset.y * m.m30) * scale.y;
+            m.m11 = (0.5f * (m.m11 + m.m31) + offset.y * m.m31) * scale.y;
+            m.m12 = (0.5f * (m.m12 + m.m32) + offset.y * m.m32) * scale.y;
+            m.m13 = (0.5f * (m.m13 + m.m33) + offset.y * m.m33) * scale.y;
+            m.m20 = 0.5f * (m.m20 + m.m30);
+            m.m21 = 0.5f * (m.m21 + m.m31);
+            m.m22 = 0.5f * (m.m22 + m.m32);
+            m.m23 = 0.5f * (m.m23 + m.m33);
 
-            return mat;
+            return m;
         }
     }
 }
