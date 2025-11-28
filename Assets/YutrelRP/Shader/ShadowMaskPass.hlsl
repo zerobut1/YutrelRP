@@ -8,13 +8,15 @@
 struct ShadowData
 {
     int cascade_index;
+    float strength;
 };
 
-ShadowData GetShadowData(float3 position_WS)
+ShadowData GetShadowData(float3 position_WS, float depth)
 {
     ShadowData out_data;
-
     out_data.cascade_index = -1;
+    out_data.strength = depth < _DirectionalShadowDistance ? 1.0f : 0.0f;
+
     for (int cascade_index = 0; cascade_index < _DirectionalShadowCascadeCount; cascade_index++)
     {
         float4 sphere = _DirectionalShadowCascadeDatas[cascade_index].culling_sphere;
@@ -25,6 +27,7 @@ ShadowData GetShadowData(float3 position_WS)
             break;
         }
     }
+    out_data.strength = out_data.cascade_index == -1 ? 0.0f : out_data.strength;
 
     return out_data;
 }
@@ -38,7 +41,8 @@ float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, ShadowData
                         float3 position_WS)
 {
     int cascade_index = fragment_shadow_data.cascade_index;
-    if (cascade_index == -1)
+    float shadow_strength = fragment_shadow_data.strength;
+    if (shadow_strength < 0.001f)
     {
         return 1.0f;
     }
@@ -68,7 +72,7 @@ float4 ShadowMaskPassFragment(FullScreenVaryings input) : SV_TARGET
     float3 position_WS = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
 
     float directional_shadow = GetDirectionalShadowAttenuation(GetDirectionalLightShadowData(0),
-                                                               GetShadowData(position_WS),
+                                                               GetShadowData(position_WS, scene_depth),
                                                                position_WS);
 
     return float4(directional_shadow, 1.0, 1.0, 1.0);
