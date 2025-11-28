@@ -7,8 +7,10 @@ namespace YutrelRP
     public class ShadowResources : ContextItem
     {
         public static readonly int
+            directional_cascade_count_ID = Shader.PropertyToID("_DirectionalShadowCascadeCount"),
             directional_shadow_atlas_ID = Shader.PropertyToID("_DirectionalShadowAtlas"),
-            directional_vp_matrices_ID = Shader.PropertyToID("_DirectionalShadowVPMatrices");
+            directional_vp_matrices_ID = Shader.PropertyToID("_DirectionalShadowVPMatrices"),
+            directional_cascade_data_ID = Shader.PropertyToID("_DirectionalShadowCascadeDatas");
 
         public const int max_shadowed_directional_light_count = 1;
         public const int max_cascades = 4;
@@ -36,12 +38,31 @@ namespace YutrelRP
 
         public BufferHandle directional_vp_matrices_buffer;
 
+        public struct DirectionalShadowCascadeData
+        {
+            public const int stride = 4 * 4 * 1;
+
+            public Vector4 culling_sphere;
+
+            public DirectionalShadowCascadeData(
+                Vector4 culling_sphere)
+            {
+                this.culling_sphere = culling_sphere;
+            }
+        }
+
+        public DirectionalShadowCascadeData[] directional_cascade_data;
+
+        public BufferHandle directional_cascade_data_buffer;
+
         public override void Reset()
         {
             shadowed_directional_light_count = 0;
             shadowed_directional_Lights = new ShadowedDirectionalLight[max_shadowed_directional_light_count];
             directional_atlas = TextureHandle.nullHandle;
             directional_render_info = new RenderInfo[max_shadowed_directional_light_count * max_cascades];
+            directional_cascade_data =
+                new DirectionalShadowCascadeData[max_shadowed_directional_light_count * max_cascades];
         }
 
         public Vector4 ReserveDirectionalShadows(Light light, int visible_light_index, CullingResults culling_results)
@@ -94,6 +115,14 @@ namespace YutrelRP
                 });
             builder.UseBuffer(directional_vp_matrices_buffer, AccessFlags.WriteAll);
 
+            // shadow cascade data
+            directional_cascade_data_buffer = render_graph.CreateBuffer(
+                new BufferDesc(settings.directional.cascade_count, DirectionalShadowCascadeData.stride)
+                {
+                    name = "Directional Shadow Cascade Data"
+                });
+            builder.UseBuffer(directional_cascade_data_buffer, AccessFlags.WriteAll);
+
             // render lists
             BuildRendererList(render_graph, builder, culling_results, settings);
         }
@@ -136,6 +165,12 @@ namespace YutrelRP
                     out render_info.projection,
                     out var split_data
                 );
+                if (index == 0)
+                {
+                    directional_cascade_data[cascade_index] =
+                        new DirectionalShadowCascadeData(split_data.cullingSphere);
+                }
+
                 render_info.renderer_list = render_graph.CreateShadowRendererList(ref shadow_settings);
             }
         }

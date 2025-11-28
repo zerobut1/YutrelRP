@@ -26,21 +26,22 @@ namespace YutrelRP
 
             var shadow_settings = settings.shadowSettings;
 
-            pass.shadow_directional_light_count = shadow_resources.shadowed_directional_light_count;
             pass.shadow_cascade_count = shadow_settings.directional.cascade_count;
             pass.shadow_directional_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
             pass.shadow_directional_vp_matrices =
                 new Matrix4x4[shadow_settings.directional.cascade_count];
-
             for (int cascade_index = 0; cascade_index < pass.shadow_cascade_count; cascade_index++)
             {
-                var render_info = shadow_resources.directional_render_info[0];
+                var render_info = shadow_resources.directional_render_info[cascade_index];
 
                 pass.shadow_directional_vp_matrices[cascade_index] =
                     ConvertToAtlasMatrix(render_info.projection * render_info.view,
                         new Vector2(0.0f, cascade_index),
                         new Vector2(1.0f, 1.0f / pass.shadow_cascade_count));
             }
+
+            pass.shadow_directional_cascade_data_buffer = shadow_resources.directional_cascade_data_buffer;
+            pass.shadow_directional_cascade_data = shadow_resources.directional_cascade_data;
 
             // ------------------------------------
 
@@ -58,12 +59,13 @@ namespace YutrelRP
         private TextureHandle BRDF_LUT;
 
         // ------------ Shadow -------------
-        private int shadow_directional_light_count;
         private int shadow_cascade_count;
 
         private Matrix4x4[] shadow_directional_vp_matrices;
+        private ShadowResources.DirectionalShadowCascadeData[] shadow_directional_cascade_data;
 
         private BufferHandle shadow_directional_vp_matrices_buffer;
+        private BufferHandle shadow_directional_cascade_data_buffer;
 
         private void Render(ComputeGraphContext context)
         {
@@ -74,6 +76,8 @@ namespace YutrelRP
 
             // Shadow
             cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,
+                shadow_cascade_count);
+            cmd.SetBufferData(shadow_directional_cascade_data_buffer, shadow_directional_cascade_data, 0, 0,
                 shadow_cascade_count);
         }
 

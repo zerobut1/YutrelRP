@@ -10,9 +10,20 @@ struct DirectionalLightShadowData
 };
 
 TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
-#define SHADOW_SAMPLER sampler_DirectionalShadowAtlas
+#define SHADOW_SAMPLER sampler_linear_clamp_compare
 SAMPLER_CMP(SHADOW_SAMPLER);
 
+CBUFFER_START(_YutrelShadows)
+    int _DirectionalShadowCascadeCount;
+CBUFFER_END
+
 StructuredBuffer<float4x4> _DirectionalShadowVPMatrices;
+
+struct DirectionalShadowCascadeData
+{
+    float4 culling_sphere;
+};
+
+StructuredBuffer<DirectionalShadowCascadeData> _DirectionalShadowCascadeDatas;
 
 #endif
