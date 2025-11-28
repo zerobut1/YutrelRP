@@ -44,6 +44,8 @@ namespace YutrelRP
 
             cmd.ClearRenderTarget(true, false, Color.clear);
 
+            cmd.SetGlobalDepthBias(0.0f, 2.0f);
+
             for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
             {
                 var render_info = render_infos[cascade_index];
@@ -52,6 +54,8 @@ namespace YutrelRP
                 cmd.SetViewProjectionMatrices(render_info.view, render_info.projection);
                 cmd.DrawRendererList(render_info.renderer_list);
             }
+
+            cmd.SetGlobalDepthBias(0.0f, 0.0f);
         }
     }
 }
