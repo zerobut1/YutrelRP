@@ -15,7 +15,7 @@ SAMPLER_CMP(SHADOW_SAMPLER);
 
 CBUFFER_START(_YutrelShadows)
     int _DirectionalShadowCascadeCount;
-    float _DirectionalShadowDistance;
+    float4 _DirectionalShadowDistanceFade;
 CBUFFER_END
 
 StructuredBuffer<float4x4> _DirectionalShadowVPMatrices;

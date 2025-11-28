@@ -8,7 +8,7 @@ namespace YutrelRP
     {
         public static readonly int
             directional_cascade_count_ID = Shader.PropertyToID("_DirectionalShadowCascadeCount"),
-            directional_distance_ID = Shader.PropertyToID("_DirectionalShadowDistance"),
+            directional_distance_fade_ID = Shader.PropertyToID("_DirectionalShadowDistanceFade"),
             directional_shadow_atlas_ID = Shader.PropertyToID("_DirectionalShadowAtlas"),
             directional_vp_matrices_ID = Shader.PropertyToID("_DirectionalShadowVPMatrices"),
             directional_cascade_data_ID = Shader.PropertyToID("_DirectionalShadowCascadeDatas");

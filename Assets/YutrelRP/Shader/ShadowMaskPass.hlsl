@@ -11,11 +11,16 @@ struct ShadowData
     float strength;
 };
 
+float FadedShadowStrength(float distance, float scale, float fade)
+{
+    return saturate((1.0f - distance * scale) * fade);
+}
+
 ShadowData GetShadowData(float3 position_WS, float depth)
 {
     ShadowData out_data;
     out_data.cascade_index = -1;
-    out_data.strength = depth < _DirectionalShadowDistance ? 1.0f : 0.0f;
+    out_data.strength = FadedShadowStrength(depth, _DirectionalShadowDistanceFade.x, _DirectionalShadowDistanceFade.y);
 
     for (int cascade_index = 0; cascade_index < _DirectionalShadowCascadeCount; cascade_index++)
     {
@@ -34,32 +39,36 @@ ShadowData GetShadowData(float3 position_WS, float depth)
 
 float SampleDirectioanalShadowAtlas(float3 shadow_uv)
 {
-    return SAMPLE_TEXTURE2D_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, shadow_uv);
+    return 1.0f - SAMPLE_TEXTURE2D_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, shadow_uv);
 }
 
 float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, ShadowData fragment_shadow_data,
                         float3 position_WS)
 {
+    float shadow = 0.0f;
+
     int cascade_index = fragment_shadow_data.cascade_index;
     float shadow_strength = fragment_shadow_data.strength;
     if (shadow_strength < 0.001f)
     {
-        return 1.0f;
+        return shadow;
     }
+
     float3 shadow_uv = mul(_DirectionalShadowVPMatrices[cascade_index], float4(position_WS, 1.0));
-    float shadow = 1.0f;
     if (shadow_uv.z > 0 && shadow_uv.z < 1)
     {
         shadow = SampleDirectioanalShadowAtlas(shadow_uv);
     }
-    
+
+    shadow *= shadow_strength;
+
     return shadow;
 }
 
 float GetDirectionalShadowAttenuation(DirectionalLightShadowData light_shadow_data, ShadowData fragment_shadow_data,
                                       float3 position_WS)
 {
-    float shadow = 1.0;
+    float shadow = 0.0;
 
     shadow = GetCascadedShadow(light_shadow_data, fragment_shadow_data, position_WS);
 
@@ -70,12 +79,13 @@ float4 ShadowMaskPassFragment(FullScreenVaryings input) : SV_TARGET
 {
     float scene_depth = tex2D(_SceneDepth, input.uv).r;
     float3 position_WS = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
+    float linear_depth = LinearEyeDepth(position_WS,UNITY_MATRIX_V);
 
     float directional_shadow = GetDirectionalShadowAttenuation(GetDirectionalLightShadowData(0),
-                                                               GetShadowData(position_WS, scene_depth),
+                                                               GetShadowData(position_WS, linear_depth),
                                                                position_WS);
 
-    return float4(directional_shadow, 1.0, 1.0, 1.0);
+    return float4(1.0f - directional_shadow, 1.0, 1.0, 1.0);
 }
 
 #endif

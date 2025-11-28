@@ -28,7 +28,7 @@ namespace YutrelRP
             textures.shadow_mask = render_graph.CreateTexture(shadow_mask_desc);
 
             pass.directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
-            pass.directional_shadow_distance_ID = ShadowResources.directional_distance_ID;
+            pass.directional_shadow_distance_fade_ID = ShadowResources.directional_distance_fade_ID;
             pass.directional_shadow_atlas_ID = ShadowResources.directional_shadow_atlas_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
             pass.directional_light_data_ID = LightResources.directional_light_data_ID;
@@ -36,7 +36,8 @@ namespace YutrelRP
             pass.directional_shadow_cascade_data_ID = ShadowResources.directional_cascade_data_ID;
 
             pass.directional_shadow_cascade_count = shadow_settings.directional.cascade_count;
-            pass.directional_shadow_distance = shadow_settings.max_distance;
+            pass.directional_shadow_distance_fade = new Vector4(1.0f / shadow_settings.max_distance,
+                1.0f / shadow_settings.distance_fade);
             pass.directional_shadow_atlas = shadow_resources.directional_atlas;
             pass.scene_depth = textures.scene_depth;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
@@ -56,7 +57,7 @@ namespace YutrelRP
         // data
         private int
             directional_shadow_cascade_count_ID,
-            directional_shadow_distance_ID,
+            directional_shadow_distance_fade_ID,
             directional_shadow_atlas_ID,
             scene_depth_ID,
             directional_light_data_ID,
@@ -64,7 +65,7 @@ namespace YutrelRP
             directional_shadow_cascade_data_ID;
 
         private int directional_shadow_cascade_count;
-        private float directional_shadow_distance;
+        private Vector4 directional_shadow_distance_fade;
 
         private TextureHandle
             directional_shadow_atlas,
@@ -80,7 +81,7 @@ namespace YutrelRP
             var cmd = context.cmd;
 
             material.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);
-            material.SetFloat(directional_shadow_distance_ID, directional_shadow_distance);
+            material.SetVector(directional_shadow_distance_fade_ID, directional_shadow_distance_fade);
             material.SetTexture(directional_shadow_atlas_ID, directional_shadow_atlas);
             material.SetTexture(scene_depth_ID, scene_depth);
             material.SetBuffer(directional_light_data_ID, directional_light_data_buffer);

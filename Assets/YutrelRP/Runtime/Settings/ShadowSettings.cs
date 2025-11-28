@@ -5,8 +5,11 @@ namespace YutrelRP
     [System.Serializable]
     public class ShadowSettings
     {
-        [Min(0f)]
+        [Min(0.001f)]
         public float max_distance = 100.0f;
+
+        [Range(0.001f, 1.0f)]
+        public float distance_fade = 0.1f;
 
         public enum MapSize
         {
