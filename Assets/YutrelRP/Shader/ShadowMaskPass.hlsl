@@ -28,6 +28,11 @@ ShadowData GetShadowData(float3 position_WS, float depth)
         float dist = distance(position_WS, sphere.xyz);
         if (dist < sphere.w)
         {
+            if (cascade_index == _DirectionalShadowCascadeCount - 1)
+            {
+                out_data.strength *= FadedShadowStrength(dist, 1.0f / sphere.w, _DirectionalShadowDistanceFade.z);
+            }
+
             out_data.cascade_index = cascade_index;
             break;
         }

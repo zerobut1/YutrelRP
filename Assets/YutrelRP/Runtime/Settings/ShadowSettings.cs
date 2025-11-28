@@ -32,6 +32,9 @@ namespace YutrelRP
             [Range(0.0f, 1.0f)]
             public float cascade_ratio_1, cascade_ratio_2, cascade_ratio_3;
 
+            [Range(0.001f, 1.0f)]
+            public float cascade_fade;
+
             public readonly Vector3 cascade_ratios => new(cascade_ratio_1, cascade_ratio_2, cascade_ratio_3);
         }
 
@@ -41,7 +44,8 @@ namespace YutrelRP
             cascade_count = 4,
             cascade_ratio_1 = 0.1f,
             cascade_ratio_2 = 0.25f,
-            cascade_ratio_3 = 0.5f
+            cascade_ratio_3 = 0.5f,
+            cascade_fade = 0.1f,
         };
     }
 }

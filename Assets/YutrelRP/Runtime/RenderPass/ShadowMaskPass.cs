@@ -36,8 +36,13 @@ namespace YutrelRP
             pass.directional_shadow_cascade_data_ID = ShadowResources.directional_cascade_data_ID;
 
             pass.directional_shadow_cascade_count = shadow_settings.directional.cascade_count;
-            pass.directional_shadow_distance_fade = new Vector4(1.0f / shadow_settings.max_distance,
-                1.0f / shadow_settings.distance_fade);
+            pass.directional_shadow_distance_fade =
+                new Vector4(
+                    1.0f / shadow_settings.max_distance,
+                    1.0f / shadow_settings.distance_fade,
+                    1.0f / shadow_settings.directional.cascade_fade,
+                    0.0f);
+
             pass.directional_shadow_atlas = shadow_resources.directional_atlas;
             pass.scene_depth = textures.scene_depth;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
