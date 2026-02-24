@@ -43,7 +43,7 @@ namespace YutrelRP
                 var shadow_reources = frame_data.GetOrCreate<ShadowResources>();
                 shadow_reources.Reset();
 
-                SetupLightPass.Record(render_graph, culling_results, settings, ref light_resources,
+                SetupLightPass.Record(render_graph, context, culling_results, settings, ref light_resources,
                     ref shadow_reources);
 
                 ShadowPass.Record(render_graph, shadow_reources, settings.shadowSettings);

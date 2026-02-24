@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using Unity.Collections;
 
 namespace YutrelRP
 {
@@ -55,9 +56,20 @@ namespace YutrelRP
         public DirectionalShadowCascadeData[] directional_cascade_data;
 
         public BufferHandle directional_cascade_data_buffer;
+        private NativeArray<LightShadowCasterCullingInfo> culling_infos_per_light;
+        private NativeArray<ShadowSplitData> split_buffer;
 
         public override void Reset()
         {
+            if (culling_infos_per_light.IsCreated)
+            {
+                culling_infos_per_light.Dispose();
+            }
+            if (split_buffer.IsCreated)
+            {
+                split_buffer.Dispose();
+            }
+
             shadowed_directional_light_count = 0;
             shadowed_directional_Lights = new ShadowedDirectionalLight[max_shadowed_directional_light_count];
             directional_atlas = TextureHandle.nullHandle;
@@ -86,7 +98,7 @@ namespace YutrelRP
         }
 
         public void Setup(RenderGraph render_graph, IComputeRenderGraphBuilder builder, CullingResults culling_results,
-            ShadowSettings settings)
+            ShadowSettings settings, ScriptableRenderContext context)
         {
             directional_atlas_tile_size = (int)settings.directional.atlas_tile_size;
 
@@ -124,8 +136,21 @@ namespace YutrelRP
                 });
             builder.UseBuffer(directional_cascade_data_buffer, AccessFlags.WriteAll);
 
+            int visible_light_count = culling_results.visibleLights.Length;
+            culling_infos_per_light = new NativeArray<LightShadowCasterCullingInfo>(visible_light_count, Allocator.TempJob);
+            split_buffer = new NativeArray<ShadowSplitData>(visible_light_count * max_cascades, Allocator.TempJob);
+
             // render lists
             BuildRendererList(render_graph, builder, culling_results, settings);
+
+            if (shadowed_directional_light_count > 0)
+            {
+                context.CullShadowCasters(culling_results, new ShadowCastersCullingInfos
+                {
+                    perLightInfos = culling_infos_per_light,
+                    splitBuffer = split_buffer
+                });
+            }
         }
 
         private void BuildRendererList(RenderGraph render_graph, IComputeRenderGraphBuilder builder,
@@ -144,13 +169,16 @@ namespace YutrelRP
             IComputeRenderGraphBuilder builder, CullingResults culling_results, ShadowSettings settings)
         {
             ShadowedDirectionalLight light = shadowed_directional_Lights[index];
-            var shadow_settings = new ShadowDrawingSettings(culling_results, light.visible_light_index)
+            var shadow_settings = new ShadowDrawingSettings(
+                culling_results,
+                light.visible_light_index)
             {
                 useRenderingLayerMaskTest = true,
             };
 
             var cascade_count = settings.directional.cascade_count;
             Vector3 cascade_ratios = settings.directional.cascade_ratios;
+            int split_buffer_offset = light.visible_light_index * max_cascades;
 
             for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
             {
@@ -172,8 +200,16 @@ namespace YutrelRP
                         new DirectionalShadowCascadeData(split_data.cullingSphere);
                 }
 
+                split_buffer[split_buffer_offset + cascade_index] = split_data;
+                shadow_settings.splitIndex = cascade_index;
                 render_info.renderer_list = render_graph.CreateShadowRendererList(ref shadow_settings);
             }
+
+            culling_infos_per_light[light.visible_light_index] = new LightShadowCasterCullingInfo
+            {
+                projectionType = BatchCullingProjectionType.Orthographic,
+                splitRange = new RangeInt(split_buffer_offset, cascade_count)
+            };
         }
     };
 }
