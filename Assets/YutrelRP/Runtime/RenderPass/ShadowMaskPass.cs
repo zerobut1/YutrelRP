@@ -14,6 +14,14 @@ namespace YutrelRP
         internal static void Record(RenderGraph render_graph, RenderTargets textures, LightResources light_resources,
             ShadowResources shadow_resources, ShadowSettings shadow_settings, Vector2Int attachment_size)
         {
+            if (light_resources.directional_light_count == 0) return;
+
+            if (shadow_resources.shadowed_directional_light_count == 0)
+            {
+                textures.shadow_mask = render_graph.defaultResources.whiteTexture;
+                return;
+            }
+
             using var builder = render_graph.AddRasterRenderPass<ShadowMaskPass>(sampler.name, out var pass, sampler);
 
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ShadowMask"));

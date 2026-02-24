@@ -32,6 +32,8 @@ namespace YutrelRP
             {
                 scriptableRenderContext = context,
                 commandBuffer = CommandBufferPool.Get(),
+                executionId = camera.GetEntityId(),
+                generateDebugData = RenderGraph.isRenderGraphViewerActive,
                 currentFrameIndex = Time.frameCount,
                 rendererListCulling = true
             };

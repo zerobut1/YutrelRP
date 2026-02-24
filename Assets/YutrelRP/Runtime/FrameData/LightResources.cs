@@ -13,7 +13,7 @@ namespace YutrelRP
             directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount"),
             directional_light_data_ID = Shader.PropertyToID("_DirectionalLightData");
 
-        public const int max_directional_light_count = 1;
+        public const int max_directional_light_count = 4;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct DirectionalLightData

@@ -3,6 +3,8 @@
 
 #include "Utils/ShadingModelStandard.hlsl"
 
+int _LightIndex;
+
 float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
 {
     EncodedGBuffer gbuffer;
@@ -20,7 +22,7 @@ float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
     {
     case 1:
         StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
-        Light light = GetDirectionalLight(0, gbuffer.uv);
+        Light light = GetDirectionalLight(_LightIndex, gbuffer.uv);
 
         out_color = StandardShading(surface, light);
         break;
