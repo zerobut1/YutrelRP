@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelRPAsset
   settings:
     useSRPBatcher: 1
-    BRDF_LUT: {fileID: 2800000, guid: d0036d62c68affa4f8af6d4bd69b882c, type: 3}
     shadowSettings:
       max_distance: 100
       distance_fade: 0.1

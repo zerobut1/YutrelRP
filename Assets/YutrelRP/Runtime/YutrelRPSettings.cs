@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace YutrelRP
 {
@@ -7,8 +6,6 @@ namespace YutrelRP
     public class YutrelRPSettings
     {
         public bool useSRPBatcher = true;
-
-        public Texture2D BRDF_LUT;
 
         public ShadowSettings shadowSettings;
 

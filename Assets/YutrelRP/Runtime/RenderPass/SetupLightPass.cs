@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
-using Unity.Collections;
 
 namespace YutrelRP
 {
@@ -16,7 +15,7 @@ namespace YutrelRP
             using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
 
             // -------------- Light --------------
-            light_resources.Setup(render_graph, builder, culling_results, settings.BRDF_LUT, ref shadow_resources);
+            light_resources.Setup(render_graph, builder, culling_results, ref shadow_resources);
 
             pass.directional_light_count = light_resources.directional_light_count;
             pass.directional_light_data = light_resources.directional_light_data;
@@ -56,8 +55,6 @@ namespace YutrelRP
         private LightResources.DirectionalLightData[] directional_light_data;
 
         private BufferHandle directional_light_data_buffer;
-
-        private TextureHandle BRDF_LUT;
 
         // ------------ Shadow -------------
         private int shadow_cascade_count;

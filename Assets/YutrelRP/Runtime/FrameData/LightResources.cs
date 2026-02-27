@@ -8,6 +8,9 @@ namespace YutrelRP
 {
     public class LightResources : ContextItem
     {
+        private const string brdf_lut_resource_path = "Texture/brdf_lut";
+        private static Texture2D brdf_lut_texture;
+
         public static readonly int
             brdf_lut_ID = Shader.PropertyToID("_BRDF_LUT"),
             directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount"),
@@ -52,7 +55,7 @@ namespace YutrelRP
         }
 
         public void Setup(RenderGraph render_graph, IComputeRenderGraphBuilder builder, CullingResults
-            culling_results, Texture2D _BRDF_LUT, ref ShadowResources shadow_resources)
+            culling_results, ref ShadowResources shadow_resources)
         {
             NativeArray<VisibleLight> visible_lights = culling_results.visibleLights;
 
@@ -82,7 +85,14 @@ namespace YutrelRP
                 });
             builder.UseBuffer(directional_light_data_buffer, AccessFlags.WriteAll);
 
-            BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(_BRDF_LUT));
+            brdf_lut_texture ??= Resources.Load<Texture2D>(brdf_lut_resource_path);
+            if (brdf_lut_texture == null)
+            {
+                Debug.LogError($"YutrelRP: Missing BRDF LUT resource at Resources/{brdf_lut_resource_path}.png");
+                brdf_lut_texture = Texture2D.blackTexture;
+            }
+
+            BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(brdf_lut_texture));
         }
     };
 }
