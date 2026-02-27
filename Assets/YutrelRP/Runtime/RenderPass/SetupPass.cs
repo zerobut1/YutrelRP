@@ -107,8 +107,6 @@ namespace YutrelRP
                 ? BuiltinRenderTextureType.CameraTarget
                 : new RenderTargetIdentifier(camera_target_texture);
 
-            var camera_target = RTHandles.Alloc(rt_color_id, "BackBuffer Color");
-
             var clear_backbuffer_on_first_use = !render_graph.nativeRenderPassesEnabled;
             var discard_color_backbuffer_on_last_use = !render_graph.nativeRenderPassesEnabled;
 
@@ -143,7 +141,7 @@ namespace YutrelRP
                     GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, is_rt_color_sRGB);
             }
 
-            return render_graph.ImportTexture(camera_target, color_import_info, import_backbuffer_color_params);
+            return render_graph.ImportBackbuffer(rt_color_id, color_import_info, import_backbuffer_color_params);
         }
     }
 }

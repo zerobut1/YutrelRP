@@ -22,6 +22,13 @@ namespace YutrelRP
         {
             var camera_sampler = ProfilingSampler.Get(camera.cameraType);
 
+#if UNITY_EDITOR
+            if (camera.cameraType == CameraType.SceneView)
+            {
+                ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
+            }
+#endif
+
             // culling
             if (!camera.TryGetCullingParameters(out var culling_parameters)) return;
             culling_parameters.shadowDistance = Mathf.Min(settings.shadowSettings.max_distance, camera.farClipPlane);
@@ -40,6 +47,11 @@ namespace YutrelRP
             render_graph.BeginRecording(render_graph_parameters);
             using (new RenderGraphProfilingScope(render_graph, camera_sampler))
             {
+                var camera_target_texture = camera.targetTexture;
+                var attachment_size = camera_target_texture == null
+                    ? new Vector2Int(camera.pixelWidth, camera.pixelHeight)
+                    : new Vector2Int(camera_target_texture.width, camera_target_texture.height);
+
                 var textures = frame_data.GetOrCreate<RenderTargets>();
                 var light_resources = frame_data.GetOrCreate<LightResources>();
                 var shadow_reources = frame_data.GetOrCreate<ShadowResources>();
@@ -50,13 +62,12 @@ namespace YutrelRP
 
                 ShadowPass.Record(render_graph, shadow_reources, settings.shadowSettings);
 
-                SetupPass.Record(render_graph, camera, ref textures,
-                    new Vector2Int(camera.pixelWidth, camera.pixelHeight));
+                SetupPass.Record(render_graph, camera, ref textures, attachment_size);
 
                 BasePass.Record(render_graph, camera, culling_results, textures);
 
                 ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_reources, settings.shadowSettings,
-                    new Vector2Int(camera.pixelWidth, camera.pixelHeight));
+                    attachment_size);
 
                 DirectionalLightPass.Record(render_graph, textures, light_resources);
 
