@@ -3,10 +3,14 @@
 
 #include "Common.hlsl"
 
-SAMPLER(_GBuffer_A);
-SAMPLER(_GBuffer_B);
-SAMPLER(_GBuffer_C);
-SAMPLER(_SceneDepth);
+TEXTURE2D(_GBuffer_A);
+SAMPLER(sampler_GBuffer_A);
+TEXTURE2D(_GBuffer_B);
+SAMPLER(sampler_GBuffer_B);
+TEXTURE2D(_GBuffer_C);
+SAMPLER(sampler_GBuffer_C);
+TEXTURE2D(_SceneDepth);
+SAMPLER(sampler_SceneDepth);
 
 struct GBufferData
 {

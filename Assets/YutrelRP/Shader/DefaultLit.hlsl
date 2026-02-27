@@ -27,22 +27,22 @@ struct RTStruct
     float4 GBuffer_C : SV_Target3;
 };
 
-Varyings DefaultlitVertex(Attributes input)
+Varyings DefaultLitVertex(Attributes input)
 {
     Varyings output;
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);
     float3 position_WS = TransformObjectToWorld(input.position_OS.xyz);
-    float4 positon_CS = TransformWorldToHClip(position_WS);
+    float4 position_CS = TransformWorldToHClip(position_WS);
     float3 normal_WS = TransformObjectToWorldNormal(input.normal_OS);
 
-    output.position_CS = positon_CS;
+    output.position_CS = position_CS;
     output.normal_WS = normal_WS;
     output.uv = input.uv;
     return output;
 }
 
-RTStruct DefaultlitFragment(Varyings input)
+RTStruct DefaultLitFragment(Varyings input)
 {
     RTStruct output;
     UNITY_SETUP_INSTANCE_ID(input);

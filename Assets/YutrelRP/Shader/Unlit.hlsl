@@ -31,7 +31,7 @@ Varyings UnlitVertex(Attributes input)
     return output;
 }
 
-float4 UnlitFragment(Varyings input) : SV_TARGET
+float4 UnlitFragment(Varyings input) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     float4 texture_color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);

@@ -17,7 +17,9 @@ namespace YutrelRP
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ToneMapping"));
 
             pass.source_color = textures.scene_color;
-            pass.pass_id = (int)settings.tone_mapping.mode;
+            pass.pass_id = settings == null
+                ? (int)PostProcessSettings.ToneMappingSettings.Mode.None
+                : (int)settings.tone_mapping.mode;
             builder.UseTexture(pass.source_color);
             builder.SetRenderAttachment(textures.final_color, 0);
 
@@ -39,3 +41,4 @@ namespace YutrelRP
         }
     }
 }
+

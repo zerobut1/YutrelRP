@@ -42,7 +42,7 @@ ShadowData GetShadowData(float3 position_WS, float depth)
     return out_data;
 }
 
-float SampleDirectioanalShadowAtlas(float3 shadow_uv)
+float SampleDirectionalShadowAtlas(float3 shadow_uv)
 {
     return 1.0f - SAMPLE_TEXTURE2D_SHADOW(_DirectionalShadowAtlas, SHADOW_SAMPLER, shadow_uv);
 }
@@ -62,7 +62,7 @@ float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, ShadowData
     float3 shadow_uv = mul(_DirectionalShadowVPMatrices[cascade_index], float4(position_WS, 1.0));
     if (shadow_uv.z > 0 && shadow_uv.z < 1)
     {
-        shadow = SampleDirectioanalShadowAtlas(shadow_uv);
+        shadow = SampleDirectionalShadowAtlas(shadow_uv);
     }
 
     shadow *= shadow_strength;
@@ -80,9 +80,9 @@ float GetDirectionalShadowAttenuation(DirectionalLightShadowData light_shadow_da
     return shadow;
 }
 
-float4 ShadowMaskPassFragment(FullScreenVaryings input) : SV_TARGET
+float4 ShadowMaskPassFragment(FullScreenVaryings input) : SV_Target
 {
-    float scene_depth = tex2D(_SceneDepth, input.uv).r;
+    float scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, input.uv).r;
     float3 position_WS = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
     float linear_depth = LinearEyeDepth(position_WS,UNITY_MATRIX_V);
 

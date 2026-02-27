@@ -29,8 +29,8 @@
 			HLSLPROGRAM
 			#pragma target 5.0
 			#pragma multi_compile_instancing
-			#pragma vertex DefaultlitVertex
-			#pragma fragment DefaultlitFragment
+			#pragma vertex DefaultLitVertex
+			#pragma fragment DefaultLitFragment
 			#include "DefaultLit.hlsl"
 			ENDHLSL
 		}
