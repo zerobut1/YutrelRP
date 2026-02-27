@@ -7,17 +7,15 @@ namespace YutrelRP
     internal class DirectionalLightPass
     {
         private static readonly ProfilingSampler sampler = new ProfilingSampler("Directional Light Pass");
-
         private static Material material;
-        private static MaterialPropertyBlock propertyBlock;
+        private static MaterialPropertyBlock property_block;
         private static readonly int light_index_ID = Shader.PropertyToID("_LightIndex");
 
         public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources)
         {
             if (light_resources.directional_light_count == 0) return;
-
-            if (material == null)
-                material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/DirectionalLightPass"));
+            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/DirectionalLightPass"));
+            if (property_block == null) property_block = new MaterialPropertyBlock();
 
             for (int i = 0; i < light_resources.directional_light_count; i++)
             {
@@ -81,17 +79,24 @@ namespace YutrelRP
         private void Render(RasterGraphContext context)
         {
             var cmd = context.cmd;
-            if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
-            propertyBlock.SetTexture(GBuffer_A_ID, GBuffer_A);
-            propertyBlock.SetTexture(GBuffer_B_ID, GBuffer_B);
-            propertyBlock.SetTexture(GBuffer_C_ID, GBuffer_C);
-            propertyBlock.SetTexture(scene_depth_ID, scene_depth);
-            propertyBlock.SetTexture(BRDF_LUT_ID, BRDF_LUT);
-            propertyBlock.SetTexture(shadow_mask_ID, shadow_mask);
-            propertyBlock.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
-            propertyBlock.SetInteger(light_index_ID_field, light_index);
+            property_block.Clear();
+            property_block.SetTexture(GBuffer_A_ID, GBuffer_A);
+            property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
+            property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
+            property_block.SetTexture(scene_depth_ID, scene_depth);
+            property_block.SetTexture(BRDF_LUT_ID, BRDF_LUT);
+            property_block.SetTexture(shadow_mask_ID, shadow_mask);
+            property_block.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
+            property_block.SetInteger(light_index_ID_field, light_index);
 
-            CoreUtils.DrawFullScreen(cmd, material, propertyBlock);
+            CoreUtils.DrawFullScreen(cmd, material, property_block);
+        }
+
+        public static void Cleanup()
+        {
+            CoreUtils.Destroy(material);
+            material = null;
+            property_block = null;
         }
     }
 }

@@ -16,6 +16,10 @@ namespace YutrelRP
 
         public void Dispose()
         {
+            DirectionalLightPass.Cleanup();
+            ShadowMaskPass.Cleanup();
+            ToneMappingPass.Cleanup();
+            FinalPass.Cleanup();
         }
 
         public void Render(RenderGraph render_graph, ScriptableRenderContext context, Camera camera)

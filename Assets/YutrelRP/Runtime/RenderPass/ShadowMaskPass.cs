@@ -8,13 +8,13 @@ namespace YutrelRP
     internal class ShadowMaskPass
     {
         private static readonly ProfilingSampler sampler = new("Shadow Mask Pass");
-
         private static Material material;
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, LightResources light_resources,
             ShadowResources shadow_resources, ShadowSettings shadow_settings, Vector2Int attachment_size)
         {
             if (light_resources.directional_light_count == 0) return;
+            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ShadowMask"));
 
             if (shadow_resources.shadowed_directional_light_count == 0)
             {
@@ -23,8 +23,6 @@ namespace YutrelRP
             }
 
             using var builder = render_graph.AddRasterRenderPass<ShadowMaskPass>(sampler.name, out var pass, sampler);
-
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ShadowMask"));
 
             var shadow_mask_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
@@ -102,6 +100,12 @@ namespace YutrelRP
             material.SetBuffer(directional_shadow_cascade_data_ID, directional_shadow_cascade_data_buffer);
 
             CoreUtils.DrawFullScreen(cmd, material);
+        }
+
+        public static void Cleanup()
+        {
+            CoreUtils.Destroy(material);
+            material = null;
         }
     }
 }

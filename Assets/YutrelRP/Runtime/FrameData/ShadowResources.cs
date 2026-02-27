@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -59,6 +60,13 @@ namespace YutrelRP
         private NativeArray<LightShadowCasterCullingInfo> culling_infos_per_light;
         private NativeArray<ShadowSplitData> split_buffer;
 
+        public ShadowResources()
+        {
+            shadowed_directional_Lights = new ShadowedDirectionalLight[max_shadowed_directional_light_count];
+            directional_render_info = new RenderInfo[max_shadowed_directional_light_count * max_cascades];
+            directional_cascade_data = new DirectionalShadowCascadeData[max_shadowed_directional_light_count * max_cascades];
+        }
+
         public override void Reset()
         {
             if (culling_infos_per_light.IsCreated)
@@ -71,11 +79,10 @@ namespace YutrelRP
             }
 
             shadowed_directional_light_count = 0;
-            shadowed_directional_Lights = new ShadowedDirectionalLight[max_shadowed_directional_light_count];
+            Array.Clear(shadowed_directional_Lights, 0, shadowed_directional_Lights.Length);
             directional_atlas = TextureHandle.nullHandle;
-            directional_render_info = new RenderInfo[max_shadowed_directional_light_count * max_cascades];
-            directional_cascade_data =
-                new DirectionalShadowCascadeData[max_shadowed_directional_light_count * max_cascades];
+            Array.Clear(directional_render_info, 0, directional_render_info.Length);
+            Array.Clear(directional_cascade_data, 0, directional_cascade_data.Length);
         }
 
         public Vector4 ReserveDirectionalShadows(Light light, int visible_light_index, CullingResults culling_results)
