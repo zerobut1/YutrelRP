@@ -7,6 +7,7 @@ namespace YutrelRP
     internal class ToneMappingPass
     {
         private static readonly ProfilingSampler sampler = new("Tone Mapping Pass");
+        private static readonly int source_color_ID = Shader.PropertyToID("_SourceColor");
         private static Material material;
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, PostProcessSettings settings)
@@ -33,7 +34,7 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
 
-            material.SetTexture(Shader.PropertyToID("_SourceColor"), source_color);
+            material.SetTexture(source_color_ID, source_color);
 
             CoreUtils.DrawFullScreen(cmd, material, null, pass_id);
         }

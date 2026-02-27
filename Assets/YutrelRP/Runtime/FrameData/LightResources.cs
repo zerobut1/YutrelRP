@@ -10,6 +10,7 @@ namespace YutrelRP
     {
         private const string brdf_lut_resource_path = "Texture/brdf_lut";
         private static Texture2D brdf_lut_texture;
+        private static RTHandle brdf_lut_rt_handle;
 
         public static readonly int
             brdf_lut_ID = Shader.PropertyToID("_BRDF_LUT"),
@@ -92,7 +93,8 @@ namespace YutrelRP
                 brdf_lut_texture = Texture2D.blackTexture;
             }
 
-            BRDF_LUT = render_graph.ImportTexture(RTHandles.Alloc(brdf_lut_texture));
+            brdf_lut_rt_handle ??= RTHandles.Alloc(brdf_lut_texture);
+            BRDF_LUT = render_graph.ImportTexture(brdf_lut_rt_handle);
         }
     };
 }

@@ -58,19 +58,19 @@ namespace YutrelRP
 
                 var textures = frame_data.GetOrCreate<RenderTargets>();
                 var light_resources = frame_data.GetOrCreate<LightResources>();
-                var shadow_reources = frame_data.GetOrCreate<ShadowResources>();
-                shadow_reources.Reset();
+                var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
+                shadow_resources.Reset();
 
                 SetupLightPass.Record(render_graph, context, culling_results, settings, ref light_resources,
-                    ref shadow_reources);
+                    ref shadow_resources);
 
-                ShadowPass.Record(render_graph, shadow_reources, settings.shadowSettings);
+                ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);
 
                 SetupPass.Record(render_graph, camera, ref textures, attachment_size);
 
                 BasePass.Record(render_graph, camera, culling_results, textures);
 
-                ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_reources, settings.shadowSettings,
+                ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_resources, settings.shadowSettings,
                     attachment_size);
 
                 DirectionalLightPass.Record(render_graph, textures, light_resources);
