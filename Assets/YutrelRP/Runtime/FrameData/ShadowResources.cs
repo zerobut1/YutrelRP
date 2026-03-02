@@ -21,6 +21,7 @@ namespace YutrelRP
         public struct ShadowedDirectionalLight
         {
             public int visible_light_index;
+            public float near_plane_offset;
         }
 
         public int shadowed_directional_light_count;
@@ -95,7 +96,8 @@ namespace YutrelRP
             {
                 shadowed_directional_Lights[shadowed_directional_light_count] = new ShadowedDirectionalLight
                 {
-                    visible_light_index = visible_light_index
+                    visible_light_index = visible_light_index,
+                    near_plane_offset = light.shadowNearPlane
                 };
 
                 return new Vector4(shadowed_directional_light_count++, 0, 0, 0);
@@ -196,7 +198,7 @@ namespace YutrelRP
                     cascade_count,
                     cascade_ratios,
                     directional_atlas_tile_size,
-                    0.0f,
+                    light.near_plane_offset,
                     out render_info.view,
                     out render_info.projection,
                     out var split_data

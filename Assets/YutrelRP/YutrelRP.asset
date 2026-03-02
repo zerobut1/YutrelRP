@@ -15,7 +15,7 @@ MonoBehaviour:
   settings:
     useSRPBatcher: 1
     shadowSettings:
-      max_distance: 100
+      max_distance: 1000
       distance_fade: 0.1
       directional:
         atlas_tile_size: 2048
