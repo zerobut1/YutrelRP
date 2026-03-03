@@ -57,23 +57,17 @@ RTStruct DefaultLitFragment(Varyings input)
     UNITY_SETUP_INSTANCE_ID(input);
 
     GBufferData gbuffer;
-#if defined(_USE_BASECOLOR_TEX)
     float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
     float2 base_color_uv = input.uv * base_color_ST.xy + base_color_ST.zw;
-    gbuffer.base_color = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv).rgb;
-#else
-    gbuffer.base_color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor).rgb;
-#endif
+    float4 base_color_sample = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv);
+    if (UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _UseAlphaClip) > 0.5f)
+    {
+        clip(base_color_sample.a - 0.001f);
+    }
+    gbuffer.base_color = base_color_sample.rgb;
 
-#if defined(_USE_EMISSIVE_TEX)
-    float4 emissive_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissiveTex_ST);
-    float2 emissive_uv = input.uv * emissive_ST.xy + emissive_ST.zw;
-    gbuffer.emissive = SAMPLE_TEXTURE2D(_EmissiveTex, sampler_EmissiveTex, emissive_uv).rgb;
-#else
-    gbuffer.emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb;
-#endif
+    gbuffer.emissive = 0.0f;
 
-#if defined(_USE_NORMAL_TEX)
     float4 normal_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _NormalTex_ST);
     float2 normal_uv = input.uv * normal_ST.xy + normal_ST.zw;
     float4 packed_normal = SAMPLE_TEXTURE2D(_NormalTex, sampler_NormalTex, normal_uv);
@@ -83,28 +77,17 @@ RTStruct DefaultLitFragment(Varyings input)
         normal_TS.y * input.bitangent_WS +
         normal_TS.z * input.normal_WS
     );
-#else
-    gbuffer.normal_WS = input.normal_WS;
-#endif
 
-#if defined(_USE_ROUGHNESS_TEX)
-    float4 roughness_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _RoughnessTex_ST);
-    float2 roughness_uv = input.uv * roughness_ST.xy + roughness_ST.zw;
-    gbuffer.roughness = SAMPLE_TEXTURE2D(_RoughnessTex, sampler_RoughnessTex, roughness_uv).r;
-    gbuffer.roughness = saturate(1.0f - gbuffer.roughness); // smoothness to roughness
-#else
-    gbuffer.roughness = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Roughness);
-#endif
+    float4 smoothness_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _SmoothnessTex_ST);
+    float2 smoothness_uv = input.uv * smoothness_ST.xy + smoothness_ST.zw;
+    float smoothness = SAMPLE_TEXTURE2D(_SmoothnessTex, sampler_SmoothnessTex, smoothness_uv).r;
+    gbuffer.roughness = saturate(1.0f - smoothness);
 
-#if defined(_USE_METALLIC_TEX)
     float4 metallic_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _MetallicTex_ST);
     float2 metallic_uv = input.uv * metallic_ST.xy + metallic_ST.zw;
     gbuffer.metallic = SAMPLE_TEXTURE2D(_MetallicTex, sampler_MetallicTex, metallic_uv).r;
-#else
-    gbuffer.metallic = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Metallic);
-#endif
 
-    gbuffer.specular = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Specular);
+    gbuffer.specular = 0.5f;
     gbuffer.shading_model_id = 1;
 
     EncodedGBuffer encoded_gbuffer = EncodeGBuffer(gbuffer);
@@ -114,6 +97,56 @@ RTStruct DefaultLitFragment(Varyings input)
     output.GBuffer_C = encoded_gbuffer.GBuffer_C;
 
     return output;
+}
+
+struct ShadowAttributes
+{
+    float3 position_OS : POSITION;
+    float2 uv : TEXCOORD0;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+struct ShadowVaryings
+{
+    float4 position_CS_SS : SV_POSITION;
+    float2 uv : VAR_BASE_UV;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+ShadowVaryings DefaultLitShadowCasterVertex(ShadowAttributes input)
+{
+    ShadowVaryings output;
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    float3 position_WS = TransformObjectToWorld(input.position_OS);
+    output.position_CS_SS = TransformWorldToHClip(position_WS);
+    output.uv = input.uv;
+
+    // Shadow pancaking: clamp vertices behind the near plane to the near plane
+    // to prevent near-plane clipping artifacts (light leaking) in CSM.
+    #if UNITY_REVERSED_Z
+        output.position_CS_SS.z = min(
+            output.position_CS_SS.z,
+            output.position_CS_SS.w * UNITY_NEAR_CLIP_VALUE);
+    #else
+        output.position_CS_SS.z = max(
+            output.position_CS_SS.z,
+            output.position_CS_SS.w * UNITY_NEAR_CLIP_VALUE);
+    #endif
+
+    return output;
+}
+
+void DefaultLitShadowCasterFragment(ShadowVaryings input)
+{
+    UNITY_SETUP_INSTANCE_ID(input);
+    if (UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _UseAlphaClip) > 0.5f)
+    {
+        float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
+        float2 base_color_uv = input.uv * base_color_ST.xy + base_color_ST.zw;
+        float alpha = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv).a;
+        clip(alpha - 0.001f);
+    }
 }
 
 #endif

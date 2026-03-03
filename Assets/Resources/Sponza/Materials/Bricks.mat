@@ -24,16 +24,16 @@ Material:
   m_Shader: {fileID: 4800000, guid: 0dc3ef1c45682c942947e40cce3dbdf4, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _USE_BASECOLOR_TEX
-  - _USE_METALLIC_TEX
-  - _USE_NORMAL_TEX
-  - _USE_ROUGHNESS_TEX
+  m_ValidKeywords: []
   m_InvalidKeywords:
   - _METALLICSPECGLOSSMAP
   - _NORMALMAP
   - _OCCLUSIONMAP
   - _PARALLAXMAP
+  - _USE_BASECOLOR_TEX
+  - _USE_METALLIC_TEX
+  - _USE_NORMAL_TEX
+  - _USE_ROUGHNESS_TEX
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -163,6 +163,10 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RoughnessTex:
+        m_Texture: {fileID: 2800000, guid: 92eca591de4a6904fa020004cf7696be, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SmoothnessTex:
         m_Texture: {fileID: 2800000, guid: 92eca591de4a6904fa020004cf7696be, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -361,6 +365,7 @@ Material:
     - _UVBase: 0
     - _UVDetail: 0
     - _UVEmissive: 0
+    - _UseAlphaClip: 0
     - _UseBaseColorTex: 1
     - _UseEmissiveIntensity: 0
     - _UseEmissiveTex: 0
