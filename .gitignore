@@ -81,4 +81,10 @@ Assets/Texture.meta
 .vsconfig
 .vscode
 *.slnx
-Assets/Resources
+
+# Resources
+Assets/Resources/Sponza/*
+!Assets/Resources/Sponza/Shader/
+!Assets/Resources/Sponza/Shader/**
+!Assets/Resources/Sponza/Materials/
+!Assets/Resources/Sponza/Materials/**
