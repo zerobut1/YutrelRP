@@ -91,3 +91,5 @@ Assets/Resources/Sponza/*
 Assets/Resources/Texture
 Assets/Resources/Texture.meta
 .agent
+.kimix_cache
+PROMPTS.md
