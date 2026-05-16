@@ -15,7 +15,7 @@ MonoBehaviour:
   settings:
     useSRPBatcher: 1
     shadowSettings:
-      max_distance: 1000
+      max_distance: 100
       distance_fade: 0.1
       directional:
         atlas_tile_size: 2048
@@ -25,3 +25,4 @@ MonoBehaviour:
         cascade_ratio_3: 0.5
         cascade_fade: 0.1
     postProcessSettings: {fileID: 11400000, guid: 67dc4f13b5d0445469abea26b93a3efd, type: 2}
+    debugViewMode: 0

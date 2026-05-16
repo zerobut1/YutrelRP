@@ -1,7 +1,11 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace YutrelRP
 {
@@ -22,7 +26,23 @@ namespace YutrelRP
         {
             base.Dispose(is_disposing);
             renderer.Dispose();
+            CleanupRenderGraph();
+        }
+
+        private void CleanupRenderGraph()
+        {
+#if UNITY_EDITOR
+            try
+            {
+                render_graph.Cleanup();
+            }
+            catch (InvalidOperationException exception) when (exception.Message.Contains("Render Graph is active"))
+            {
+                EditorApplication.delayCall += CleanupRenderGraph;
+            }
+#else
             render_graph.Cleanup();
+#endif
         }
 
         protected override void Render(ScriptableRenderContext context, List<Camera> cameras)

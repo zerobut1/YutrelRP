@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using System;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
@@ -19,6 +20,9 @@ namespace YutrelRP
             DirectionalLightPass.Cleanup();
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
+#if UNITY_EDITOR
+            DebugViewPass.Cleanup();
+#endif
             FinalPass.Cleanup();
         }
 
@@ -39,56 +43,79 @@ namespace YutrelRP
             var culling_results = context.Cull(ref culling_parameters);
 
             // render graph
+            var command_buffer = CommandBufferPool.Get();
+            var execute_command_buffer = false;
+
             var render_graph_parameters = new RenderGraphParameters
             {
                 scriptableRenderContext = context,
-                commandBuffer = CommandBufferPool.Get(),
+                commandBuffer = command_buffer,
                 executionId = camera.GetEntityId(),
                 generateDebugData = RenderGraph.isRenderGraphViewerActive,
                 currentFrameIndex = Time.frameCount,
                 rendererListCulling = true
             };
-            render_graph.BeginRecording(render_graph_parameters);
-            using (new RenderGraphProfilingScope(render_graph, camera_sampler))
+
+            try
             {
-                var camera_target_texture = camera.targetTexture;
-                var attachment_size = camera_target_texture == null
-                    ? new Vector2Int(camera.pixelWidth, camera.pixelHeight)
-                    : new Vector2Int(camera_target_texture.width, camera_target_texture.height);
+                render_graph.BeginRecording(render_graph_parameters);
+                using (new RenderGraphProfilingScope(render_graph, camera_sampler))
+                {
+                    var camera_target_texture = camera.targetTexture;
+                    var attachment_size = camera_target_texture == null
+                        ? new Vector2Int(camera.pixelWidth, camera.pixelHeight)
+                        : new Vector2Int(camera_target_texture.width, camera_target_texture.height);
 
-                var textures = frame_data.GetOrCreate<RenderTargets>();
-                var light_resources = frame_data.GetOrCreate<LightResources>();
-                var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
-                shadow_resources.Reset();
+                    var textures = frame_data.GetOrCreate<RenderTargets>();
+                    var light_resources = frame_data.GetOrCreate<LightResources>();
+                    var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
+                    shadow_resources.Reset();
 
-                SetupLightPass.Record(render_graph, context, culling_results, settings, ref light_resources,
-                    ref shadow_resources);
+                    SetupLightPass.Record(render_graph, context, culling_results, settings, ref light_resources,
+                        ref shadow_resources);
 
-                ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);
+                    ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);
 
-                SetupPass.Record(render_graph, camera, ref textures, attachment_size);
+                    SetupPass.Record(render_graph, camera, ref textures, attachment_size);
 
-                BasePass.Record(render_graph, camera, culling_results, textures);
+                    BasePass.Record(render_graph, camera, culling_results, textures);
 
-                ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_resources, settings.shadowSettings,
-                    attachment_size);
+                    ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_resources, settings.shadowSettings,
+                        attachment_size);
 
-                DirectionalLightPass.Record(render_graph, textures, light_resources);
+                    DirectionalLightPass.Record(render_graph, textures, light_resources);
 
-                SkyboxPass.Record(render_graph, camera, textures);
+                    SkyboxPass.Record(render_graph, camera, textures);
 
-                DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
+                    DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
 
-                ToneMappingPass.Record(render_graph, textures, settings.postProcessSettings);
+                    ToneMappingPass.Record(render_graph, textures, settings.postProcessSettings);
 
-                FinalPass.Record(render_graph, textures);
+#if UNITY_EDITOR
+                    DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
+                        settings.shadowSettings, settings.debugViewMode, attachment_size);
+#endif
+
+                    FinalPass.Record(render_graph, textures);
+                }
+
+                render_graph.EndRecordingAndExecute();
+                execute_command_buffer = true;
             }
+            catch (Exception exception)
+            {
+                render_graph.ResetGraphAndLogException(exception);
+            }
+            finally
+            {
+                if (execute_command_buffer)
+                {
+                    context.ExecuteCommandBuffer(command_buffer);
+                    context.Submit();
+                }
 
-            render_graph.EndRecordingAndExecute();
-
-            context.ExecuteCommandBuffer(render_graph_parameters.commandBuffer);
-            context.Submit();
-            CommandBufferPool.Release(render_graph_parameters.commandBuffer);
+                CommandBufferPool.Release(command_buffer);
+            }
         }
     }
 }
