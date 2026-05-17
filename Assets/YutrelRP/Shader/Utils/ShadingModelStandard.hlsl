@@ -14,24 +14,24 @@ struct StandardSurface
     float3 position_WS;
     float3 view_direction_WS;
     float NoV;
-    float2 DFG;
-    float3 energy_compensation;
 };
 
 StandardSurface GBuffer2StandardSurface(GBufferData data)
 {
     StandardSurface surface;
 
-    surface.diffuse_color = (1.0f - data.metallic) * data.base_color;
+    float metallic = saturate(data.metallic);
+    float specular = saturate(data.specular);
+
+    surface.diffuse_color = (1.0f - metallic) * data.base_color;
     surface.normal_WS = data.normal_WS;
     float perceptual_roughness = clamp(data.roughness, 0.045, 1.0);
     surface.roughness = perceptual_roughness * perceptual_roughness;
-    surface.f0 = 0.16 * data.specular * data.specular * (1.0 - data.metallic) + data.metallic * data.base_color;
+    float dielectric_f0 = 0.08f * specular;
+    surface.f0 = lerp(float3(dielectric_f0, dielectric_f0, dielectric_f0), data.base_color, metallic);
     surface.position_WS = ComputeWorldSpacePosition(data.uv, data.scene_depth, UNITY_MATRIX_I_VP);
     surface.view_direction_WS = normalize(_WorldSpaceCameraPos - surface.position_WS);
-    surface.NoV = saturate(dot(surface.normal_WS, surface.view_direction_WS));
-    surface.DFG = SAMPLE_TEXTURE2D(_BRDF_LUT, sampler_BRDF_LUT, float2(surface.NoV, perceptual_roughness)).rg;
-    surface.energy_compensation = 1.0 + surface.f0 * (1.0 / surface.DFG.r - 1.0);
+    surface.NoV = clamp(dot(surface.normal_WS, surface.view_direction_WS), MIN_N_DOT_V, 1.0f);
 
     return surface;
 }
@@ -57,7 +57,7 @@ float3 StandardShading(StandardSurface surface, Light light)
 
     float3 Fr = (D * V) * F;
 
-    out_color = Fd + Fr * surface.energy_compensation;
+    out_color = Fd + Fr;
 
     out_color = out_color * light.color * light.intensity * NoL * light.occlusion;
 

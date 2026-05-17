@@ -13,6 +13,8 @@ struct DirectionalLightData
 
 StructuredBuffer<DirectionalLightData> _DirectionalLightData;
 
+// UE/Karis EnvBRDF split-sum LUT: R = A/scale, G = B/bias.
+// It is intended for specular IBL as prefilteredSpecular * (f0 * A + B).
 TEXTURE2D(_BRDF_LUT);
 SAMPLER(sampler_BRDF_LUT);
 

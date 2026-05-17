@@ -26,7 +26,6 @@ namespace YutrelRP
                 pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
                 pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
                 pass.scene_depth_ID = RenderTargets.scene_depth_ID;
-                pass.BRDF_LUT_ID = LightResources.brdf_lut_ID;
                 pass.shadow_mask_ID = RenderTargets.shadow_mask_ID;
                 pass.directional_light_data_ID = LightResources.directional_light_data_ID;
                 pass.light_index_ID_field = DirectionalLightPass.light_index_ID;
@@ -34,7 +33,6 @@ namespace YutrelRP
                 pass.GBuffer_B = textures.GBuffer_B;
                 pass.GBuffer_C = textures.GBuffer_C;
                 pass.scene_depth = textures.scene_depth;
-                pass.BRDF_LUT = light_resources.BRDF_LUT;
                 pass.shadow_mask = textures.shadow_mask;
                 pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
                 pass.light_index = i;
@@ -43,7 +41,6 @@ namespace YutrelRP
                 builder.UseTexture(pass.GBuffer_B);
                 builder.UseTexture(pass.GBuffer_C);
                 builder.UseTexture(pass.scene_depth);
-                builder.UseTexture(pass.BRDF_LUT);
                 builder.UseTexture(pass.shadow_mask);
                 builder.UseBuffer(pass.directional_light_data_buffer);
                 builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
@@ -58,7 +55,6 @@ namespace YutrelRP
             GBuffer_B_ID,
             GBuffer_C_ID,
             scene_depth_ID,
-            BRDF_LUT_ID,
             shadow_mask_ID,
             directional_light_data_ID,
             light_index_ID_field;
@@ -70,7 +66,6 @@ namespace YutrelRP
             GBuffer_B,
             GBuffer_C,
             scene_depth,
-            BRDF_LUT,
             shadow_mask;
 
         private BufferHandle
@@ -84,7 +79,6 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
             property_block.SetTexture(scene_depth_ID, scene_depth);
-            property_block.SetTexture(BRDF_LUT_ID, BRDF_LUT);
             property_block.SetTexture(shadow_mask_ID, shadow_mask);
             property_block.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
             property_block.SetInteger(light_index_ID_field, light_index);

@@ -1,6 +1,9 @@
 #ifndef YUTREL_BRDF_INCLUDED
 #define YUTREL_BRDF_INCLUDED
 
+#define MIN_N_DOT_V 1e-4
+#define MIN_BRDF_DENOMINATOR 1e-5
+
 // -------------------------------------------------------------
 // Specular BRDF
 // -------------------------------------------------------------
@@ -13,10 +16,11 @@ float D_GGX(float roughness, float NoH)
 
 float V_SmithGGXCorrelated(float roughness, float NoV, float NoL)
 {
+    NoV = max(NoV, MIN_N_DOT_V);
     float a2 = roughness * roughness;
     float GGXV = NoL * sqrt((NoV - a2 * NoV) * NoV + a2);
     float GGXL = NoV * sqrt((NoL - a2 * NoL) * NoL + a2);
-    return 0.5 / (GGXV + GGXL);
+    return 0.5 / max(GGXV + GGXL, MIN_BRDF_DENOMINATOR);
 }
 
 float3 F_Schlick(float3 f0, float u)

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -8,6 +9,7 @@ namespace YutrelRP
     internal class SetupPass
     {
         private static readonly ProfilingSampler sampler = new("Setup Pass");
+        private const GraphicsFormat NormalGBufferFormat = GraphicsFormat.A2B10G10R10_UNormPack32;
 
         private static readonly int
             rt_size_ID = Shader.PropertyToID("_CameraBufferSize"),
@@ -16,6 +18,8 @@ namespace YutrelRP
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,
             Vector2Int attachment_size)
         {
+            ValidateNormalGBufferFormat();
+
             using var builder = render_graph.AddComputePass<SetupPass>(sampler.name, out var pass, sampler);
             pass.rt_size = attachment_size;
             pass.camera = camera;
@@ -44,9 +48,10 @@ namespace YutrelRP
             textures.scene_depth = render_graph.CreateTexture(scene_depth_desc);
 
             // GBuffer
+            var standard_gbuffer_format = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.ARGB32, false);
             var gbuffer_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
-                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.ARGB32, false),
+                colorFormat = standard_gbuffer_format,
                 depthBufferBits = 0,
                 msaaSamples = MSAASamples.None,
                 enableRandomWrite = false,
@@ -56,8 +61,10 @@ namespace YutrelRP
             };
             textures.GBuffer_A = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer B";
+            gbuffer_desc.colorFormat = NormalGBufferFormat;
             textures.GBuffer_B = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer C";
+            gbuffer_desc.colorFormat = standard_gbuffer_format;
             textures.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
 
             // final color
@@ -74,6 +81,15 @@ namespace YutrelRP
             builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
+        }
+
+        private static void ValidateNormalGBufferFormat()
+        {
+            if (!SystemInfo.IsFormatSupported(NormalGBufferFormat, GraphicsFormatUsage.Render))
+            {
+                throw new NotSupportedException(
+                    $"YutrelRP requires {NormalGBufferFormat} for the normal GBuffer.");
+            }
         }
 
         // data
