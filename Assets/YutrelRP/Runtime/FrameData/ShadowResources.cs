@@ -11,6 +11,7 @@ namespace YutrelRP
         public static readonly int
             directional_cascade_count_ID = Shader.PropertyToID("_DirectionalShadowCascadeCount"),
             directional_distance_fade_ID = Shader.PropertyToID("_DirectionalShadowDistanceFade"),
+            directional_atlas_texel_size_ID = Shader.PropertyToID("_DirectionalShadowAtlasTexelSize"),
             directional_shadow_atlas_ID = Shader.PropertyToID("_DirectionalShadowAtlas"),
             directional_vp_matrices_ID = Shader.PropertyToID("_DirectionalShadowVPMatrices"),
             directional_cascade_data_ID = Shader.PropertyToID("_DirectionalShadowCascadeDatas");
@@ -26,6 +27,7 @@ namespace YutrelRP
 
         public int shadowed_directional_light_count;
         private ShadowedDirectionalLight[] shadowed_directional_Lights;
+        public bool directional_soft_shadow;
 
         public TextureHandle directional_atlas;
 
@@ -80,6 +82,7 @@ namespace YutrelRP
             }
 
             shadowed_directional_light_count = 0;
+            directional_soft_shadow = false;
             Array.Clear(shadowed_directional_Lights, 0, shadowed_directional_Lights.Length);
             directional_atlas = TextureHandle.nullHandle;
             Array.Clear(directional_render_info, 0, directional_render_info.Length);
@@ -99,8 +102,13 @@ namespace YutrelRP
                     visible_light_index = visible_light_index,
                     near_plane_offset = light.shadowNearPlane
                 };
+                directional_soft_shadow = light.shadows == LightShadows.Soft;
 
-                return new Vector4(shadowed_directional_light_count++, 0, 0, 0);
+                return new Vector4(
+                    shadowed_directional_light_count++,
+                    directional_soft_shadow ? 1.0f : 0.0f,
+                    0.0f,
+                    0.0f);
             }
 
             return new Vector4(-1, 0, 0, 0);
@@ -187,6 +195,7 @@ namespace YutrelRP
 
             var cascade_count = settings.directional.cascade_count;
             Vector3 cascade_ratios = settings.directional.cascade_ratios;
+            float cascade_blend_culling_factor = Mathf.Max(0.0f, 0.8f - settings.directional.cascade_fade);
             int split_buffer_offset = light.visible_light_index * max_cascades;
 
             for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
@@ -203,6 +212,7 @@ namespace YutrelRP
                     out render_info.projection,
                     out var split_data
                 );
+                split_data.shadowCascadeBlendCullingFactor = cascade_blend_culling_factor;
                 if (index == 0)
                 {
                     directional_cascade_data[cascade_index] =

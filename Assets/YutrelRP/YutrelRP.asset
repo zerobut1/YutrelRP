@@ -19,6 +19,7 @@ MonoBehaviour:
       distance_fade: 0.1
       directional:
         atlas_tile_size: 2048
+        soft_shadow_quality: 3
         cascade_count: 4
         cascade_ratio_1: 0.1
         cascade_ratio_2: 0.25

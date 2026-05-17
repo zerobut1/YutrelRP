@@ -18,6 +18,7 @@ Shader "YutrelRP/ShadowMask"
 			#pragma target 5.0
 			#pragma vertex DefaultFullScreenPassVertex
 			#pragma fragment ShadowMaskPassFragment
+			#pragma multi_compile_fragment _DIRECTIONAL_SHADOW_FILTER_NONE _DIRECTIONAL_SHADOW_FILTER_LOW _DIRECTIONAL_SHADOW_FILTER_MEDIUM _DIRECTIONAL_SHADOW_FILTER_HIGH
 			ENDHLSL
 		}
 

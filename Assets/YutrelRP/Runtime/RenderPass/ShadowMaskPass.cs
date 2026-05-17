@@ -8,6 +8,10 @@ namespace YutrelRP
     internal class ShadowMaskPass
     {
         private static readonly ProfilingSampler sampler = new("Shadow Mask Pass");
+        private const string none_filter_keyword = "_DIRECTIONAL_SHADOW_FILTER_NONE";
+        private const string low_filter_keyword = "_DIRECTIONAL_SHADOW_FILTER_LOW";
+        private const string medium_filter_keyword = "_DIRECTIONAL_SHADOW_FILTER_MEDIUM";
+        private const string high_filter_keyword = "_DIRECTIONAL_SHADOW_FILTER_HIGH";
         private static Material material;
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, LightResources light_resources,
@@ -35,6 +39,7 @@ namespace YutrelRP
 
             pass.directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
             pass.directional_shadow_distance_fade_ID = ShadowResources.directional_distance_fade_ID;
+            pass.directional_shadow_atlas_texel_size_ID = ShadowResources.directional_atlas_texel_size_ID;
             pass.directional_shadow_atlas_ID = ShadowResources.directional_shadow_atlas_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
             pass.directional_light_data_ID = LightResources.directional_light_data_ID;
@@ -42,12 +47,23 @@ namespace YutrelRP
             pass.directional_shadow_cascade_data_ID = ShadowResources.directional_cascade_data_ID;
 
             pass.directional_shadow_cascade_count = shadow_settings.directional.cascade_count;
+            int directional_atlas_width = (int)shadow_settings.directional.atlas_tile_size;
+            int directional_atlas_height = directional_atlas_width * pass.directional_shadow_cascade_count;
+            pass.directional_shadow_atlas_texel_size =
+                new Vector4(
+                    1.0f / directional_atlas_width,
+                    1.0f / directional_atlas_height,
+                    directional_atlas_width,
+                    directional_atlas_height);
             pass.directional_shadow_distance_fade =
                 new Vector4(
                     1.0f / shadow_settings.max_distance,
                     1.0f / shadow_settings.distance_fade,
                     1.0f / shadow_settings.directional.cascade_fade,
                     0.0f);
+            pass.soft_shadow_quality = GetEffectiveSoftShadowQuality(
+                shadow_settings.directional.soft_shadow_quality,
+                shadow_resources.directional_soft_shadow);
 
             pass.directional_shadow_atlas = shadow_resources.directional_atlas;
             pass.scene_depth = textures.scene_depth;
@@ -69,6 +85,7 @@ namespace YutrelRP
         private int
             directional_shadow_cascade_count_ID,
             directional_shadow_distance_fade_ID,
+            directional_shadow_atlas_texel_size_ID,
             directional_shadow_atlas_ID,
             scene_depth_ID,
             directional_light_data_ID,
@@ -77,6 +94,8 @@ namespace YutrelRP
 
         private int directional_shadow_cascade_count;
         private Vector4 directional_shadow_distance_fade;
+        private Vector4 directional_shadow_atlas_texel_size;
+        private ShadowSettings.Directional.SoftShadowQuality soft_shadow_quality;
 
         private TextureHandle
             directional_shadow_atlas,
@@ -93,13 +112,46 @@ namespace YutrelRP
 
             material.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);
             material.SetVector(directional_shadow_distance_fade_ID, directional_shadow_distance_fade);
+            material.SetVector(directional_shadow_atlas_texel_size_ID, directional_shadow_atlas_texel_size);
             material.SetTexture(directional_shadow_atlas_ID, directional_shadow_atlas);
             material.SetTexture(scene_depth_ID, scene_depth);
             material.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
             material.SetBuffer(directional_shadow_vp_matrices_ID, directional_shadow_vp_matrices_buffer);
             material.SetBuffer(directional_shadow_cascade_data_ID, directional_shadow_cascade_data_buffer);
+            SetSoftShadowQualityKeywords(soft_shadow_quality);
 
             CoreUtils.DrawFullScreen(cmd, material);
+        }
+
+        private static ShadowSettings.Directional.SoftShadowQuality GetEffectiveSoftShadowQuality(
+            ShadowSettings.Directional.SoftShadowQuality quality, bool light_uses_soft_shadows)
+        {
+            return light_uses_soft_shadows ? quality : ShadowSettings.Directional.SoftShadowQuality.None;
+        }
+
+        private static void SetSoftShadowQualityKeywords(ShadowSettings.Directional.SoftShadowQuality quality)
+        {
+            material.DisableKeyword(none_filter_keyword);
+            material.DisableKeyword(low_filter_keyword);
+            material.DisableKeyword(medium_filter_keyword);
+            material.DisableKeyword(high_filter_keyword);
+
+            if (quality == ShadowSettings.Directional.SoftShadowQuality.None)
+            {
+                material.EnableKeyword(none_filter_keyword);
+            }
+            else if (quality == ShadowSettings.Directional.SoftShadowQuality.Low)
+            {
+                material.EnableKeyword(low_filter_keyword);
+            }
+            else if (quality == ShadowSettings.Directional.SoftShadowQuality.Medium)
+            {
+                material.EnableKeyword(medium_filter_keyword);
+            }
+            else if (quality == ShadowSettings.Directional.SoftShadowQuality.High)
+            {
+                material.EnableKeyword(high_filter_keyword);
+            }
         }
 
         public static void Cleanup()

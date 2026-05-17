@@ -24,7 +24,17 @@ namespace YutrelRP
         [System.Serializable]
         public struct Directional
         {
+            public enum SoftShadowQuality
+            {
+                None = 0,
+                Low = 1,
+                Medium = 2,
+                High = 3,
+            }
+
             public MapSize atlas_tile_size;
+
+            public SoftShadowQuality soft_shadow_quality;
 
             [Range(1, 4)]
             public int cascade_count;
@@ -41,6 +51,7 @@ namespace YutrelRP
         public Directional directional = new Directional
         {
             atlas_tile_size = MapSize._2048,
+            soft_shadow_quality = Directional.SoftShadowQuality.Medium,
             cascade_count = 4,
             cascade_ratio_1 = 0.1f,
             cascade_ratio_2 = 0.25f,

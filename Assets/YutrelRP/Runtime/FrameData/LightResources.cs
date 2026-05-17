@@ -27,7 +27,7 @@ namespace YutrelRP
             public Vector3 color;
             public float intensity;
             public Vector4 direction;
-            public Vector4 shadow_data; // x: shadow index
+            public Vector4 shadow_data; // x: shadow index, y: 1 when Unity light uses soft shadows
 
             public DirectionalLightData(VisibleLight visiable_light, Vector4 shadow_data)
             {
