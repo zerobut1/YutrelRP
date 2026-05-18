@@ -26,7 +26,7 @@ Varyings UnlitVertex(Attributes input)
     output.position_CS = TransformWorldToHClip(position_WS);
 
     float4 baseST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _MainTex_ST);
-    output.uv = input.uv * baseST.xy + baseST.zw;
+    output.uv     = input.uv * baseST.xy + baseST.zw;
 
     return output;
 }
@@ -35,7 +35,7 @@ float4 UnlitFragment(Varyings input) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     float4 texture_color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-    float4 emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive);
+    float4 emissive      = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive);
     return texture_color * emissive;
 }
 

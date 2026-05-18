@@ -10,7 +10,7 @@
 #define UNITY_MATRIX_V unity_MatrixV
 #define UNITY_MATRIX_I_V unity_MatrixInvV
 #define UNITY_MATRIX_VP unity_MatrixVP
-#define UNITY_MATRIX_I_VP  unity_MatrixInvVP
+#define UNITY_MATRIX_I_VP unity_MatrixInvVP
 #define UNITY_MATRIX_P glstate_matrix_projection
 #define UNITY_PREV_MATRIX_M unity_prev_MatrixM
 #define UNITY_PREV_MATRIX_I_M unity_prev_MatrixIM
@@ -19,9 +19,9 @@
 #define SHADOWS_SHADOWMASK
 #endif
 
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
 
 SAMPLER(sampler_linear_clamp);
 SAMPLER(sampler_point_clamp);
@@ -33,11 +33,11 @@ bool IsOrthographicCamera()
 
 float OrthographicDepthBufferToLinear(float rawDepth)
 {
-    #if UNITY_REVERSED_Z
+#if UNITY_REVERSED_Z
     rawDepth = 1.0 - rawDepth;
-    #endif
+#endif
     return (_ProjectionParams.z - _ProjectionParams.y) * rawDepth +
-        _ProjectionParams.y;
+           _ProjectionParams.y;
 }
 
 float Square(float x)
@@ -63,12 +63,10 @@ FullScreenVaryings DefaultFullScreenPassVertex(uint vertexID : SV_VertexID)
         vertexID <= 1 ? -1.0 : 3.0,
         vertexID == 1 ? 3.0 : -1.0,
         0.0,
-        1.0
-    );
+        1.0);
     output.uv = float2(
         vertexID <= 1 ? 0.0 : 2.0,
-        vertexID == 1 ? 2.0 : 0.0
-    );
+        vertexID == 1 ? 2.0 : 0.0);
     if (_ProjectionParams.x < 0.0)
     {
         output.uv.y = 1.0 - output.uv.y;

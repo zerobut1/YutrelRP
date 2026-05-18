@@ -18,7 +18,7 @@ float4 CopyPassFragment(FullScreenVaryings input) : SV_Target
 float4 ToneMappingACESFragment(FullScreenVaryings input) : SV_Target
 {
     float4 color = GetSource(input.uv);
-    color.rgb = AcesTonemap(unity_to_ACES(color.rgb));
+    color.rgb    = AcesTonemap(unity_to_ACES(color.rgb));
 
     return color;
 }

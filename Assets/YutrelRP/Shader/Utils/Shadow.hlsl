@@ -15,9 +15,9 @@ TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
 SAMPLER_CMP(SHADOW_SAMPLER);
 
 CBUFFER_START(_YutrelShadows)
-    int _DirectionalShadowCascadeCount;
-    float4 _DirectionalShadowDistanceFade;
-    float4 _DirectionalShadowAtlasTexelSize;
+int _DirectionalShadowCascadeCount;
+float4 _DirectionalShadowDistanceFade;
+float4 _DirectionalShadowAtlasTexelSize;
 CBUFFER_END
 
 StructuredBuffer<float4x4> _DirectionalShadowVPMatrices;

@@ -33,7 +33,7 @@ Light GetDirectionalLight(int index, float2 uv)
 {
     DirectionalLightData data = _DirectionalLightData[index];
     Light light;
-    light.color = data.color;
+    light.color     = data.color;
     light.intensity = data.intensity;
     light.direction = normalize(data.direction.xyz);
     light.occlusion = 1.0f;

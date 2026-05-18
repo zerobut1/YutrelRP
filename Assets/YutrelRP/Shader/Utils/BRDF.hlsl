@@ -16,8 +16,8 @@ float D_GGX(float roughness, float NoH)
 
 float V_SmithGGXCorrelated(float roughness, float NoV, float NoL)
 {
-    NoV = max(NoV, MIN_N_DOT_V);
-    float a2 = roughness * roughness;
+    NoV        = max(NoV, MIN_N_DOT_V);
+    float a2   = roughness * roughness;
     float GGXV = NoL * sqrt((NoV - a2 * NoV) * NoV + a2);
     float GGXL = NoV * sqrt((NoL - a2 * NoL) * NoL + a2);
     return 0.5 / max(GGXV + GGXL, MIN_BRDF_DENOMINATOR);

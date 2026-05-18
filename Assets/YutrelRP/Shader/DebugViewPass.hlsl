@@ -25,12 +25,12 @@ DebugViewShadowData GetDebugViewShadowData(float3 position_WS, float depth)
 {
     DebugViewShadowData out_data;
     out_data.cascade_index = -1;
-    out_data.strength = DebugViewFadedShadowStrength(depth, _DirectionalShadowDistanceFade.x, _DirectionalShadowDistanceFade.y);
+    out_data.strength      = DebugViewFadedShadowStrength(depth, _DirectionalShadowDistanceFade.x, _DirectionalShadowDistanceFade.y);
 
     for (int cascade_index = 0; cascade_index < _DirectionalShadowCascadeCount; cascade_index++)
     {
         float4 sphere = _DirectionalShadowCascadeDatas[cascade_index].culling_sphere;
-        float dist = distance(position_WS, sphere.xyz);
+        float dist    = distance(position_WS, sphere.xyz);
         if (dist < sphere.w)
         {
             if (cascade_index == _DirectionalShadowCascadeCount - 1)
@@ -110,11 +110,11 @@ float DebugViewLinearDepth01(float raw_depth)
 float4 SampleDebugViewGBuffer(float2 uv)
 {
     EncodedGBuffer gbuffer;
-    gbuffer.GBuffer_A = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, uv);
-    gbuffer.GBuffer_B = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, uv);
-    gbuffer.GBuffer_C = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, uv);
+    gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, uv);
+    gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, uv);
+    gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, uv);
     gbuffer.scene_depth = 0.0f;
-    gbuffer.uv = uv;
+    gbuffer.uv          = uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
     if (gbuffer_data.shading_model_id != 1)
@@ -177,8 +177,8 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
             return float4(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
-        float3 position_WS = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
-        float linear_depth = LinearEyeDepth(position_WS, UNITY_MATRIX_V);
+        float3 position_WS              = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
+        float linear_depth              = LinearEyeDepth(position_WS, UNITY_MATRIX_V);
         DebugViewShadowData shadow_data = GetDebugViewShadowData(position_WS, linear_depth);
         return GetCascadeColor(shadow_data.cascade_index);
     }

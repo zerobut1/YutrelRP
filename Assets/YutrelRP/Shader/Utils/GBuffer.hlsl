@@ -43,9 +43,9 @@ EncodedGBuffer EncodeGBuffer(GBufferData data)
     EncodedGBuffer encoded;
 
     encoded.scene_color = float4(data.emissive, 0.0f);
-    encoded.GBuffer_A = float4(data.base_color, data.shading_model_id);
-    encoded.GBuffer_B = float4(normalize(data.normal_WS) * 0.5f + 0.5f, 0.0f);
-    encoded.GBuffer_C = float4(data.roughness, data.metallic, data.specular, 0.0f);
+    encoded.GBuffer_A   = float4(data.base_color, data.shading_model_id);
+    encoded.GBuffer_B   = float4(normalize(data.normal_WS) * 0.5f + 0.5f, 0.0f);
+    encoded.GBuffer_C   = float4(data.roughness, data.metallic, data.specular, 0.0f);
 
     return encoded;
 }
@@ -54,14 +54,14 @@ GBufferData DecodeGBuffer(EncodedGBuffer encoded)
 {
     GBufferData data;
 
-    data.base_color = encoded.GBuffer_A.rgb;
-    data.emissive = float3(0, 0, 0);
-    data.normal_WS = normalize(encoded.GBuffer_B.xyz * 2.0f - 1.0f);
-    data.uv = encoded.uv;
-    data.scene_depth = encoded.scene_depth;
-    data.roughness = encoded.GBuffer_C.r;
-    data.metallic = encoded.GBuffer_C.g;
-    data.specular = encoded.GBuffer_C.b;
+    data.base_color       = encoded.GBuffer_A.rgb;
+    data.emissive         = float3(0, 0, 0);
+    data.normal_WS        = normalize(encoded.GBuffer_B.xyz * 2.0f - 1.0f);
+    data.uv               = encoded.uv;
+    data.scene_depth      = encoded.scene_depth;
+    data.roughness        = encoded.GBuffer_C.r;
+    data.metallic         = encoded.GBuffer_C.g;
+    data.specular         = encoded.GBuffer_C.b;
     data.shading_model_id = encoded.GBuffer_A.a > 0.5f ? 1 : 0;
 
     return data;
