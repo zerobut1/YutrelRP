@@ -14,7 +14,8 @@
 
 		HLSLINCLUDE
 		#include "Assets/YutrelRP/Shader/Utils/Common.hlsl"
-		#include "DefaultLitInput.hlsl"
+		#include "Assets/YutrelRP/Shader/DefaultLitSurfaceContract.hlsl"
+		#include "Sponza_DefaultLitSurface.hlsl"
 		ENDHLSL
 
 		Pass
@@ -27,7 +28,7 @@
 			#pragma multi_compile_instancing
 			#pragma vertex DefaultLitVertex
 			#pragma fragment DefaultLitFragment
-			#include "DefaultLit.hlsl"
+			#include "Assets/YutrelRP/Shader/DefaultLit.hlsl"
 			ENDHLSL
 		}
 
@@ -43,7 +44,7 @@
 			#pragma multi_compile_instancing
 			#pragma vertex DefaultLitShadowCasterVertex
 			#pragma fragment DefaultLitShadowCasterFragment
-			#include "DefaultLit.hlsl"
+			#include "Assets/YutrelRP/Shader/DefaultLit.hlsl"
 			ENDHLSL
 		}
 	}

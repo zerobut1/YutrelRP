@@ -1,7 +1,7 @@
 #ifndef YUTREL_DEFAULTLIT_INCLUDED
 #define YUTREL_DEFAULTLIT_INCLUDED
 
-#include "Utils/GBuffer.hlsl"
+#include "Assets/YutrelRP/Shader/DefaultLitSurfaceContract.hlsl"
 
 struct Attributes
 {
@@ -30,6 +30,16 @@ struct RTStruct
     float4 GBuffer_C : SV_Target3;
 };
 
+DefaultLitSurfaceInput BuildDefaultLitSurfaceInput(Varyings input)
+{
+    DefaultLitSurfaceInput surface_input;
+    surface_input.uv           = input.uv;
+    surface_input.normal_WS    = input.normal_WS;
+    surface_input.tangent_WS   = input.tangent_WS;
+    surface_input.bitangent_WS = input.bitangent_WS;
+    return surface_input;
+}
+
 Varyings DefaultLitVertex(Attributes input)
 {
     Varyings output;
@@ -55,54 +65,10 @@ RTStruct DefaultLitFragment(Varyings input)
     RTStruct output;
     UNITY_SETUP_INSTANCE_ID(input);
 
-    GBufferData gbuffer;
-#if defined(_USE_BASECOLOR_TEX)
-    float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
-    float2 base_color_uv = input.uv * base_color_ST.xy + base_color_ST.zw;
-    gbuffer.base_color   = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv).rgb;
-#else
-    gbuffer.base_color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor).rgb;
-#endif
-
-#if defined(_USE_EMISSIVE_TEX)
-    float4 emissive_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissiveTex_ST);
-    float2 emissive_uv = input.uv * emissive_ST.xy + emissive_ST.zw;
-    gbuffer.emissive   = SAMPLE_TEXTURE2D(_EmissiveTex, sampler_EmissiveTex, emissive_uv).rgb;
-#else
-    gbuffer.emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb;
-#endif
-
-#if defined(_USE_NORMAL_TEX)
-    float4 normal_ST     = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _NormalTex_ST);
-    float2 normal_uv     = input.uv * normal_ST.xy + normal_ST.zw;
-    float4 packed_normal = SAMPLE_TEXTURE2D(_NormalTex, sampler_NormalTex, normal_uv);
-    float3 normal_TS     = UnpackNormal(packed_normal);
-    gbuffer.normal_WS    = normalize(
-        normal_TS.x * input.tangent_WS +
-        normal_TS.y * input.bitangent_WS +
-        normal_TS.z * input.normal_WS);
-#else
-    gbuffer.normal_WS = input.normal_WS;
-#endif
-
-#if defined(_USE_ROUGHNESS_TEX)
-    float4 roughness_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _RoughnessTex_ST);
-    float2 roughness_uv = input.uv * roughness_ST.xy + roughness_ST.zw;
-    gbuffer.roughness   = SAMPLE_TEXTURE2D(_RoughnessTex, sampler_RoughnessTex, roughness_uv).r;
-#else
-    gbuffer.roughness = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Roughness);
-#endif
-
-#if defined(_USE_METALLIC_TEX)
-    float4 metallic_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _MetallicTex_ST);
-    float2 metallic_uv = input.uv * metallic_ST.xy + metallic_ST.zw;
-    gbuffer.metallic   = SAMPLE_TEXTURE2D(_MetallicTex, sampler_MetallicTex, metallic_uv).r;
-#else
-    gbuffer.metallic = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Metallic);
-#endif
-
-    gbuffer.specular         = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Specular);
-    gbuffer.shading_model_id = 1;
+    DefaultLitSurfaceInput surface_input = BuildDefaultLitSurfaceInput(input);
+    DefaultLitSurfaceResult surface      = EvaluateDefaultLitSurface(surface_input);
+    ClipDefaultLitSurface(surface.alpha_clip);
+    GBufferData gbuffer = DefaultLitSurfaceToGBuffer(surface.surface);
 
     EncodedGBuffer encoded_gbuffer = EncodeGBuffer(gbuffer);
     output.scene_color             = encoded_gbuffer.scene_color;
@@ -111,6 +77,61 @@ RTStruct DefaultLitFragment(Varyings input)
     output.GBuffer_C               = encoded_gbuffer.GBuffer_C;
 
     return output;
+}
+
+struct ShadowAttributes
+{
+    float3 position_OS : POSITION;
+    float2 uv : TEXCOORD0;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+struct ShadowVaryings
+{
+    float4 position_CS_SS : SV_POSITION;
+    float2 uv : VAR_BASE_UV;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+ShadowVaryings DefaultLitShadowCasterVertex(ShadowAttributes input)
+{
+    ShadowVaryings output;
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    float3 position_WS    = TransformObjectToWorld(input.position_OS);
+    output.position_CS_SS = TransformWorldToHClip(position_WS);
+    output.uv             = input.uv;
+
+// Shadow pancaking: clamp vertices behind the near plane to the near plane
+// to prevent near-plane clipping artifacts (light leaking) in CSM.
+#if UNITY_REVERSED_Z
+    output.position_CS_SS.z = min(
+        output.position_CS_SS.z,
+        output.position_CS_SS.w * UNITY_NEAR_CLIP_VALUE);
+#else
+    output.position_CS_SS.z = max(
+        output.position_CS_SS.z,
+        output.position_CS_SS.w * UNITY_NEAR_CLIP_VALUE);
+#endif
+
+    return output;
+}
+
+DefaultLitSurfaceInput BuildDefaultLitShadowSurfaceInput(ShadowVaryings input)
+{
+    DefaultLitSurfaceInput surface_input;
+    surface_input.uv           = input.uv;
+    surface_input.normal_WS    = 0.0f;
+    surface_input.tangent_WS   = 0.0f;
+    surface_input.bitangent_WS = 0.0f;
+    return surface_input;
+}
+
+void DefaultLitShadowCasterFragment(ShadowVaryings input)
+{
+    UNITY_SETUP_INSTANCE_ID(input);
+    DefaultLitSurfaceInput surface_input = BuildDefaultLitShadowSurfaceInput(input);
+    ClipDefaultLitSurface(EvaluateDefaultLitAlphaClip(surface_input));
 }
 
 #endif

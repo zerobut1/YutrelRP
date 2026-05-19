@@ -22,7 +22,8 @@
 	{
 		HLSLINCLUDE
 		#include "Utils/Common.hlsl"
-		#include "DefaultLitInput.hlsl"
+		#include "DefaultLitSurfaceContract.hlsl"
+		#include "StandardDefaultLitSurface.hlsl"
 		ENDHLSL
 
 		Pass
@@ -58,9 +59,9 @@
 			HLSLPROGRAM
 			#pragma target 5.0
 			#pragma multi_compile_instancing
-			#pragma vertex ShadowCasterPassVertex
-			#pragma fragment ShadowCasterPassFragment
-			#include "ShadowCaster.hlsl"
+			#pragma vertex DefaultLitShadowCasterVertex
+			#pragma fragment DefaultLitShadowCasterFragment
+			#include "DefaultLit.hlsl"
 			ENDHLSL
 		}
 	}
