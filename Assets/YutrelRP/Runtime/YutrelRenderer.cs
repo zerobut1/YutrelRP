@@ -18,6 +18,7 @@ namespace YutrelRP
         public void Dispose()
         {
             DirectionalLightPass.Cleanup();
+            EnvironmentLightingPass.Cleanup();
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
@@ -84,6 +85,8 @@ namespace YutrelRP
                         attachment_size);
 
                     DirectionalLightPass.Record(render_graph, textures, light_resources);
+
+                    EnvironmentLightingPass.Record(render_graph, textures, light_resources);
 
                     SkyboxPass.Record(render_graph, camera, textures);
 
