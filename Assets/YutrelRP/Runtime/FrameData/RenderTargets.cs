@@ -12,6 +12,7 @@ namespace YutrelRP
             GBuffer_C_ID = Shader.PropertyToID("_GBuffer_C"),
             scene_color_ID = Shader.PropertyToID("_SceneColor"),
             scene_depth_ID = Shader.PropertyToID("_SceneDepth"),
+            screen_space_ao_ID = Shader.PropertyToID("_ScreenSpaceAO"),
             final_color_ID = Shader.PropertyToID("_FinalColor"),
             shadow_mask_ID = Shader.PropertyToID("_ShadowMask");
 
@@ -21,6 +22,7 @@ namespace YutrelRP
         public TextureHandle GBuffer_C;
         public TextureHandle scene_color;
         public TextureHandle scene_depth;
+        public TextureHandle screen_space_ao;
         public TextureHandle final_color;
         public TextureHandle shadow_mask;
 
@@ -29,6 +31,7 @@ namespace YutrelRP
             camera_output = TextureHandle.nullHandle;
             scene_color = TextureHandle.nullHandle;
             scene_depth = TextureHandle.nullHandle;
+            screen_space_ao = TextureHandle.nullHandle;
             GBuffer_A = TextureHandle.nullHandle;
             GBuffer_B = TextureHandle.nullHandle;
             GBuffer_C = TextureHandle.nullHandle;

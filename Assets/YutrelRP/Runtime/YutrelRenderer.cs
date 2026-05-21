@@ -19,6 +19,7 @@ namespace YutrelRP
         {
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
+            ScreenSpaceAmbientOcclusionPass.Cleanup();
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
@@ -85,6 +86,9 @@ namespace YutrelRP
                         attachment_size);
 
                     DirectionalLightPass.Record(render_graph, textures, light_resources);
+
+                    ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
+                        attachment_size);
 
                     EnvironmentLightingPass.Record(render_graph, textures, light_resources);
 

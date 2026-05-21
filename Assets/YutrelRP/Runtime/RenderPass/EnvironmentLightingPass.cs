@@ -33,6 +33,7 @@ namespace YutrelRP
             pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
             pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
+            pass.screen_space_ao_ID = RenderTargets.screen_space_ao_ID;
             pass.brdf_lut_ID = LightResources.brdf_lut_ID;
             pass.environment_reflection_cube_ID = LightResources.environment_reflection_cube_ID;
             pass.environment_reflection_cube_hdr_ID = LightResources.environment_reflection_cube_hdr_ID;
@@ -42,6 +43,9 @@ namespace YutrelRP
             pass.GBuffer_B = textures.GBuffer_B;
             pass.GBuffer_C = textures.GBuffer_C;
             pass.scene_depth = textures.scene_depth;
+            pass.screen_space_ao = textures.screen_space_ao.IsValid()
+                ? textures.screen_space_ao
+                : graph.defaultResources.whiteTexture;
             pass.BRDF_LUT = light_resources.BRDF_LUT;
             pass.environment_reflection_cube = light_resources.environment_reflection_cube;
             pass.environment_reflection_cube_hdr = light_resources.environment_reflection_cube_hdr;
@@ -52,6 +56,7 @@ namespace YutrelRP
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.scene_depth);
+            builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.BRDF_LUT);
             builder.UseTexture(pass.environment_reflection_cube);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
@@ -64,6 +69,7 @@ namespace YutrelRP
             GBuffer_B_ID,
             GBuffer_C_ID,
             scene_depth_ID,
+            screen_space_ao_ID,
             brdf_lut_ID,
             environment_reflection_cube_ID,
             environment_reflection_cube_hdr_ID,
@@ -74,6 +80,7 @@ namespace YutrelRP
             GBuffer_B,
             GBuffer_C,
             scene_depth,
+            screen_space_ao,
             BRDF_LUT,
             environment_reflection_cube;
 
@@ -88,6 +95,7 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
             property_block.SetTexture(scene_depth_ID, scene_depth);
+            property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
             property_block.SetTexture(brdf_lut_ID, BRDF_LUT);
             property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
             property_block.SetVector(environment_reflection_cube_hdr_ID, environment_reflection_cube_hdr);
