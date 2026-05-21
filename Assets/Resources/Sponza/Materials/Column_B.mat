@@ -157,6 +157,10 @@ Material:
         m_Texture: {fileID: 2800000, guid: 38ef6986bb8064fa882d9d5e54f8b0d0, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _MaterialAOTex:
+        m_Texture: {fileID: 2800000, guid: 38ef6986bb8064fa882d9d5e54f8b0d0, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _ParallaxMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}

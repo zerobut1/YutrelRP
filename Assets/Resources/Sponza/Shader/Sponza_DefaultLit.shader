@@ -6,6 +6,7 @@
 		_NormalTex ("Normal", 2D) = "bump" {}
 		_SmoothnessTex ("Smoothness", 2D) = "white" {}
 		_MetallicTex ("Metallic", 2D) = "black" {}
+		_MaterialAOTex ("Material AO", 2D) = "white" {}
 		[Toggle] _UseAlphaClip ("Use Alpha Clip", Float) = 0
 		[Enum(Off,2,On,0)] _CullMode ("Double Face", Float) = 2
 	}

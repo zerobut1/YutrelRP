@@ -9,6 +9,8 @@ TEXTURE2D(_SmoothnessTex);
 SAMPLER(sampler_SmoothnessTex);
 TEXTURE2D(_MetallicTex);
 SAMPLER(sampler_MetallicTex);
+TEXTURE2D(_MaterialAOTex);
+SAMPLER(sampler_MaterialAOTex);
 
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColorTex_ST)
@@ -16,6 +18,7 @@ UNITY_DEFINE_INSTANCED_PROP(float, _UseAlphaClip)
 UNITY_DEFINE_INSTANCED_PROP(float4, _NormalTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _SmoothnessTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _MetallicTex_ST)
+UNITY_DEFINE_INSTANCED_PROP(float4, _MaterialAOTex_ST)
 UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
 float4 SampleSponzaDefaultLitBaseColor(float2 uv)
@@ -63,8 +66,12 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     float2 metallic_uv      = TransformDefaultLitTextureUV(input.uv, metallic_ST);
     result.surface.metallic = SAMPLE_TEXTURE2D(_MetallicTex, sampler_MetallicTex, metallic_uv).r;
 
+    float4 material_ao_ST     = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _MaterialAOTex_ST);
+    float2 material_ao_uv     = TransformDefaultLitTextureUV(input.uv, material_ao_ST);
+    float material_ao_texture = SAMPLE_TEXTURE2D(_MaterialAOTex, sampler_MaterialAOTex, material_ao_uv).r;
+
     result.surface.specular         = 0.5f;
-    result.surface.material_AO      = 1.0f;
+    result.surface.material_AO      = saturate(material_ao_texture);
     result.surface.shading_model_id = 1;
     return result;
 }

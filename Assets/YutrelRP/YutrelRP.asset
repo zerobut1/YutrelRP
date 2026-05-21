@@ -26,4 +26,27 @@ MonoBehaviour:
         cascade_ratio_3: 0.5
         cascade_fade: 0.1
     postProcessSettings: {fileID: 11400000, guid: 67dc4f13b5d0445469abea26b93a3efd, type: 2}
+    ambientOcclusionSettings:
+      mode: 0
+      ssao:
+        radius: 0.5
+        intensity: 1
+        bias: 0.025
+        sampleCount: 16
+        denoiseRadius: 1
+      hbao:
+        radius: 1
+        intensity: 1
+        bias: 0.1
+        directionCount: 8
+        stepCount: 4
+        thickness: 1
+        denoiseRadius: 1
+      gtao:
+        radius: 1
+        intensity: 1
+        sliceCount: 6
+        samplesPerSlice: 3
+        thickness: 1
+        denoiseRadius: 1
     debugViewMode: 0
