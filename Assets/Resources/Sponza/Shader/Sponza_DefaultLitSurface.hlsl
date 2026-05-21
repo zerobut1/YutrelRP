@@ -64,6 +64,7 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     result.surface.metallic = SAMPLE_TEXTURE2D(_MetallicTex, sampler_MetallicTex, metallic_uv).r;
 
     result.surface.specular         = 0.5f;
+    result.surface.material_AO      = 1.0f;
     result.surface.shading_model_id = 1;
     return result;
 }

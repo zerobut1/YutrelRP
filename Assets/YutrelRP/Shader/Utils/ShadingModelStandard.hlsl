@@ -15,6 +15,7 @@ struct StandardSurface
     float3 position_WS;
     float3 view_direction_WS;
     float NoV;
+    float material_AO;
 };
 
 StandardSurface GBuffer2StandardSurface(GBufferData data)
@@ -34,6 +35,7 @@ StandardSurface GBuffer2StandardSurface(GBufferData data)
     surface.position_WS          = ComputeWorldSpacePosition(data.uv, data.scene_depth, UNITY_MATRIX_I_VP);
     surface.view_direction_WS    = normalize(_WorldSpaceCameraPos - surface.position_WS);
     surface.NoV                  = clamp(dot(surface.normal_WS, surface.view_direction_WS), MIN_N_DOT_V, 1.0f);
+    surface.material_AO          = saturate(data.material_AO);
 
     return surface;
 }

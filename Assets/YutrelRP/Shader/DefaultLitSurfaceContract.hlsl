@@ -19,6 +19,7 @@ struct DefaultLitSurfaceData
     float roughness;
     float metallic;
     float specular;
+    float material_AO;
     int shading_model_id;
 };
 
@@ -77,6 +78,7 @@ GBufferData DefaultLitSurfaceToGBuffer(DefaultLitSurfaceData surface)
     gbuffer.roughness        = saturate(surface.roughness);
     gbuffer.metallic         = saturate(surface.metallic);
     gbuffer.specular         = saturate(surface.specular);
+    gbuffer.material_AO      = saturate(surface.material_AO);
     gbuffer.shading_model_id = surface.shading_model_id;
     return gbuffer;
 }

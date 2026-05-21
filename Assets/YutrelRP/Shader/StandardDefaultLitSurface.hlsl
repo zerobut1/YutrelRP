@@ -11,6 +11,8 @@ TEXTURE2D(_RoughnessTex);
 SAMPLER(sampler_RoughnessTex);
 TEXTURE2D(_MetallicTex);
 SAMPLER(sampler_MetallicTex);
+TEXTURE2D(_MaterialAOTex);
+SAMPLER(sampler_MaterialAOTex);
 
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
@@ -18,16 +20,19 @@ UNITY_DEFINE_INSTANCED_PROP(float4, _Emissive)
 UNITY_DEFINE_INSTANCED_PROP(float, _Roughness)
 UNITY_DEFINE_INSTANCED_PROP(float, _Metallic)
 UNITY_DEFINE_INSTANCED_PROP(float, _Specular)
+UNITY_DEFINE_INSTANCED_PROP(float, _MaterialAO)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseBaseColorTex)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseEmissiveTex)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseNormalTex)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseRoughnessTex)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseMetallicTex)
+UNITY_DEFINE_INSTANCED_PROP(float, _UseMaterialAOTex)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColorTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _EmissiveTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _NormalTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _RoughnessTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _MetallicTex_ST)
+UNITY_DEFINE_INSTANCED_PROP(float4, _MaterialAOTex_ST)
 UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
 DefaultLitAlphaClipData EvaluateDefaultLitAlphaClip(DefaultLitSurfaceInput input)
@@ -81,6 +86,15 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     result.surface.metallic = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Metallic);
 #endif
 
+#if defined(_USE_MATERIAL_AO_TEX)
+    float4 material_ao_ST      = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _MaterialAOTex_ST);
+    float2 material_ao_uv      = TransformDefaultLitTextureUV(input.uv, material_ao_ST);
+    result.surface.material_AO = SAMPLE_TEXTURE2D(_MaterialAOTex, sampler_MaterialAOTex, material_ao_uv).r;
+#else
+    result.surface.material_AO = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _MaterialAO);
+#endif
+
+    result.surface.material_AO      = saturate(result.surface.material_AO);
     result.surface.specular         = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Specular);
     result.surface.shading_model_id = 1;
     return result;

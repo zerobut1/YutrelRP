@@ -70,7 +70,9 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     }
 
     StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
-    float3 diffuse_IBL      = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color;
+    float screen_space_AO   = 1.0f;
+    float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
+    float3 diffuse_IBL      = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color * final_diffuse_AO;
     float3 specular_IBL     = EvaluateEnvironmentSpecular(surface);
 
     return float4(diffuse_IBL + specular_IBL, 0.0f);

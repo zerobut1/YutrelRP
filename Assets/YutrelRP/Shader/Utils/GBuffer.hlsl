@@ -22,6 +22,7 @@ struct GBufferData
     float roughness;
     float metallic;
     float specular;
+    float material_AO;
     int shading_model_id;
 };
 
@@ -32,7 +33,7 @@ struct EncodedGBuffer
     float4 GBuffer_A;
     // GBuffer_B: RGB = World Normal
     float4 GBuffer_B;
-    // GBuffer_C: R = Roughness, G = Metallic, B = SpecularS
+    // GBuffer_C: R = Roughness, G = Metallic, B = Specular, A = Material AO
     float4 GBuffer_C;
     float scene_depth;
     float2 uv;
@@ -45,7 +46,7 @@ EncodedGBuffer EncodeGBuffer(GBufferData data)
     encoded.scene_color = float4(data.emissive, 0.0f);
     encoded.GBuffer_A   = float4(data.base_color, data.shading_model_id);
     encoded.GBuffer_B   = float4(normalize(data.normal_WS) * 0.5f + 0.5f, 0.0f);
-    encoded.GBuffer_C   = float4(data.roughness, data.metallic, data.specular, 0.0f);
+    encoded.GBuffer_C   = float4(data.roughness, data.metallic, data.specular, data.material_AO);
 
     return encoded;
 }
@@ -62,6 +63,7 @@ GBufferData DecodeGBuffer(EncodedGBuffer encoded)
     data.roughness        = encoded.GBuffer_C.r;
     data.metallic         = encoded.GBuffer_C.g;
     data.specular         = encoded.GBuffer_C.b;
+    data.material_AO      = saturate(encoded.GBuffer_C.a);
     data.shading_model_id = encoded.GBuffer_A.a > 0.5f ? 1 : 0;
 
     return data;

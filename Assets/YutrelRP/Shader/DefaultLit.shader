@@ -9,6 +9,7 @@
 		_Roughness ("Roughness", Range(0, 1)) = 0.5
 		_Metallic ("Metallic", Range(0, 1)) = 0.0
 		_Specular ("Specular", Range(0, 1)) = 0.5
+		_MaterialAO ("Material AO", Range(0, 1)) = 1.0
 		[Toggle(_USE_BASECOLOR_TEX)] _UseBaseColorTex ("Use BaseColor Texture", Float) = 0
 		_BaseColorTex ("Base Color", 2D) = "white" {}
 		[Toggle(_USE_NORMAL_TEX)] _UseNormalTex ("Use Normal Texture", Float) = 0
@@ -17,6 +18,8 @@
 		_RoughnessTex ("Roughness", 2D) = "white" {}
 		[Toggle(_USE_METALLIC_TEX)] _UseMetallicTex ("Use Metallic Texture", Float) = 0
 		_MetallicTex ("Metallic", 2D) = "black" {}
+		[Toggle(_USE_MATERIAL_AO_TEX)] _UseMaterialAOTex ("Use Material AO Texture", Float) = 0
+		_MaterialAOTex ("Material AO", 2D) = "white" {}
 	}
 	SubShader
 	{
@@ -41,6 +44,7 @@
 			#pragma shader_feature_local _USE_NORMAL_TEX
 			#pragma shader_feature_local _USE_ROUGHNESS_TEX
 			#pragma shader_feature_local _USE_METALLIC_TEX
+			#pragma shader_feature_local _USE_MATERIAL_AO_TEX
 			#pragma vertex DefaultLitVertex
 			#pragma fragment DefaultLitFragment
 			#include "DefaultLit.hlsl"
