@@ -11,6 +11,8 @@
 
 TEXTURECUBE(_EnvironmentReflectionCube);
 SAMPLER(sampler_EnvironmentReflectionCube);
+TEXTURE2D(_ScreenSpaceAO);
+SAMPLER(sampler_ScreenSpaceAO);
 
 float4 _EnvironmentReflectionCube_HDR;
 float _EnvironmentReflectionAvailable;
@@ -70,7 +72,7 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     }
 
     StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
-    float screen_space_AO   = 1.0f;
+    float screen_space_AO   = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
     float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
     float3 diffuse_IBL      = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color * final_diffuse_AO;
     float3 specular_IBL     = EvaluateEnvironmentSpecular(surface);
