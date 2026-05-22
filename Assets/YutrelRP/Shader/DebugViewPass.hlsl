@@ -6,6 +6,8 @@
 
 TEXTURE2D(_ShadowMask);
 SAMPLER(sampler_ShadowMask);
+TEXTURE2D(_ScreenSpaceAO);
+SAMPLER(sampler_ScreenSpaceAO);
 
 int _DebugViewMode;
 int _DebugViewIssue;
@@ -107,6 +109,15 @@ float DebugViewLinearDepth01(float raw_depth)
     return sqrt(linear_depth_01);
 }
 
+bool DebugViewIsValidSurfaceDepth(float raw_depth)
+{
+#if UNITY_REVERSED_Z
+    return raw_depth > 0.0f;
+#else
+    return raw_depth < 1.0f;
+#endif
+}
+
 float4 SampleDebugViewGBuffer(float2 uv)
 {
     EncodedGBuffer gbuffer;
@@ -141,6 +152,33 @@ float4 SampleDebugViewGBuffer(float2 uv)
     return float4(gbuffer_data.normal_WS * 0.5f + 0.5f, 1.0f);
 }
 
+float4 SampleDebugViewAmbientOcclusion(float2 uv)
+{
+    float scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, uv).r;
+    if (!DebugViewIsValidSurfaceDepth(scene_depth))
+    {
+        return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    EncodedGBuffer gbuffer;
+    gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, uv);
+    gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, uv);
+    gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, uv);
+    gbuffer.scene_depth = scene_depth;
+    gbuffer.uv          = uv;
+
+    GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
+    if (gbuffer_data.shading_model_id != 1)
+    {
+        return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    float material_AO     = saturate(gbuffer_data.material_AO);
+    float screen_space_AO = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, uv).r);
+    float combined_AO     = min(material_AO, screen_space_AO);
+    return float4(combined_AO.xxx, 1.0f);
+}
+
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 {
     if (_DebugViewIssue != 0)
@@ -171,6 +209,7 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
         return SAMPLE_TEXTURE2D(_ShadowMask, sampler_ShadowMask, input.uv).rrrr;
 
     case 8:
+    {
         float scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, input.uv).r;
         if (scene_depth <= 0.0f || scene_depth >= 1.0f)
         {
@@ -181,6 +220,10 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
         float linear_depth              = LinearEyeDepth(position_WS, UNITY_MATRIX_V);
         DebugViewShadowData shadow_data = GetDebugViewShadowData(position_WS, linear_depth);
         return GetCascadeColor(shadow_data.cascade_index);
+    }
+
+    case 9:
+        return SampleDebugViewAmbientOcclusion(input.uv);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

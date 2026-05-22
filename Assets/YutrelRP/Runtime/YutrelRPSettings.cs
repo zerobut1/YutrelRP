@@ -27,6 +27,7 @@ namespace YutrelRP
             SceneDepth = 6,
             ShadowOnly = 7,
             CSMCascadeLevels = 8,
+            AmbientOcclusion = 9,
         }
 #endif
     }

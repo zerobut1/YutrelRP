@@ -46,7 +46,10 @@ namespace YutrelRP
             pass.mode = mode;
             pass.issue = ValidateSources(mode, light_resources, shadow_resources, shadow_settings, textures);
             pass.reads_GBuffer = pass.issue == Issue.None && IsGBufferMode(mode);
-            pass.reads_scene_depth = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.SceneDepth;
+            pass.reads_scene_depth = pass.issue == Issue.None &&
+                                     (mode == YutrelRPSettings.DebugViewMode.SceneDepth ||
+                                      mode == YutrelRPSettings.DebugViewMode.AmbientOcclusion);
+            pass.reads_screen_space_ao = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.AmbientOcclusion;
             pass.reads_shadow_mask = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.ShadowOnly;
             pass.reads_CSM = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.CSMCascadeLevels;
 
@@ -64,6 +67,14 @@ namespace YutrelRP
             {
                 pass.scene_depth = textures.scene_depth;
                 builder.UseTexture(pass.scene_depth);
+            }
+
+            if (pass.reads_screen_space_ao)
+            {
+                pass.screen_space_ao = textures.screen_space_ao.IsValid()
+                    ? textures.screen_space_ao
+                    : render_graph.defaultResources.whiteTexture;
+                builder.UseTexture(pass.screen_space_ao);
             }
 
             if (pass.reads_shadow_mask)
@@ -101,7 +112,8 @@ namespace YutrelRP
                    mode == YutrelRPSettings.DebugViewMode.GBufferRoughness ||
                    mode == YutrelRPSettings.DebugViewMode.GBufferMetallic ||
                    mode == YutrelRPSettings.DebugViewMode.GBufferWorldSpaceNormal ||
-                   mode == YutrelRPSettings.DebugViewMode.GBufferSpecular;
+                   mode == YutrelRPSettings.DebugViewMode.GBufferSpecular ||
+                   mode == YutrelRPSettings.DebugViewMode.AmbientOcclusion;
         }
 
         private static Issue ValidateSources(YutrelRPSettings.DebugViewMode mode, LightResources light_resources,
@@ -116,9 +128,16 @@ namespace YutrelRP
                 case YutrelRPSettings.DebugViewMode.GBufferMetallic:
                 case YutrelRPSettings.DebugViewMode.GBufferWorldSpaceNormal:
                 case YutrelRPSettings.DebugViewMode.GBufferSpecular:
+                case YutrelRPSettings.DebugViewMode.AmbientOcclusion:
                     if (!textures.GBuffer_A.IsValid() || !textures.GBuffer_B.IsValid() || !textures.GBuffer_C.IsValid())
                     {
                         issue = Issue.MissingGBuffer;
+                    }
+
+                    if (issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.AmbientOcclusion &&
+                        !textures.scene_depth.IsValid())
+                    {
+                        issue = Issue.MissingSceneDepth;
                     }
 
                     break;
@@ -191,6 +210,7 @@ namespace YutrelRP
         private TextureHandle GBuffer_B;
         private TextureHandle GBuffer_C;
         private TextureHandle scene_depth;
+        private TextureHandle screen_space_ao;
         private TextureHandle shadow_mask;
         private BufferHandle directional_shadow_vp_matrices_buffer;
         private BufferHandle directional_shadow_cascade_data_buffer;
@@ -198,6 +218,7 @@ namespace YutrelRP
         private Issue issue;
         private bool reads_GBuffer;
         private bool reads_scene_depth;
+        private bool reads_screen_space_ao;
         private bool reads_shadow_mask;
         private bool reads_CSM;
         private int directional_shadow_cascade_count;
@@ -223,6 +244,11 @@ namespace YutrelRP
             if (reads_scene_depth)
             {
                 property_block.SetTexture(RenderTargets.scene_depth_ID, scene_depth);
+            }
+
+            if (reads_screen_space_ao)
+            {
+                property_block.SetTexture(RenderTargets.screen_space_ao_ID, screen_space_ao);
             }
 
             if (reads_shadow_mask)
