@@ -2,12 +2,7 @@
 #define YUTREL_ENVIRONMENT_LIGHTING_PASS_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SphericalHarmonics.hlsl"
 #include "Utils/ShadingModelStandard.hlsl"
-
-#ifndef UNITY_SPECCUBE_LOD_STEPS
-#define UNITY_SPECCUBE_LOD_STEPS 6
-#endif
 
 TEXTURECUBE(_EnvironmentReflectionCube);
 SAMPLER(sampler_EnvironmentReflectionCube);
@@ -15,44 +10,69 @@ TEXTURE2D(_ScreenSpaceAO);
 SAMPLER(sampler_ScreenSpaceAO);
 
 float4 _EnvironmentReflectionCube_HDR;
-float _EnvironmentReflectionAvailable;
+float _EnvironmentIntensity;
+float _EnvironmentDiffuseMultiplier;
+float _EnvironmentSpecularMultiplier;
+float _IblRoughnessOneLevel;
 
-float4 _AmbientProbeSHAr;
-float4 _AmbientProbeSHAg;
-float4 _AmbientProbeSHAb;
-float4 _AmbientProbeSHBr;
-float4 _AmbientProbeSHBg;
-float4 _AmbientProbeSHBb;
-float4 _AmbientProbeSHC;
+float4 _IblSH0;
+float4 _IblSH1;
+float4 _IblSH2;
+float4 _IblSH3;
+float4 _IblSH4;
+float4 _IblSH5;
+float4 _IblSH6;
+float4 _IblSH7;
+float4 _IblSH8;
 
 float EnvironmentPerceptualRoughnessToMipmapLevel(float perceptual_roughness)
 {
-    perceptual_roughness = perceptual_roughness * (1.7f - 0.7f * perceptual_roughness);
-    return perceptual_roughness * UNITY_SPECCUBE_LOD_STEPS;
+    return _IblRoughnessOneLevel * perceptual_roughness * (2.0f - perceptual_roughness);
 }
 
 float3 EvaluateEnvironmentDiffuse(float3 normal_WS)
 {
-    float3 irradiance = SHEvalLinearL0L1(normal_WS, _AmbientProbeSHAr, _AmbientProbeSHAg, _AmbientProbeSHAb);
-    irradiance += SHEvalLinearL2(normal_WS, _AmbientProbeSHBr, _AmbientProbeSHBg, _AmbientProbeSHBb, _AmbientProbeSHC);
+    // Filament cmgen writes SH3 coefficients pre-scaled for shader reconstruction.
+    // The Lambert 1/pi factor is already baked into these coefficients.
+    float3 irradiance = _IblSH0.rgb;
+    irradiance += _IblSH1.rgb * normal_WS.y;
+    irradiance += _IblSH2.rgb * normal_WS.z;
+    irradiance += _IblSH3.rgb * normal_WS.x;
+    irradiance += _IblSH4.rgb * (normal_WS.y * normal_WS.x);
+    irradiance += _IblSH5.rgb * (normal_WS.y * normal_WS.z);
+    irradiance += _IblSH6.rgb * (3.0f * normal_WS.z * normal_WS.z - 1.0f);
+    irradiance += _IblSH7.rgb * (normal_WS.z * normal_WS.x);
+    irradiance += _IblSH8.rgb * (normal_WS.x * normal_WS.x - normal_WS.y * normal_WS.y);
     return max(0.0f, irradiance);
 }
 
-float3 EvaluateEnvironmentSpecular(StandardSurface surface)
+float3 SampleEnvironmentDfg(StandardSurface surface)
 {
-    if (_EnvironmentReflectionAvailable < 0.5f)
-    {
-        return 0.0f;
-    }
+    return SAMPLE_TEXTURE2D(_BRDF_LUT, sampler_BRDF_LUT, float2(surface.NoV, surface.perceptual_roughness)).rgb;
+}
 
+float3 EvaluateEnvironmentSpecularDfg(StandardSurface surface, float3 dfg)
+{
+    return lerp(dfg.xxx, dfg.yyy, surface.f0);
+}
+
+float EvaluateEnvironmentSpecularAO(StandardSurface surface, float diffuse_visibility)
+{
+    return saturate(pow(surface.NoV + diffuse_visibility, exp2(-16.0f * surface.roughness - 1.0f)) - 1.0f +
+                    diffuse_visibility);
+}
+
+float3 EvaluateEnvironmentSpecular(StandardSurface surface, float3 specular_dfg, float3 energy_compensation,
+                                   float specular_AO)
+{
     float3 reflection_direction = reflect(-surface.view_direction_WS, surface.normal_WS);
     float mip_level             = EnvironmentPerceptualRoughnessToMipmapLevel(surface.perceptual_roughness);
     float4 encoded_specular =
         SAMPLE_TEXTURECUBE_LOD(_EnvironmentReflectionCube, sampler_EnvironmentReflectionCube, reflection_direction, mip_level);
     float3 prefiltered_specular = DecodeHDREnvironment(encoded_specular, _EnvironmentReflectionCube_HDR);
-    float2 environment_brdf     = SAMPLE_TEXTURE2D(_BRDF_LUT, sampler_BRDF_LUT, float2(surface.NoV, surface.perceptual_roughness)).rg;
 
-    return prefiltered_specular * (surface.f0 * environment_brdf.x + environment_brdf.y);
+    return prefiltered_specular * specular_dfg * energy_compensation * specular_AO * _EnvironmentIntensity *
+           _EnvironmentSpecularMultiplier;
 }
 
 float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
@@ -71,11 +91,16 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
         discard;
     }
 
-    StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
-    float screen_space_AO   = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
-    float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
-    float3 diffuse_IBL      = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color * final_diffuse_AO;
-    float3 specular_IBL     = EvaluateEnvironmentSpecular(surface);
+    StandardSurface surface    = GBuffer2StandardSurface(gbuffer_data);
+    float screen_space_AO      = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
+    float final_diffuse_AO     = min(surface.material_AO, screen_space_AO);
+    float3 dfg                 = SampleEnvironmentDfg(surface);
+    float3 specular_dfg        = EvaluateEnvironmentSpecularDfg(surface, dfg);
+    float3 energy_compensation = StandardEnergyCompensationFromDfgVisibility(surface, dfg.g);
+    float specular_AO          = EvaluateEnvironmentSpecularAO(surface, final_diffuse_AO);
+    float3 diffuse_IBL         = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color *
+                                 final_diffuse_AO * _EnvironmentIntensity * _EnvironmentDiffuseMultiplier;
+    float3 specular_IBL        = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
     return float4(diffuse_IBL + specular_IBL, 0.0f);
 }

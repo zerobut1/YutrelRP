@@ -216,7 +216,7 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
             return float4(0.0f, 0.0f, 0.0f, 1.0f);
         }
 
-        float3 position_WS              = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
+        float3 position_WS              = ComputeWorldSpacePositionFromFullScreenUV(input.uv, scene_depth);
         float linear_depth              = LinearEyeDepth(position_WS, UNITY_MATRIX_V);
         DebugViewShadowData shadow_data = GetDebugViewShadowData(position_WS, linear_depth);
         return GetCascadeColor(shadow_data.cascade_index);

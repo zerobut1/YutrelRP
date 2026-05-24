@@ -20,7 +20,7 @@ namespace YutrelRP
             pass.list = render_graph.CreateSkyboxRendererList(camera);
 
             builder.UseRendererList(pass.list);
-            builder.SetRenderAttachment(textures.scene_color, 0);
+            builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.Read);
 
             builder.AllowPassCulling(false);

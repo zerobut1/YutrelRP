@@ -1,4 +1,4 @@
-﻿#ifndef YUTREL_SHADING_MODEL_STANDARD_INCLUDED
+#ifndef YUTREL_SHADING_MODEL_STANDARD_INCLUDED
 #define YUTREL_SHADING_MODEL_STANDARD_INCLUDED
 
 #include "BRDF.hlsl"
@@ -32,12 +32,29 @@ StandardSurface GBuffer2StandardSurface(GBufferData data)
     surface.roughness            = perceptual_roughness * perceptual_roughness;
     float dielectric_f0          = 0.08f * specular;
     surface.f0                   = lerp(float3(dielectric_f0, dielectric_f0, dielectric_f0), data.base_color, metallic);
-    surface.position_WS          = ComputeWorldSpacePosition(data.uv, data.scene_depth, UNITY_MATRIX_I_VP);
-    surface.view_direction_WS    = normalize(_WorldSpaceCameraPos - surface.position_WS);
+    surface.position_WS          = ComputeWorldSpacePositionFromFullScreenUV(data.uv, data.scene_depth);
+    surface.view_direction_WS    = GetWorldSpaceViewDirectionForSurface(surface.position_WS);
     surface.NoV                  = clamp(dot(surface.normal_WS, surface.view_direction_WS), MIN_N_DOT_V, 1.0f);
     surface.material_AO          = saturate(data.material_AO);
 
     return surface;
+}
+
+float3 StandardEnergyCompensationFromDfgVisibility(StandardSurface surface, float dfg_visibility)
+{
+    dfg_visibility = max(dfg_visibility, 1e-4f);
+    return 1.0f + surface.f0 * (1.0f / dfg_visibility - 1.0f);
+}
+
+float3 StandardEnergyCompensation(StandardSurface surface)
+{
+    float dfg_visibility = SAMPLE_TEXTURE2D_LOD(
+                               _BRDF_LUT,
+                               sampler_BRDF_LUT,
+                               float2(surface.NoV, surface.perceptual_roughness),
+                               0.0f)
+                               .g;
+    return StandardEnergyCompensationFromDfgVisibility(surface, dfg_visibility);
 }
 
 float3 StandardShading(StandardSurface surface, Light light)
@@ -59,7 +76,7 @@ float3 StandardShading(StandardSurface surface, Light light)
     float V  = visibility(surface.roughness, NoV, NoL);
     float3 F = fresnel(surface.f0, LoH);
 
-    float3 Fr = (D * V) * F;
+    float3 Fr = (D * V) * F * StandardEnergyCompensation(surface);
 
     out_color = Fd + Fr;
 

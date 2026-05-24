@@ -145,7 +145,7 @@ float GetDirectionalShadowAttenuation(DirectionalLightShadowData light_shadow_da
 float4 ShadowMaskPassFragment(FullScreenVaryings input) : SV_Target
 {
     float scene_depth  = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, input.uv).r;
-    float3 position_WS = ComputeWorldSpacePosition(input.uv, scene_depth, UNITY_MATRIX_I_VP);
+    float3 position_WS = ComputeWorldSpacePositionFromFullScreenUV(input.uv, scene_depth);
     float linear_depth = LinearEyeDepth(position_WS, UNITY_MATRIX_V);
 
     float directional_shadow = GetDirectionalShadowAttenuation(GetDirectionalLightShadowData(0),

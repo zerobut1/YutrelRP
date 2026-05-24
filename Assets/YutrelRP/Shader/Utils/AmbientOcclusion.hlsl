@@ -121,7 +121,7 @@ bool AOLoadSurface(float2 uv, out AOSurfaceData surface)
 
     surface.uv           = uv;
     surface.raw_depth    = raw_depth;
-    surface.position_WS  = ComputeWorldSpacePosition(uv, raw_depth, UNITY_MATRIX_I_VP);
+    surface.position_WS  = ComputeWorldSpacePositionFromFullScreenUV(uv, raw_depth);
     surface.position_VS  = mul(UNITY_MATRIX_V, float4(surface.position_WS, 1.0f)).xyz;
     surface.linear_depth = LinearEyeDepth(surface.position_WS, UNITY_MATRIX_V);
     surface.normal_WS    = normalize(gbuffer_data.normal_WS);

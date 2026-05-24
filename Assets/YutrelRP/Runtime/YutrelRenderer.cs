@@ -25,6 +25,7 @@ namespace YutrelRP
 #if UNITY_EDITOR
             DebugViewPass.Cleanup();
 #endif
+            LightResources.Cleanup();
             FinalPass.Cleanup();
         }
 
@@ -73,7 +74,7 @@ namespace YutrelRP
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
                     shadow_resources.Reset();
 
-                    SetupLightPass.Record(render_graph, context, culling_results, settings, ref light_resources,
+                    SetupLightPass.Record(render_graph, context, camera, culling_results, settings, ref light_resources,
                         ref shadow_resources);
 
                     ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);

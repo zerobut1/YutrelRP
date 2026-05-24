@@ -10,6 +10,7 @@ Shader "YutrelRP/DirectionalLightPass"
 
 		Pass
 		{
+			ZTest Always
 			ZWrite Off
 			Blend One One
 			Cull Off

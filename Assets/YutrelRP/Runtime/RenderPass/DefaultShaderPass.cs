@@ -42,7 +42,7 @@ namespace YutrelRP
                     renderQueueRange = RenderQueueRange.all
                 });
             builder.UseRendererList(pass.list);
-            builder.SetRenderAttachment(textures.scene_color, 0);
+            builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);
 
             builder.SetRenderFunc<DefaultShaderPass>(static (pass, context) => pass.Render(context));

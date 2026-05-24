@@ -9,13 +9,13 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("Light Data Pass");
 
         internal static void Record(RenderGraph render_graph, ScriptableRenderContext context,
-            CullingResults culling_results, YutrelRPSettings settings, ref LightResources light_resources,
+            Camera camera, CullingResults culling_results, YutrelRPSettings settings, ref LightResources light_resources,
             ref ShadowResources shadow_resources)
         {
             using var builder = render_graph.AddComputePass<SetupLightPass>(sampler.name, out var pass, sampler);
 
             // -------------- Light --------------
-            light_resources.Setup(render_graph, builder, culling_results, ref shadow_resources);
+            light_resources.Setup(render_graph, builder, culling_results, ref shadow_resources, camera);
 
             pass.directional_light_count = light_resources.directional_light_count;
             pass.directional_light_data = light_resources.directional_light_data;

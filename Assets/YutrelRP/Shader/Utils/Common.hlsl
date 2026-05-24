@@ -59,19 +59,37 @@ struct FullScreenVaryings
 FullScreenVaryings DefaultFullScreenPassVertex(uint vertexID : SV_VertexID)
 {
     FullScreenVaryings output;
-    output.position_CS = float4(
-        vertexID <= 1 ? -1.0 : 3.0,
-        vertexID == 1 ? 3.0 : -1.0,
-        0.0,
-        1.0);
-    output.uv = float2(
-        vertexID <= 1 ? 0.0 : 2.0,
-        vertexID == 1 ? 2.0 : 0.0);
+    output.position_CS = GetFullScreenTriangleVertexPosition(vertexID);
+    output.uv          = GetFullScreenTriangleTexCoord(vertexID);
+    return output;
+}
+
+float2 FullScreenUVToPositionNDC(float2 uv)
+{
+    float2 position_NDC = uv;
+#if UNITY_UV_STARTS_AT_TOP
+    position_NDC.y = 1.0f - position_NDC.y;
+#endif
     if (_ProjectionParams.x < 0.0)
     {
-        output.uv.y = 1.0 - output.uv.y;
+        position_NDC.y = 1.0f - position_NDC.y;
     }
-    return output;
+    return position_NDC;
+}
+
+float3 ComputeWorldSpacePositionFromFullScreenUV(float2 uv, float device_depth)
+{
+    return ComputeWorldSpacePosition(FullScreenUVToPositionNDC(uv), device_depth, UNITY_MATRIX_I_VP);
+}
+
+float3 GetWorldSpaceViewDirectionForSurface(float3 position_WS)
+{
+    if (IsOrthographicCamera())
+    {
+        return normalize(UNITY_MATRIX_I_V._m02_m12_m22);
+    }
+
+    return normalize(_WorldSpaceCameraPos - position_WS);
 }
 
 #endif
