@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f3a0837a8a34bfc81dc4f4f391f1ac8, type: 3}
+  m_Name: WhiteFurnace_WhiteFurnace_Source_IBL
+  m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelIBLAsset
+  sourceEnvironmentTexture: {fileID: 2800000, guid: 93bb880f8125449984439af2d5f00720, type: 3}
+  sourceEnvironmentTexturePath: Assets/Scenes/WhiteFurnace/WhiteFurnace_Source.hdr
+  outputRootPath: Assets/Scenes/WhiteFurnace/EnvironmentLight/WhiteFurnace_Source
+  specularDirectoryPath: 
+  specularCubemapPath: Assets/Scenes/WhiteFurnace/EnvironmentLight/WhiteFurnace_Source/WhiteFurnace_WhiteFurnace_Source_IBL_SpecularCube.asset
+  diffuseShPath: 
+  dfgLutPath: Assets/Scenes/WhiteFurnace/EnvironmentLight/WhiteFurnace_Source/WhiteFurnace_WhiteFurnace_Source_IBL_DFG.exr
+  specularCubemap: {fileID: 8900000, guid: 8d5cc47aacc09004aad0c9b8a4a03218, type: 2}
+  specularFaceTextures: []
+  specularFacePaths: []
+  diffuseShText: {fileID: 0}
+  diffuseIrradianceSh:
+  - {x: 1.003905, y: 1.003905, z: 1.003905}
+  - {x: 0.000000004328302, y: 0.000000004328302, z: 0.000000004328302}
+  - {x: 0, y: 0, z: 0}
+  - {x: -0.000000007330978, y: -0.000000007330978, z: -0.000000007330978}
+  - {x: 0, y: 0, z: 0}
+  - {x: 0.000000016094058, y: 0.000000016094058, z: 0.000000016094058}
+  - {x: -0.000000453448, y: -0.000000453448, z: -0.000000453448}
+  - {x: 0.000000002204261, y: 0.000000002204261, z: 0.000000002204261}
+  - {x: -0.000000010074622, y: -0.000000010074622, z: -0.000000010074622}
+  dfgLut: {fileID: 2800000, guid: 7d56ebdd814e9a9418c6ff810f78a60e, type: 3}
+  cubemapSize: 64
+  specularMipCount: 3
+  sampleCount: 1024
+  dfgLutSize: 128
+  outputFormat: exr
+  dfgMode: FilamentMultiscatterCloth
+  dfgFormat: EXR_RGBAHalf
+  shConvention: FilamentPreScaledIrradianceSH3
+  specularConvention: FilamentCmgenPrefilteredCubemapNoMirror
+  iblRoughnessOneLevel: 2
+  iblIntensityConvention: Not baked; runtime YutrelEnvironmentLight IBL intensity
+    scales contribution, with diffuse/specular multipliers as overrides.
+  cmgenExecutablePath: D:\Project\Unity\YutrelRP\tools\cmgen.exe
+  generatedAtUtc: 2026-05-26T06:07:06.6098618Z
