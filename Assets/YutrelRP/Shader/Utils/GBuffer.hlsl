@@ -43,7 +43,7 @@ EncodedGBuffer EncodeGBuffer(GBufferData data)
 {
     EncodedGBuffer encoded;
 
-    encoded.scene_color = float4(data.emissive, 0.0f);
+    encoded.scene_color = float4(ApplyPreExposure(data.emissive), 0.0f);
     encoded.GBuffer_A   = float4(data.base_color, data.shading_model_id);
     encoded.GBuffer_B   = float4(normalize(data.normal_WS) * 0.5f + 0.5f, 0.0f);
     encoded.GBuffer_C   = float4(data.roughness, data.metallic, data.specular, data.material_AO);

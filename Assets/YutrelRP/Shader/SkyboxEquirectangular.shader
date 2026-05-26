@@ -79,7 +79,7 @@ Shader "YutrelRP/Skybox/Equirectangular"
 				float3 direction = RotateDirectionY(input.direction_WS, _Rotation);
 				float2 uv        = DirectionToEquirectangularUV(direction);
 				float3 color     = SAMPLE_TEXTURE2D(_Tex, sampler_Tex, uv).rgb * _Exposure;
-				return float4(color, 1.0f);
+				return float4(ApplyPreExposure(color), 1.0f);
 			}
 			ENDHLSL
 		}

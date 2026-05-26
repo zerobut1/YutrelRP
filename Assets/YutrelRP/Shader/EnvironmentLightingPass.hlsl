@@ -109,7 +109,7 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
                                  _EnvironmentDiffuseMultiplier;
     float3 specular_IBL        = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
-    return float4(diffuse_IBL + specular_IBL, 0.0f);
+    return float4(ApplyPreExposure(diffuse_IBL + specular_IBL), 0.0f);
 }
 
 #endif

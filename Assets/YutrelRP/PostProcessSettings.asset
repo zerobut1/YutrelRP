@@ -12,5 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c69e65182974e91939e777d4e65bfeb, type: 3}
   m_Name: PostProcessSettings
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.PostProcessSettings
+  m_exposure:
+    fixedEV100: 14
+    exposureCompensation: 0
   m_tone_mapping:
     mode: 1

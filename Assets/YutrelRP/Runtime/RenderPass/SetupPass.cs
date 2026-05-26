@@ -13,16 +13,22 @@ namespace YutrelRP
 
         private static readonly int
             rt_size_ID = Shader.PropertyToID("_CameraBufferSize"),
-            inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP");
+            inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP"),
+            pre_exposure_ID = Shader.PropertyToID("_PreExposure"),
+            one_over_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure");
 
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,
-            Vector2Int attachment_size)
+            Vector2Int attachment_size, PostProcessSettings post_process_settings)
         {
             ValidateNormalGBufferFormat();
+            var exposure = PostProcessSettings.GetExposure(post_process_settings);
+            var pre_exposure = exposure.pre_exposure;
 
             using var builder = render_graph.AddComputePass<SetupPass>(sampler.name, out var pass, sampler);
             pass.rt_size = attachment_size;
             pass.camera = camera;
+            pass.pre_exposure = pre_exposure;
+            pass.one_over_pre_exposure = exposure.one_over_pre_exposure;
 
             // camera output
             textures.camera_output = CreateRenderGraphCameraRenderTarget(render_graph, camera);
@@ -32,7 +38,9 @@ namespace YutrelRP
             {
                 colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.DefaultHDR, false),
                 clearBuffer = camera.clearFlags <= CameraClearFlags.Color,
-                clearColor = camera.clearFlags == CameraClearFlags.Color ? camera.backgroundColor.linear : Color.clear,
+                clearColor = camera.clearFlags == CameraClearFlags.Color
+                    ? PreExposeColor(camera.backgroundColor.linear, pre_exposure)
+                    : Color.clear,
                 name = "Scene Color"
             };
             textures.scene_color = render_graph.CreateTexture(scene_color_desc);
@@ -95,12 +103,16 @@ namespace YutrelRP
         // data
         private Camera camera;
         private Vector2Int rt_size;
+        private float pre_exposure;
+        private float one_over_pre_exposure;
 
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
 
             cmd.SetupCameraProperties(camera);
+            cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
+            cmd.SetGlobalFloat(one_over_pre_exposure_ID, one_over_pre_exposure);
             cmd.SetGlobalVector(rt_size_ID,
                 new Vector4(1.0f / rt_size.x,
                     1.0f / rt_size.y,
@@ -158,6 +170,14 @@ namespace YutrelRP
             }
 
             return render_graph.ImportBackbuffer(rt_color_id, color_import_info, import_backbuffer_color_params);
+        }
+
+        private static Color PreExposeColor(Color color, float pre_exposure)
+        {
+            color.r *= pre_exposure;
+            color.g *= pre_exposure;
+            color.b *= pre_exposure;
+            return color;
         }
     }
 }

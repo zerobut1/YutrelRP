@@ -26,6 +26,20 @@
 SAMPLER(sampler_linear_clamp);
 SAMPLER(sampler_point_clamp);
 
+float _PreExposure;
+float _OneOverPreExposure;
+
+float3 ApplyPreExposure(float3 color)
+{
+    return color * _PreExposure;
+}
+
+float4 ApplyPreExposure(float4 color)
+{
+    color.rgb *= _PreExposure;
+    return color;
+}
+
 bool IsOrthographicCamera()
 {
     return unity_OrthoParams.w;

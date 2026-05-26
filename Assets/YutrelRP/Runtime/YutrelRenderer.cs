@@ -79,7 +79,7 @@ namespace YutrelRP
 
                     ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);
 
-                    SetupPass.Record(render_graph, camera, ref textures, attachment_size);
+                    SetupPass.Record(render_graph, camera, ref textures, attachment_size, settings.postProcessSettings);
 
                     BasePass.Record(render_graph, camera, culling_results, textures);
 

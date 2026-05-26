@@ -31,7 +31,7 @@ float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
         break;
     }
 
-    return float4(out_color, 0.0f);
+    return float4(ApplyPreExposure(out_color), 0.0f);
 }
 
 #endif
