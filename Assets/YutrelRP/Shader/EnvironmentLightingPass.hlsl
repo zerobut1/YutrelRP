@@ -62,10 +62,16 @@ float EvaluateEnvironmentSpecularAO(StandardSurface surface, float diffuse_visib
                     diffuse_visibility);
 }
 
+float3 GetEnvironmentSpecularDominantDirection(StandardSurface surface)
+{
+    float3 reflection_direction = reflect(-surface.view_direction_WS, surface.normal_WS);
+    return lerp(reflection_direction, surface.normal_WS, surface.roughness * surface.roughness);
+}
+
 float3 EvaluateEnvironmentSpecular(StandardSurface surface, float3 specular_dfg, float3 energy_compensation,
                                    float specular_AO)
 {
-    float3 reflection_direction = reflect(-surface.view_direction_WS, surface.normal_WS);
+    float3 reflection_direction = GetEnvironmentSpecularDominantDirection(surface);
     float mip_level             = EnvironmentPerceptualRoughnessToMipmapLevel(surface.perceptual_roughness);
     float4 encoded_specular =
         SAMPLE_TEXTURECUBE_LOD(_EnvironmentReflectionCube, sampler_EnvironmentReflectionCube, reflection_direction, mip_level);
@@ -99,7 +105,8 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     float3 energy_compensation = StandardEnergyCompensationFromDfgVisibility(surface, dfg.g);
     float specular_AO          = EvaluateEnvironmentSpecularAO(surface, final_diffuse_AO);
     float3 diffuse_IBL         = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color *
-                                 final_diffuse_AO * _EnvironmentIntensity * _EnvironmentDiffuseMultiplier;
+                                 (1.0f - specular_dfg) * final_diffuse_AO * _EnvironmentIntensity *
+                                 _EnvironmentDiffuseMultiplier;
     float3 specular_IBL        = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
     return float4(diffuse_IBL + specular_IBL, 0.0f);
