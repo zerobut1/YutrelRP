@@ -104,7 +104,7 @@ namespace YutrelRP
                         settings.shadowSettings, settings.debugViewMode, attachment_size);
 #endif
 
-                    FinalPass.Record(render_graph, textures);
+                    FinalPass.Record(render_graph, camera, textures);
                 }
 
                 render_graph.EndRecordingAndExecute();

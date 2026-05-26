@@ -7,8 +7,11 @@ namespace YutrelRP
     internal class ToneMappingPass
     {
         private static readonly ProfilingSampler sampler = new("Tone Mapping Pass");
-        private static readonly int source_color_ID = Shader.PropertyToID("_SourceColor");
+        private static readonly int
+            source_color_ID = Shader.PropertyToID("_SourceColor"),
+            source_scale_bias_ID = Shader.PropertyToID("_SourceScaleBias");
         private static Material material;
+        private static readonly Vector4 identity_source_scale_bias = new(1.0f, 1.0f, 0.0f, 0.0f);
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, PostProcessSettings settings)
         {
@@ -35,6 +38,7 @@ namespace YutrelRP
             var cmd = context.cmd;
 
             material.SetTexture(source_color_ID, source_color);
+            material.SetVector(source_scale_bias_ID, identity_source_scale_bias);
 
             CoreUtils.DrawFullScreen(cmd, material, null, pass_id);
         }

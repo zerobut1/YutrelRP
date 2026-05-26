@@ -5,9 +5,12 @@
 
 TEXTURE2D(_SourceColor);
 
+float4 _SourceScaleBias;
+
 float4 GetSource(float2 screenUV)
 {
-    return SAMPLE_TEXTURE2D_LOD(_SourceColor, sampler_linear_clamp, screenUV, 0);
+    float2 source_uv = screenUV * _SourceScaleBias.xy + _SourceScaleBias.zw;
+    return SAMPLE_TEXTURE2D_LOD(_SourceColor, sampler_linear_clamp, source_uv, 0);
 }
 
 float4 CopyPassFragment(FullScreenVaryings input) : SV_Target
