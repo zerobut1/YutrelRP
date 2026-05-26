@@ -6,7 +6,8 @@
 struct DirectionalLightData
 {
     float3 color;
-    float intensity;
+    // Directional light illuminance in lux, measured perpendicular to the light direction.
+    float illuminance;
     float4 direction;
     DirectionalLightShadowData shadow_data;
 };
@@ -23,7 +24,7 @@ SAMPLER(sampler_ShadowMask);
 struct Light
 {
     float3 color;
-    float intensity;
+    float illuminance;
     float3 direction;
     float occlusion;
 };
@@ -32,10 +33,10 @@ Light GetDirectionalLight(int index, float2 uv)
 {
     DirectionalLightData data = _DirectionalLightData[index];
     Light light;
-    light.color     = data.color;
-    light.intensity = data.intensity;
-    light.direction = normalize(data.direction.xyz);
-    light.occlusion = 1.0f;
+    light.color       = data.color;
+    light.illuminance = data.illuminance;
+    light.direction   = normalize(data.direction.xyz);
+    light.occlusion   = 1.0f;
 
     if (data.shadow_data.index >= 0)
     {

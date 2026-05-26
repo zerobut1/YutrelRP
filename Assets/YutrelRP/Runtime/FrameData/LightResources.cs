@@ -32,17 +32,18 @@ namespace YutrelRP
             public const int stride = 4 * 4 * 3;
 
             public Vector3 color;
-            public float intensity;
+            // Directional Light.intensity is interpreted as illuminance in lux.
+            public float illuminance;
             public Vector4 direction;
             public Vector4 shadow_data; // x: shadow index, y: 1 when Unity light uses soft shadows
 
-            public DirectionalLightData(VisibleLight visiable_light, Vector4 shadow_data)
+            public DirectionalLightData(VisibleLight visible_light, Vector4 shadow_data)
             {
-                color.x = visiable_light.light.color.r;
-                color.y = visiable_light.light.color.g;
-                color.z = visiable_light.light.color.b;
-                intensity = visiable_light.light.intensity;
-                direction = -visiable_light.localToWorldMatrix.GetColumn(2);
+                color.x = visible_light.light.color.r;
+                color.y = visible_light.light.color.g;
+                color.z = visible_light.light.color.b;
+                illuminance = visible_light.light.intensity;
+                direction = -visible_light.localToWorldMatrix.GetColumn(2);
                 this.shadow_data = shadow_data;
             }
         }

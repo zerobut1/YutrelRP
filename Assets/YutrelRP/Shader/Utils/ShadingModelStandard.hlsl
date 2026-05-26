@@ -80,7 +80,7 @@ float3 StandardShading(StandardSurface surface, Light light)
 
     out_color = Fd + Fr;
 
-    out_color = out_color * light.color * light.intensity * NoL * light.occlusion;
+    out_color = out_color * light.color * light.illuminance * NoL * light.occlusion;
 
     return out_color;
 }
