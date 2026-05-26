@@ -3,7 +3,7 @@ Shader "YutrelRP/Skybox/Equirectangular"
 	Properties
 	{
 		_Tex("HDR Equirectangular Map", 2D) = "grey" {}
-		_Exposure("Exposure", Float) = 1.0
+		_Exposure("Local Multiplier", Float) = 1.0
 		_Rotation("Rotation", Range(0, 360)) = 0.0
 	}
 
@@ -32,6 +32,7 @@ Shader "YutrelRP/Skybox/Equirectangular"
 			SAMPLER(sampler_Tex);
 
 			float _Exposure;
+			float _EnvironmentIntensity;
 			float _Rotation;
 
 			#define SKYBOX_PI 3.14159265358979323846f
@@ -78,7 +79,7 @@ Shader "YutrelRP/Skybox/Equirectangular"
 			{
 				float3 direction = RotateDirectionY(input.direction_WS, _Rotation);
 				float2 uv        = DirectionToEquirectangularUV(direction);
-				float3 color     = SAMPLE_TEXTURE2D(_Tex, sampler_Tex, uv).rgb * _Exposure;
+				float3 color     = SAMPLE_TEXTURE2D(_Tex, sampler_Tex, uv).rgb * _Exposure * _EnvironmentIntensity;
 				return float4(ApplyPreExposure(color), 1.0f);
 			}
 			ENDHLSL

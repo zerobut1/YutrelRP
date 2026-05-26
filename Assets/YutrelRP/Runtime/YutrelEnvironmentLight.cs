@@ -11,12 +11,16 @@ namespace YutrelRP
     [AddComponentMenu("YutrelRP/Environment Light")]
     public sealed class YutrelEnvironmentLight : MonoBehaviour
     {
+        public const float DefaultIntensity = 20000.0f;
+
         private static readonly Dictionary<ulong, CacheEntry> scene_cache = new();
         private static readonly List<YutrelEnvironmentLight> binding_scratch = new();
         private static readonly List<GameObject> root_scratch = new();
 
         [SerializeField] private YutrelIBLAsset iblAsset;
-        [Min(0.0f)] [SerializeField] private float intensity = 1.0f;
+        [Min(0.0f)]
+        [Tooltip("Environment luminance scale shared by IBL and Yutrel skybox, in cd/m^2 for physically calibrated HDRIs.")]
+        [SerializeField] private float intensity = DefaultIntensity;
 
         [FormerlySerializedAs("diffuseIntensity")]
         [Min(0.0f)] [SerializeField] private float diffuseMultiplier = 1.0f;

@@ -146,7 +146,7 @@ namespace YutrelRP
 
             has_environment_reflection = has_complete_environment;
             environment_reflection_cube_hdr = has_complete_environment ? new Vector4(1.0f, 1.0f, 0.0f, 0.0f) : Vector4.zero;
-            environment_intensity = has_complete_environment ? environment_light.Intensity : 0.0f;
+            environment_intensity = environment_light != null ? environment_light.Intensity : 1.0f;
             environment_diffuse_multiplier = has_complete_environment ? environment_light.DiffuseMultiplier : 1.0f;
             environment_specular_multiplier = has_complete_environment ? environment_light.SpecularMultiplier : 1.0f;
             ibl_roughness_one_level = has_complete_environment ? environment_asset.IblRoughnessOneLevel : 0.0f;

@@ -93,7 +93,7 @@ namespace YutrelRP
 
                     EnvironmentLightingPass.Record(render_graph, textures, light_resources);
 
-                    SkyboxPass.Record(render_graph, camera, textures);
+                    SkyboxPass.Record(render_graph, camera, textures, light_resources);
 
                     DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
 
