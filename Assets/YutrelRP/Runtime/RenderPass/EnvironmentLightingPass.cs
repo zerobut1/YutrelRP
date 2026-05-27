@@ -40,7 +40,7 @@ namespace YutrelRP
             pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
             pass.screen_space_ao_ID = RenderTargets.screen_space_ao_ID;
-            pass.brdf_lut_ID = LightResources.brdf_lut_ID;
+            pass.dfg_lut_ID = LightResources.dfg_lut_ID;
             pass.environment_reflection_cube_ID = LightResources.environment_reflection_cube_ID;
             pass.environment_reflection_cube_hdr_ID = LightResources.environment_reflection_cube_hdr_ID;
             pass.environment_intensity_ID = LightResources.environment_intensity_ID;
@@ -55,7 +55,7 @@ namespace YutrelRP
             pass.screen_space_ao = textures.screen_space_ao.IsValid()
                 ? textures.screen_space_ao
                 : graph.defaultResources.whiteTexture;
-            pass.BRDF_LUT = light_resources.BRDF_LUT;
+            pass.DFG_LUT = light_resources.DFG_LUT;
             pass.environment_reflection_cube = light_resources.environment_reflection_cube;
             pass.environment_reflection_cube_hdr = light_resources.environment_reflection_cube_hdr;
             pass.environment_intensity = light_resources.environment_intensity;
@@ -69,7 +69,7 @@ namespace YutrelRP
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.scene_depth);
             builder.UseTexture(pass.screen_space_ao);
-            builder.UseTexture(pass.BRDF_LUT);
+            builder.UseTexture(pass.DFG_LUT);
             builder.UseTexture(pass.environment_reflection_cube);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
@@ -82,7 +82,7 @@ namespace YutrelRP
             GBuffer_C_ID,
             scene_depth_ID,
             screen_space_ao_ID,
-            brdf_lut_ID,
+            dfg_lut_ID,
             environment_reflection_cube_ID,
             environment_reflection_cube_hdr_ID,
             environment_intensity_ID,
@@ -96,7 +96,7 @@ namespace YutrelRP
             GBuffer_C,
             scene_depth,
             screen_space_ao,
-            BRDF_LUT,
+            DFG_LUT,
             environment_reflection_cube;
 
         private Vector4 environment_reflection_cube_hdr;
@@ -114,7 +114,7 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
             property_block.SetTexture(scene_depth_ID, scene_depth);
             property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
-            property_block.SetTexture(brdf_lut_ID, BRDF_LUT);
+            property_block.SetTexture(dfg_lut_ID, DFG_LUT);
             property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
             property_block.SetVector(environment_reflection_cube_hdr_ID, environment_reflection_cube_hdr);
             property_block.SetFloat(environment_intensity_ID, environment_intensity);
@@ -135,7 +135,7 @@ namespace YutrelRP
 
         private static bool ValidateEnvironmentResources(LightResources light_resources)
         {
-            if (light_resources.has_BRDF_LUT && light_resources.has_environment_reflection)
+            if (light_resources.has_DFG_LUT && light_resources.has_environment_reflection)
             {
                 return true;
             }
@@ -147,7 +147,7 @@ namespace YutrelRP
         private static void LogInvalidEnvironmentOnce(LightResources light_resources)
         {
             var missing_resources = string.Empty;
-            if (!light_resources.has_BRDF_LUT) missing_resources += " BRDF_LUT";
+            if (!light_resources.has_DFG_LUT) missing_resources += " DFG_LUT";
             if (!light_resources.has_environment_reflection) missing_resources += " EnvironmentReflection";
 
             var resource_error = string.IsNullOrEmpty(light_resources.environment_resource_error)

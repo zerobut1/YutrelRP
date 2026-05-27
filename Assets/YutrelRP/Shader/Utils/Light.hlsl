@@ -15,8 +15,8 @@ struct DirectionalLightData
 StructuredBuffer<DirectionalLightData> _DirectionalLightData;
 
 // Filament cmgen multiscatter DFG LUT: sample with (NoV, perceptualRoughness).
-TEXTURE2D(_BRDF_LUT);
-SAMPLER(sampler_BRDF_LUT);
+TEXTURE2D(_DFG_LUT);
+SAMPLER(sampler_DFG_LUT);
 
 TEXTURE2D(_ShadowMask);
 SAMPLER(sampler_ShadowMask);

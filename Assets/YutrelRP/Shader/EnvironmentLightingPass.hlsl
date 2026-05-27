@@ -48,7 +48,7 @@ float3 EvaluateEnvironmentDiffuse(float3 normal_WS)
 
 float3 SampleEnvironmentDfg(StandardSurface surface)
 {
-    return SAMPLE_TEXTURE2D(_BRDF_LUT, sampler_BRDF_LUT, float2(surface.NoV, surface.perceptual_roughness)).rgb;
+    return SAMPLE_TEXTURE2D(_DFG_LUT, sampler_DFG_LUT, float2(surface.NoV, surface.perceptual_roughness)).rgb;
 }
 
 float3 EvaluateEnvironmentSpecularDfg(StandardSurface surface, float3 dfg)

@@ -9,15 +9,15 @@ namespace YutrelRP
 {
     public class LightResources : ContextItem
     {
-        private const string brdf_lut_resource_path = "Texture/DFG_LUT";
+        private const string dfg_lut_resource_path = "Texture/DFG_LUT";
 
-        private static Texture brdf_lut_texture;
-        private static RTHandle brdf_lut_rt_handle;
+        private static Texture dfg_lut_texture;
+        private static RTHandle dfg_lut_rt_handle;
         private static Texture environment_reflection_texture;
         private static RTHandle environment_reflection_rt_handle;
 
         public static readonly int
-            brdf_lut_ID = Shader.PropertyToID("_BRDF_LUT"),
+            dfg_lut_ID = Shader.PropertyToID("_DFG_LUT"),
             environment_reflection_cube_ID = Shader.PropertyToID("_EnvironmentReflectionCube"),
             environment_reflection_cube_hdr_ID = Shader.PropertyToID("_EnvironmentReflectionCube_HDR"),
             environment_intensity_ID = Shader.PropertyToID("_EnvironmentIntensity"),
@@ -56,8 +56,8 @@ namespace YutrelRP
             new DirectionalLightData[max_directional_light_count];
 
         public BufferHandle directional_light_data_buffer;
-        public TextureHandle BRDF_LUT;
-        public bool has_BRDF_LUT;
+        public TextureHandle DFG_LUT;
+        public bool has_DFG_LUT;
         public TextureHandle environment_reflection_cube;
         public Vector4 environment_reflection_cube_hdr;
         public bool has_environment_reflection;
@@ -72,8 +72,8 @@ namespace YutrelRP
         {
             directional_light_count = 0;
             directional_light_data_buffer = BufferHandle.nullHandle;
-            BRDF_LUT = TextureHandle.nullHandle;
-            has_BRDF_LUT = false;
+            DFG_LUT = TextureHandle.nullHandle;
+            has_DFG_LUT = false;
             environment_reflection_cube = TextureHandle.nullHandle;
             environment_reflection_cube_hdr = Vector4.zero;
             has_environment_reflection = false;
@@ -115,7 +115,7 @@ namespace YutrelRP
                     name = "Directional Light Data"
                 });
             builder.UseBuffer(directional_light_data_buffer, AccessFlags.WriteAll);
-            ImportSharedBrdfLut(render_graph);
+            ImportDfgLut(render_graph);
 
             var environment_light = ResolveEnvironmentLight(camera);
             var environment_asset = environment_light != null ? environment_light.IblAsset : null;
@@ -153,7 +153,7 @@ namespace YutrelRP
 
         public static void Cleanup()
         {
-            ReleaseBrdfLut();
+            ReleaseDfgLut();
             ReleaseEnvironmentReflection();
         }
 
@@ -184,44 +184,39 @@ namespace YutrelRP
             return null;
         }
 
-        private void ImportSharedBrdfLut(RenderGraph render_graph)
+        private void ImportDfgLut(RenderGraph render_graph)
         {
-            var dfg_lut = Resources.Load<Texture>(brdf_lut_resource_path);
-            if (dfg_lut == null)
+            if (dfg_lut_rt_handle == null)
             {
-                ReleaseBrdfLut();
-                BRDF_LUT = TextureHandle.nullHandle;
-                has_BRDF_LUT = false;
+                dfg_lut_texture = Resources.Load<Texture>(dfg_lut_resource_path);
+                if (dfg_lut_texture != null)
+                {
+                    dfg_lut_rt_handle = RTHandles.Alloc(dfg_lut_texture);
+                }
+            }
+
+            if (dfg_lut_rt_handle == null)
+            {
+                DFG_LUT = TextureHandle.nullHandle;
+                has_DFG_LUT = false;
                 return;
             }
 
-            ImportBrdfLut(render_graph, dfg_lut);
+            DFG_LUT = render_graph.ImportTexture(dfg_lut_rt_handle);
+            has_DFG_LUT = true;
         }
 
-        private void ImportBrdfLut(RenderGraph render_graph, Texture dfg_lut)
+        private static void ReleaseDfgLut()
         {
-            if (brdf_lut_texture != dfg_lut)
+            if (dfg_lut_rt_handle == null)
             {
-                ReleaseBrdfLut();
-                brdf_lut_texture = dfg_lut;
-                brdf_lut_rt_handle = RTHandles.Alloc(brdf_lut_texture);
-            }
-
-            BRDF_LUT = render_graph.ImportTexture(brdf_lut_rt_handle);
-            has_BRDF_LUT = true;
-        }
-
-        private static void ReleaseBrdfLut()
-        {
-            if (brdf_lut_rt_handle == null)
-            {
-                brdf_lut_texture = null;
+                dfg_lut_texture = null;
                 return;
             }
 
-            RTHandles.Release(brdf_lut_rt_handle);
-            brdf_lut_rt_handle = null;
-            brdf_lut_texture = null;
+            RTHandles.Release(dfg_lut_rt_handle);
+            dfg_lut_rt_handle = null;
+            dfg_lut_texture = null;
         }
 
         private void ImportEnvironmentReflection(RenderGraph render_graph, Texture reflection_texture)

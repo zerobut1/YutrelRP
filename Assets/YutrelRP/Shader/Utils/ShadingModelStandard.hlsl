@@ -49,8 +49,8 @@ float3 StandardEnergyCompensationFromDfgVisibility(StandardSurface surface, floa
 float3 StandardEnergyCompensation(StandardSurface surface)
 {
     float dfg_visibility = SAMPLE_TEXTURE2D_LOD(
-                               _BRDF_LUT,
-                               sampler_BRDF_LUT,
+                               _DFG_LUT,
+                               sampler_DFG_LUT,
                                float2(surface.NoV, surface.perceptual_roughness),
                                0.0f)
                                .g;
