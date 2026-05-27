@@ -111,7 +111,7 @@ namespace YutrelRP
 
             if (!warned_missing_brdf_lut)
             {
-                Debug.LogError("YutrelRP: DirectionalLightPass skipped because BRDF_LUT is missing. Standard direct lighting requires the IBL DFG LUT for energy compensation.");
+                Debug.LogError("YutrelRP: DirectionalLightPass skipped because the fixed DFG LUT is missing at Resources/Texture/DFG_LUT.");
                 warned_missing_brdf_lut = true;
             }
 

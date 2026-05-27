@@ -44,7 +44,6 @@ namespace YutrelRP
 
         public bool HasCompleteData =>
             specularCubemap != null &&
-            dfgLut != null &&
             diffuseIrradianceSh != null &&
             diffuseIrradianceSh.Length >= diffuseIrradianceShCoefficientCount;
 

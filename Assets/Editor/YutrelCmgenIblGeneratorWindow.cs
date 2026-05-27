@@ -21,7 +21,6 @@ namespace YutrelRP.Editor
         private const string mainTexturePropertyName = "_MainTex";
         private const int defaultCubemapSize = 256;
         private const int defaultSampleCount = 1024;
-        private const int dfgLutSize = 128;
 
         [SerializeField] private Texture sourceTexture;
         private ulong targetSceneHandle;
@@ -196,8 +195,8 @@ namespace YutrelRP.Editor
                 new[] { "64", "128", "256", "512", "1024" },
                 new[] { 64, 128, 256, 512, 1024 });
             sampleCount = Mathf.Max(1, EditorGUILayout.IntField("Sample Count", sampleCount));
-            EditorGUILayout.LabelField("DFG LUT Size", $"{dfgLutSize} (fixed project default)");
-            EditorGUILayout.LabelField("Output Format", "Unity Cubemap + EXR DFG + parsed SH metadata");
+            EditorGUILayout.LabelField("DFG LUT", "Assets/YutrelRP/Resources/Texture/DFG_LUT.exr");
+            EditorGUILayout.LabelField("Output Format", "Unity Cubemap + parsed SH metadata");
 
             EditorGUILayout.Space();
             using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
@@ -421,7 +420,6 @@ namespace YutrelRP.Editor
                     CmgenExecutablePath = cmgenExecutablePath,
                     CubemapSize = cubemapSize,
                     SampleCount = sampleCount,
-                    DfgLutSize = dfgLutSize,
                     Overwrite = overwrite,
                     BindToScene = bindGeneratedAssetToScene
                 };
@@ -598,7 +596,6 @@ namespace YutrelRP.Editor
         public string CmgenExecutablePath;
         public int CubemapSize;
         public int SampleCount;
-        public int DfgLutSize;
         public bool Overwrite;
         public bool BindToScene;
     }
@@ -623,15 +620,13 @@ namespace YutrelRP.Editor
     internal static class YutrelCmgenIblGenerator
     {
         private const string outputFormat = "exr";
-        private const string dfgLutFileName = "dfg_lut.exr";
-        private const string dfgMode = "FilamentMultiscatterCloth";
-        private const string dfgFormat = "EXR_RGBAHalf";
+        private const string dfgMode = "SharedPipelineDfgLut";
+        private const string dfgFormat = "Assets/YutrelRP/Resources/Texture/DFG_LUT.exr";
         private const string shConvention = "FilamentPreScaledIrradianceSH3";
         private const string specularConvention = "FilamentCmgenPrefilteredCubemapNoMirror";
         private const string iblIntensityConvention =
             "Not baked; runtime YutrelEnvironmentLight IBL intensity scales contribution, with diffuse/specular multipliers as overrides.";
         private const string specularCubemapSuffix = "_SpecularCube.asset";
-        private const string dfgLutSuffix = "_DFG.exr";
         private const string temporaryAssetRootPrefix = "__YutrelRP_CmgenTemp_";
         private static readonly string[] faceSuffixes = { "px", "nx", "py", "ny", "pz", "nz" };
         // cmgen face images have the opposite vertical row orientation from Unity Cubemap.SetPixels.
@@ -653,13 +648,10 @@ namespace YutrelRP.Editor
             var outputRootPath = outputDirectory;
             var finalMetadataPath = $"{outputRootPath}/{outputName}.asset";
             var finalSpecularCubemapPath = $"{outputRootPath}/{outputName}{specularCubemapSuffix}";
-            var finalDfgLutPath = $"{outputRootPath}/{outputName}{dfgLutSuffix}";
-            ValidateCanWriteGeneratedArtifacts(finalMetadataPath, finalSpecularCubemapPath, finalDfgLutPath,
-                request.Overwrite);
+            ValidateCanWriteGeneratedArtifacts(finalMetadataPath, finalSpecularCubemapPath, request.Overwrite);
 
             var tempRoot = Path.Combine(Path.GetTempPath(), "YutrelRP_cmgen_" + Guid.NewGuid().ToString("N"));
             var deployTempPath = Path.Combine(tempRoot, "deploy");
-            var dfgTempPath = Path.Combine(deployTempPath, dfgLutFileName);
             var tempOutputRootPath = $"Assets/{temporaryAssetRootPrefix}{Guid.NewGuid():N}";
             var tempOutputRootFullPath = AssetPathToFullPath(tempOutputRootPath);
             var movedToFinal = false;
@@ -680,31 +672,17 @@ namespace YutrelRP.Editor
                     sourceFullPath
                 });
 
-                EditorUtility.DisplayProgressBar("cmgen IBL", "Generating DFG LUT", 0.5f);
-                RunCmgen(cmgenFullPath, new[]
-                {
-                    "--quiet",
-                    "--size=" + request.DfgLutSize.ToString(CultureInfo.InvariantCulture),
-                    "--ibl-dfg-multiscatter",
-                    "--ibl-dfg-cloth",
-                    "--ibl-dfg=" + dfgTempPath
-                });
-
                 var cmgenOutputName = Path.GetFileNameWithoutExtension(sourceAssetPath);
                 var specularTempDirectory = Path.Combine(deployTempPath, cmgenOutputName);
-                ValidateCmgenOutputs(specularTempDirectory, dfgTempPath);
+                ValidateCmgenOutputs(specularTempDirectory);
 
-                EditorUtility.DisplayProgressBar("cmgen IBL", "Importing generated assets", 0.7f);
+                EditorUtility.DisplayProgressBar("cmgen IBL", "Importing generated assets", 0.6f);
                 PrepareTemporaryOutputRoot(tempOutputRootPath, tempOutputRootFullPath);
                 CopyDirectory(deployTempPath, tempOutputRootFullPath);
 
-                var tempGeneratedDfgPath = $"{tempOutputRootPath}/{dfgLutFileName}";
-                var tempDfgLutPath = $"{tempOutputRootPath}/{outputName}{dfgLutSuffix}";
-                MoveAssetFile(tempGeneratedDfgPath, tempDfgLutPath);
-
                 AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
                 var specularAssetDirectory = $"{tempOutputRootPath}/{cmgenOutputName}";
-                ConfigureGeneratedImporters(tempDfgLutPath, specularAssetDirectory, request.DfgLutSize);
+                ConfigureGeneratedImporters(specularAssetDirectory);
                 AssetDatabase.ImportAsset(tempOutputRootPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ImportRecursive);
 
                 var tempSpecularCubemapPath = $"{tempOutputRootPath}/{outputName}{specularCubemapSuffix}";
@@ -715,16 +693,10 @@ namespace YutrelRP.Editor
                     request.CubemapSize, out var specularMipCount);
 
                 var diffuseShText = AssetDatabase.LoadAssetAtPath<TextAsset>(diffuseShPath);
-                var dfgLut = AssetDatabase.LoadAssetAtPath<Texture2D>(tempDfgLutPath);
 
                 if (diffuseShText == null)
                 {
                     throw new InvalidOperationException($"Unity did not import generated SH text at {diffuseShPath}.");
-                }
-
-                if (dfgLut == null)
-                {
-                    throw new InvalidOperationException($"Unity did not import generated DFG LUT at {tempDfgLutPath}.");
                 }
 
                 var sh = ParseDiffuseSh(diffuseShText.text);
@@ -736,17 +708,17 @@ namespace YutrelRP.Editor
                 metadata.specularDirectoryPath = string.Empty;
                 metadata.specularCubemapPath = $"{outputRootPath}/{outputName}{specularCubemapSuffix}";
                 metadata.diffuseShPath = string.Empty;
-                metadata.dfgLutPath = $"{outputRootPath}/{outputName}{dfgLutSuffix}";
+                metadata.dfgLutPath = string.Empty;
                 metadata.specularCubemap = specularCubemap;
                 metadata.specularFaceTextures = Array.Empty<Texture2D>();
                 metadata.specularFacePaths = Array.Empty<string>();
                 metadata.diffuseShText = null;
                 metadata.diffuseIrradianceSh = sh;
-                metadata.dfgLut = dfgLut;
+                metadata.dfgLut = null;
                 metadata.cubemapSize = request.CubemapSize;
                 metadata.specularMipCount = specularMipCount;
                 metadata.sampleCount = request.SampleCount;
-                metadata.dfgLutSize = request.DfgLutSize;
+                metadata.dfgLutSize = 0;
                 metadata.outputFormat = outputFormat;
                 metadata.dfgMode = dfgMode;
                 metadata.dfgFormat = dfgFormat;
@@ -765,7 +737,7 @@ namespace YutrelRP.Editor
                 DeleteAssetOrPath(specularAssetDirectory);
                 AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
 
-                ValidateRetainedOutput(tempOutputRootPath, metadataPath, tempSpecularCubemapPath, tempDfgLutPath);
+                ValidateRetainedOutput(tempOutputRootPath, metadataPath, tempSpecularCubemapPath);
 
                 EditorUtility.DisplayProgressBar("cmgen IBL", "Replacing final output", 0.95f);
                 EnsureAssetDirectory(outputRootPath);
@@ -782,9 +754,9 @@ namespace YutrelRP.Editor
                 finalMetadata.specularDirectoryPath = string.Empty;
                 finalMetadata.specularCubemapPath = finalSpecularCubemapPath;
                 finalMetadata.diffuseShPath = string.Empty;
-                finalMetadata.dfgLutPath = finalDfgLutPath;
+                finalMetadata.dfgLutPath = string.Empty;
                 finalMetadata.specularCubemap = AssetDatabase.LoadAssetAtPath<Cubemap>(finalSpecularCubemapPath);
-                finalMetadata.dfgLut = AssetDatabase.LoadAssetAtPath<Texture2D>(finalDfgLutPath);
+                finalMetadata.dfgLut = null;
                 finalMetadata.specularFaceTextures = Array.Empty<Texture2D>();
                 finalMetadata.specularFacePaths = Array.Empty<string>();
                 finalMetadata.diffuseShText = null;
@@ -998,7 +970,7 @@ namespace YutrelRP.Editor
             return builder.ToString();
         }
 
-        private static void ValidateCmgenOutputs(string specularDirectory, string dfgPath)
+        private static void ValidateCmgenOutputs(string specularDirectory)
         {
             if (!Directory.Exists(specularDirectory))
             {
@@ -1018,11 +990,6 @@ namespace YutrelRP.Editor
                 {
                     throw new InvalidOperationException($"cmgen did not create expected specular face: {facePath}");
                 }
-            }
-
-            if (!File.Exists(dfgPath))
-            {
-                throw new InvalidOperationException("cmgen did not create the DFG LUT.");
             }
         }
 
@@ -1098,11 +1065,10 @@ namespace YutrelRP.Editor
             {
                 ($"{tempOutputRootPath}/{outputName}.asset", $"{outputRootPath}/{outputName}.asset"),
                 ($"{tempOutputRootPath}/{outputName}{specularCubemapSuffix}",
-                    $"{outputRootPath}/{outputName}{specularCubemapSuffix}"),
-                ($"{tempOutputRootPath}/{outputName}{dfgLutSuffix}", $"{outputRootPath}/{outputName}{dfgLutSuffix}")
+                    $"{outputRootPath}/{outputName}{specularCubemapSuffix}")
             };
 
-            ValidateCanWriteGeneratedArtifacts(artifacts[0].Item2, artifacts[1].Item2, artifacts[2].Item2, overwrite);
+            ValidateCanWriteGeneratedArtifacts(artifacts[0].Item2, artifacts[1].Item2, overwrite);
             var backupRootPath = $"Assets/{temporaryAssetRootPrefix}ArtifactBackup_{Guid.NewGuid():N}";
             var backups = new List<(string originalPath, string backupPath)>();
             var movedArtifacts = new List<string>();
@@ -1173,14 +1139,14 @@ namespace YutrelRP.Editor
         }
 
         private static void ValidateCanWriteGeneratedArtifacts(string metadataPath, string specularCubemapPath,
-            string dfgLutPath, bool overwrite)
+            bool overwrite)
         {
             if (overwrite)
             {
                 return;
             }
 
-            foreach (var artifactPath in new[] { metadataPath, specularCubemapPath, dfgLutPath })
+            foreach (var artifactPath in new[] { metadataPath, specularCubemapPath })
             {
                 if (AssetExists(artifactPath))
                 {
@@ -1258,7 +1224,7 @@ namespace YutrelRP.Editor
         }
 
         private static void ValidateRetainedOutput(string outputRootPath, string metadataPath,
-            string specularCubemapPath, string dfgLutPath)
+            string specularCubemapPath)
         {
             var metadata = AssetDatabase.LoadAssetAtPath<YutrelIBLAsset>(metadataPath);
             if (metadata == null || !metadata.HasCompleteData)
@@ -1269,11 +1235,6 @@ namespace YutrelRP.Editor
             if (AssetDatabase.LoadAssetAtPath<Cubemap>(specularCubemapPath) == null)
             {
                 throw new InvalidOperationException($"Generated specular cubemap is missing: {specularCubemapPath}");
-            }
-
-            if (AssetDatabase.LoadAssetAtPath<Texture2D>(dfgLutPath) == null)
-            {
-                throw new InvalidOperationException($"Generated DFG LUT is missing: {dfgLutPath}");
             }
 
             var rootFullPath = AssetPathToFullPath(outputRootPath);
@@ -1294,25 +1255,8 @@ namespace YutrelRP.Editor
             }
         }
 
-        private static void ConfigureGeneratedImporters(string dfgPath, string specularAssetDirectory, int dfgLutSize)
+        private static void ConfigureGeneratedImporters(string specularAssetDirectory)
         {
-            var dfgImporter = AssetImporter.GetAtPath(dfgPath) as TextureImporter;
-            if (dfgImporter != null)
-            {
-                dfgImporter.textureType = TextureImporterType.Default;
-                dfgImporter.textureShape = TextureImporterShape.Texture2D;
-                dfgImporter.sRGBTexture = false;
-                dfgImporter.mipmapEnabled = false;
-                dfgImporter.isReadable = false;
-                dfgImporter.filterMode = FilterMode.Bilinear;
-                dfgImporter.wrapMode = TextureWrapMode.Clamp;
-                dfgImporter.npotScale = TextureImporterNPOTScale.None;
-                dfgImporter.maxTextureSize = dfgLutSize;
-                dfgImporter.textureCompression = TextureImporterCompression.Uncompressed;
-                ForcePlatformTextureFormat(dfgImporter, TextureImporterFormat.RGBAHalf);
-                dfgImporter.SaveAndReimport();
-            }
-
             foreach (var facePath in GetSpecularFacePaths(specularAssetDirectory))
             {
                 var importer = AssetImporter.GetAtPath(facePath) as TextureImporter;

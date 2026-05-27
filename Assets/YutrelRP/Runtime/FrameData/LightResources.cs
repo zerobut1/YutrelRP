@@ -9,6 +9,8 @@ namespace YutrelRP
 {
     public class LightResources : ContextItem
     {
+        private const string brdf_lut_resource_path = "Texture/DFG_LUT";
+
         private static Texture brdf_lut_texture;
         private static RTHandle brdf_lut_rt_handle;
         private static Texture environment_reflection_texture;
@@ -113,6 +115,7 @@ namespace YutrelRP
                     name = "Directional Light Data"
                 });
             builder.UseBuffer(directional_light_data_buffer, AccessFlags.WriteAll);
+            ImportSharedBrdfLut(render_graph);
 
             var environment_light = ResolveEnvironmentLight(camera);
             var environment_asset = environment_light != null ? environment_light.IblAsset : null;
@@ -126,20 +129,16 @@ namespace YutrelRP
             {
                 environment_resource_error = environment_asset == null
                     ? "YutrelEnvironmentLight has no IBL asset."
-                    : "YutrelEnvironmentLight IBL asset is incomplete: specular cubemap, DFG LUT, or diffuse SH is missing.";
+                    : "YutrelEnvironmentLight IBL asset is incomplete: specular cubemap or diffuse SH is missing.";
             }
 
             if (has_complete_environment)
             {
-                ImportBrdfLut(render_graph, environment_asset.dfgLut);
                 ImportEnvironmentReflection(render_graph, environment_asset.specularCubemap);
             }
             else
             {
                 environment_diffuse_sh = default;
-                ReleaseBrdfLut();
-                BRDF_LUT = TextureHandle.nullHandle;
-                has_BRDF_LUT = false;
                 ReleaseEnvironmentReflection();
                 environment_reflection_cube = TextureHandle.nullHandle;
             }
@@ -183,6 +182,20 @@ namespace YutrelRP
             }
 
             return null;
+        }
+
+        private void ImportSharedBrdfLut(RenderGraph render_graph)
+        {
+            var dfg_lut = Resources.Load<Texture>(brdf_lut_resource_path);
+            if (dfg_lut == null)
+            {
+                ReleaseBrdfLut();
+                BRDF_LUT = TextureHandle.nullHandle;
+                has_BRDF_LUT = false;
+                return;
+            }
+
+            ImportBrdfLut(render_graph, dfg_lut);
         }
 
         private void ImportBrdfLut(RenderGraph render_graph, Texture dfg_lut)
