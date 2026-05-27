@@ -27,7 +27,7 @@ MonoBehaviour:
         cascade_fade: 0.1
     postProcessSettings: {fileID: 11400000, guid: 67dc4f13b5d0445469abea26b93a3efd, type: 2}
     ambientOcclusionSettings:
-      mode: 0
+      mode: 1
       ssao:
         radius: 0.5
         intensity: 1
