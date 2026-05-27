@@ -16,6 +16,8 @@ SAMPLER(sampler_MaterialAOTex);
 
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
+UNITY_DEFINE_INSTANCED_PROP(float, _UseAlphaClip)
+UNITY_DEFINE_INSTANCED_PROP(float, _AlphaCutoff)
 UNITY_DEFINE_INSTANCED_PROP(float4, _Emissive)
 UNITY_DEFINE_INSTANCED_PROP(float, _Roughness)
 UNITY_DEFINE_INSTANCED_PROP(float, _Metallic)
@@ -35,23 +37,38 @@ UNITY_DEFINE_INSTANCED_PROP(float4, _MetallicTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _MaterialAOTex_ST)
 UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
+float4 SampleStandardDefaultLitBaseColor(float2 uv)
+{
+#if defined(_USE_BASECOLOR_TEX)
+    float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
+    float2 base_color_uv = TransformDefaultLitTextureUV(uv, base_color_ST);
+    return SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv);
+#else
+    return UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+#endif
+}
+
+DefaultLitAlphaClipData BuildStandardDefaultLitAlphaClip(float alpha)
+{
+    DefaultLitAlphaClipData alpha_clip;
+    alpha_clip.alpha   = alpha;
+    alpha_clip.cutoff  = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _AlphaCutoff);
+    alpha_clip.enabled = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _UseAlphaClip);
+    return alpha_clip;
+}
+
 DefaultLitAlphaClipData EvaluateDefaultLitAlphaClip(DefaultLitSurfaceInput input)
 {
-    return DefaultLitAlphaClipOff();
+    return BuildStandardDefaultLitAlphaClip(SampleStandardDefaultLitBaseColor(input.uv).a);
 }
 
 DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
 {
     DefaultLitSurfaceResult result;
-    result.alpha_clip = DefaultLitAlphaClipOff();
 
-#if defined(_USE_BASECOLOR_TEX)
-    float4 base_color_ST      = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
-    float2 base_color_uv      = TransformDefaultLitTextureUV(input.uv, base_color_ST);
-    result.surface.base_color = SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv).rgb;
-#else
-    result.surface.base_color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor).rgb;
-#endif
+    float4 base_color_sample  = SampleStandardDefaultLitBaseColor(input.uv);
+    result.surface.base_color = base_color_sample.rgb;
+    result.alpha_clip         = BuildStandardDefaultLitAlphaClip(base_color_sample.a);
 
 #if defined(_USE_EMISSIVE_TEX)
     float4 emissive_ST      = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissiveTex_ST);

@@ -3,6 +3,8 @@
 	Properties
 	{
 		_BaseColor ("Base Color", Color) = (0.4, 0.8, 1.0, 1)
+		[Toggle] _UseAlphaClip ("Use Alpha Clip", Float) = 0
+		_AlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.5
 		_Emissive ("Emissive", Color) = (0, 0, 0, 1)
 		[Toggle(_USE_EMISSIVE_TEX)] _UseEmissiveTex ("Use Emissive Texture", Float) = 0
 		_EmissiveTex ("Emissive", 2D) = "black" {}
@@ -63,6 +65,7 @@
 			HLSLPROGRAM
 			#pragma target 5.0
 			#pragma multi_compile_instancing
+			#pragma shader_feature_local _USE_BASECOLOR_TEX
 			#pragma vertex DefaultLitShadowCasterVertex
 			#pragma fragment DefaultLitShadowCasterFragment
 			#include "DefaultLit.hlsl"

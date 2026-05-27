@@ -8,6 +8,7 @@
 		_MetallicTex ("Metallic", 2D) = "black" {}
 		_MaterialAOTex ("Material AO", 2D) = "white" {}
 		[Toggle] _UseAlphaClip ("Use Alpha Clip", Float) = 0
+		_AlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.5
 		[Enum(Off,2,On,0)] _CullMode ("Double Face", Float) = 2
 	}
 	SubShader

@@ -15,6 +15,7 @@ SAMPLER(sampler_MaterialAOTex);
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColorTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseAlphaClip)
+UNITY_DEFINE_INSTANCED_PROP(float, _AlphaCutoff)
 UNITY_DEFINE_INSTANCED_PROP(float4, _NormalTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _SmoothnessTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _MetallicTex_ST)
@@ -32,7 +33,7 @@ DefaultLitAlphaClipData BuildSponzaDefaultLitAlphaClip(float alpha)
 {
     DefaultLitAlphaClipData alpha_clip;
     alpha_clip.alpha   = alpha;
-    alpha_clip.cutoff  = 0.001f;
+    alpha_clip.cutoff  = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _AlphaCutoff);
     alpha_clip.enabled = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _UseAlphaClip);
     return alpha_clip;
 }
