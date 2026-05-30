@@ -49,4 +49,7 @@ MonoBehaviour:
         samplesPerSlice: 3
         thickness: 1
         denoiseRadius: 1
+    rayTracingSmokeTestSettings:
+      enabled: 0
+      mode: 1
     debugViewMode: 0

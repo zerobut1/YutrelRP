@@ -25,7 +25,7 @@ namespace YutrelRP
             LightResources light_resources, ShadowResources shadow_resources, ShadowSettings shadow_settings,
             YutrelRPSettings.DebugViewMode mode, Vector2Int attachment_size)
         {
-            if (mode == YutrelRPSettings.DebugViewMode.Disabled) return;
+            if (mode == YutrelRPSettings.DebugViewMode.Disabled || IsRayTracingSmokeTestMode(mode)) return;
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game) return;
 
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find(shader_name));
@@ -104,6 +104,12 @@ namespace YutrelRP
             builder.SetRenderFunc<DebugViewPass>(static (pass, context) => { pass.Render(context); });
 
             textures.final_color = debug_color;
+        }
+
+        private static bool IsRayTracingSmokeTestMode(YutrelRPSettings.DebugViewMode mode)
+        {
+            return mode == YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRayGen ||
+                   mode == YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss;
         }
 
         private static bool IsGBufferMode(YutrelRPSettings.DebugViewMode mode)

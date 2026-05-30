@@ -1,0 +1,22 @@
+#pragma max_recursion_depth 1
+
+RWTexture2D<float4> _RayTracingSmokeTestOutput;
+
+float4 RayGenPattern(uint2 pixel, uint2 dimensions)
+{
+    float2 uv = (float2(pixel) + 0.5) / max(float2(dimensions), 1.0);
+    float checker = ((pixel.x / 32 + pixel.y / 32) & 1) ? 1.0 : 0.35;
+    float stripe = frac((pixel.x + pixel.y) / 64.0) < 0.5 ? 0.0 : 0.2;
+    return float4(uv.x, checker, 1.0 - uv.y + stripe, 1.0);
+}
+
+[shader("raygeneration")]
+void RayGenSmokeTest()
+{
+    uint3 launchIndex = DispatchRaysIndex();
+    uint3 launchDimensions = DispatchRaysDimensions();
+    uint2 pixel = launchIndex.xy;
+    uint2 dimensions = launchDimensions.xy;
+
+    _RayTracingSmokeTestOutput[pixel] = RayGenPattern(pixel, dimensions);
+}

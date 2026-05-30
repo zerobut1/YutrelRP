@@ -13,6 +13,21 @@ namespace YutrelRP
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
 
+        public RayTracingSmokeTestSettings rayTracingSmokeTestSettings = new();
+
+        [System.Serializable]
+        public class RayTracingSmokeTestSettings
+        {
+            public bool enabled = false;
+            public RayTracingSmokeTestMode mode = RayTracingSmokeTestMode.RayGenOnly;
+        }
+
+        public enum RayTracingSmokeTestMode
+        {
+            RayGenOnly = 0,
+            RTASHitMiss = 1
+        }
+
 #if UNITY_EDITOR
         public DebugViewMode debugViewMode = DebugViewMode.Disabled;
 
@@ -28,6 +43,8 @@ namespace YutrelRP
             ShadowOnly = 7,
             CSMCascadeLevels = 8,
             AmbientOcclusion = 9,
+            RayTracingSmokeTestRayGen = 10,
+            RayTracingSmokeTestRTASHitMiss = 11,
         }
 #endif
     }

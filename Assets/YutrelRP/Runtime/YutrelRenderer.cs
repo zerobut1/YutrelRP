@@ -19,6 +19,7 @@ namespace YutrelRP
         {
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
+            RayTracingSmokeTest.Cleanup();
             ScreenSpaceAmbientOcclusionPass.Cleanup();
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
@@ -98,6 +99,8 @@ namespace YutrelRP
                     DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
 
                     ToneMappingPass.Record(render_graph, textures, settings.postProcessSettings);
+
+                    RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings, attachment_size);
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
