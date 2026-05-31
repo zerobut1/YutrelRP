@@ -12,6 +12,7 @@ namespace YutrelRP
     public class YutrelRP : RenderPipeline
     {
         private readonly RenderGraph render_graph = new("Yutrel Render Graph");
+        private readonly VolumeProfile default_volume_profile;
         private readonly YutrelRenderer renderer;
         private readonly YutrelRPSettings settings;
 
@@ -19,6 +20,8 @@ namespace YutrelRP
         {
             this.settings = settings;
             GraphicsSettings.useScriptableRenderPipelineBatching = settings.useSRPBatcher;
+            default_volume_profile = CreateDefaultVolumeProfile(settings.postProcessSettings);
+            VolumeManager.instance.Initialize(default_volume_profile);
             renderer = new YutrelRenderer(this.settings);
         }
 
@@ -26,7 +29,37 @@ namespace YutrelRP
         {
             base.Dispose(is_disposing);
             renderer.Dispose();
+            VolumeManager.instance.Deinitialize();
+            DestroyDefaultVolumeProfile();
             CleanupRenderGraph();
+        }
+
+        private static VolumeProfile CreateDefaultVolumeProfile(PostProcessSettings fallback_settings)
+        {
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            profile.name = "YutrelRP Default Volume Profile";
+            profile.hideFlags = HideFlags.HideAndDontSave;
+            var scene_settings = profile.Add<YutrelSceneRenderSettings>(true);
+            var resolved_settings = ResolvedPostProcessSettings.FromFallback(fallback_settings);
+            scene_settings.fixedEV100.value = resolved_settings.exposure.fixedEV100;
+            scene_settings.exposureCompensation.value = resolved_settings.exposure.exposureCompensation;
+            scene_settings.toneMapping.value = resolved_settings.tone_mapping.mode;
+            return profile;
+        }
+
+        private void DestroyDefaultVolumeProfile()
+        {
+            if (default_volume_profile == null)
+            {
+                return;
+            }
+
+            foreach (var component in default_volume_profile.components)
+            {
+                CoreUtils.Destroy(component);
+            }
+
+            CoreUtils.Destroy(default_volume_profile);
         }
 
         private void CleanupRenderGraph()

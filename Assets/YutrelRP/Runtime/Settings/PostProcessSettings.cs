@@ -47,11 +47,38 @@ namespace YutrelRP
                 ACES,
             }
 
+            public static ToneMappingSettings Default => new()
+            {
+                mode = Mode.None
+            };
+
             public Mode mode;
+
+            public static bool IsValidMode(Mode mode)
+            {
+                switch (mode)
+                {
+                    case Mode.None:
+                    case Mode.ACES:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+
+            public static ToneMappingSettings Validate(ToneMappingSettings settings)
+            {
+                if (!IsValidMode(settings.mode))
+                {
+                    settings.mode = Default.mode;
+                }
+
+                return settings;
+            }
         }
 
         [SerializeField] ExposureSettings m_exposure = ExposureSettings.Default;
-        [SerializeField] ToneMappingSettings m_tone_mapping;
+        [SerializeField] ToneMappingSettings m_tone_mapping = ToneMappingSettings.Default;
 
         public ExposureSettings exposure => m_exposure;
         public ToneMappingSettings tone_mapping => m_tone_mapping;
@@ -59,6 +86,11 @@ namespace YutrelRP
         public static ExposureSettings GetExposure(PostProcessSettings settings)
         {
             return settings == null ? ExposureSettings.Default : settings.exposure;
+        }
+
+        public static ToneMappingSettings GetToneMapping(PostProcessSettings settings)
+        {
+            return ToneMappingSettings.Validate(settings == null ? ToneMappingSettings.Default : settings.tone_mapping);
         }
     }
 }

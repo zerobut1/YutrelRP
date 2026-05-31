@@ -13,15 +13,14 @@ namespace YutrelRP
         private static Material material;
         private static readonly Vector4 identity_source_scale_bias = new(1.0f, 1.0f, 0.0f, 0.0f);
 
-        internal static void Record(RenderGraph render_graph, RenderTargets textures, PostProcessSettings settings)
+        internal static void Record(RenderGraph render_graph, RenderTargets textures,
+            ResolvedPostProcessSettings post_process_settings)
         {
             using var builder = render_graph.AddRasterRenderPass<ToneMappingPass>(sampler.name, out var pass, sampler);
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ToneMapping"));
 
             pass.source_color = textures.scene_color;
-            pass.pass_id = settings == null
-                ? (int)PostProcessSettings.ToneMappingSettings.Mode.None
-                : (int)settings.tone_mapping.mode;
+            pass.pass_id = (int)post_process_settings.tone_mapping.mode;
             builder.UseTexture(pass.source_color);
             builder.SetRenderAttachment(textures.final_color, 0);
 

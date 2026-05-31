@@ -74,13 +74,16 @@ namespace YutrelRP
                     var light_resources = frame_data.GetOrCreate<LightResources>();
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
                     shadow_resources.Reset();
+                    VolumeManager.instance.Update(camera.transform, ~0);
+                    var post_process_settings =
+                        YutrelSceneRenderSettings.Resolve(settings.postProcessSettings, VolumeManager.instance.stack);
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, settings, ref light_resources,
                         ref shadow_resources);
 
                     ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);
 
-                    SetupPass.Record(render_graph, camera, ref textures, attachment_size, settings.postProcessSettings);
+                    SetupPass.Record(render_graph, camera, ref textures, attachment_size, post_process_settings);
 
                     BasePass.Record(render_graph, camera, culling_results, textures);
 
@@ -98,7 +101,7 @@ namespace YutrelRP
 
                     DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
 
-                    ToneMappingPass.Record(render_graph, textures, settings.postProcessSettings);
+                    ToneMappingPass.Record(render_graph, textures, post_process_settings);
 
                     if (RayTracingSmokeTest.IsEnabled(settings))
                     {

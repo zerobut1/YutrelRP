@@ -18,10 +18,10 @@ namespace YutrelRP
             one_over_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure");
 
         internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,
-            Vector2Int attachment_size, PostProcessSettings post_process_settings)
+            Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings)
         {
             ValidateNormalGBufferFormat();
-            var exposure = PostProcessSettings.GetExposure(post_process_settings);
+            var exposure = post_process_settings.exposure;
             var pre_exposure = exposure.pre_exposure;
 
             using var builder = render_graph.AddComputePass<SetupPass>(sampler.name, out var pass, sampler);
