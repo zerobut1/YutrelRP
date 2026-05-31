@@ -165,7 +165,7 @@ namespace YutrelRP
                 accelerationStructure.ClearInstances();
             }
 
-            var testObjects = Object.FindObjectsByType<RayTracingSmokeTestObject>(FindObjectsSortMode.None);
+            var testObjects = Object.FindObjectsByType<RayTracingSmokeTestObject>();
             var instanceCount = 0;
 
             foreach (var testObject in testObjects)

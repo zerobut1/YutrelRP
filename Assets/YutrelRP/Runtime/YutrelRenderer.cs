@@ -100,7 +100,10 @@ namespace YutrelRP
 
                     ToneMappingPass.Record(render_graph, textures, settings.postProcessSettings);
 
-                    RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings, attachment_size);
+                    if (RayTracingSmokeTest.IsEnabled(settings))
+                    {
+                        RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings, attachment_size);
+                    }
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
