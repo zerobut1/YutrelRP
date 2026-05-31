@@ -20,7 +20,7 @@ namespace YutrelRP
         {
             this.settings = settings;
             GraphicsSettings.useScriptableRenderPipelineBatching = settings.useSRPBatcher;
-            default_volume_profile = CreateDefaultVolumeProfile(settings.postProcessSettings);
+            default_volume_profile = CreateDefaultVolumeProfile();
             VolumeManager.instance.Initialize(default_volume_profile);
             renderer = new YutrelRenderer(this.settings);
         }
@@ -34,16 +34,12 @@ namespace YutrelRP
             CleanupRenderGraph();
         }
 
-        private static VolumeProfile CreateDefaultVolumeProfile(PostProcessSettings fallback_settings)
+        private static VolumeProfile CreateDefaultVolumeProfile()
         {
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             profile.name = "YutrelRP Default Volume Profile";
             profile.hideFlags = HideFlags.HideAndDontSave;
-            var scene_settings = profile.Add<YutrelSceneRenderSettings>(true);
-            var resolved_settings = ResolvedPostProcessSettings.FromFallback(fallback_settings);
-            scene_settings.fixedEV100.value = resolved_settings.exposure.fixedEV100;
-            scene_settings.exposureCompensation.value = resolved_settings.exposure.exposureCompensation;
-            scene_settings.toneMapping.value = resolved_settings.tone_mapping.mode;
+            profile.Add<YutrelSceneRenderSettings>();
             return profile;
         }
 

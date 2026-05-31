@@ -9,8 +9,6 @@ namespace YutrelRP
 
         public ShadowSettings shadowSettings;
 
-        public PostProcessSettings postProcessSettings;
-
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
 
         public RayTracingSmokeTestSettings rayTracingSmokeTestSettings = new();

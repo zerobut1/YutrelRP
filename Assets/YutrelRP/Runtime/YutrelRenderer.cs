@@ -76,7 +76,7 @@ namespace YutrelRP
                     shadow_resources.Reset();
                     VolumeManager.instance.Update(camera.transform, ~0);
                     var post_process_settings =
-                        YutrelSceneRenderSettings.Resolve(settings.postProcessSettings, VolumeManager.instance.stack);
+                        YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, settings, ref light_resources,
                         ref shadow_resources);
