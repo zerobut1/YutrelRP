@@ -102,6 +102,8 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
+                    GizmosPass.Record(render_graph, camera, textures.scene_color, textures.scene_depth,
+                        GizmoSubset.PreImageEffects);
 #endif
 
                     ToneMappingPass.Record(render_graph, textures, post_process_settings);
@@ -114,6 +116,9 @@ namespace YutrelRP
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
                         settings.shadowSettings, settings.debugViewMode, attachment_size);
+
+                    GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,
+                        GizmoSubset.PostImageEffects);
 #endif
 
                     FinalPass.Record(render_graph, camera, textures);
