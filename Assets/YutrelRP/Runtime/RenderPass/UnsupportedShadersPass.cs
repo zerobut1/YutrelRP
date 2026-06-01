@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -6,10 +7,9 @@ using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
-    internal class DefaultShaderPass
+    internal class UnsupportedShadersPass
     {
-#if UNITY_EDITOR
-        private static readonly ProfilingSampler sampler = new("Default Shader Pass");
+        private static readonly ProfilingSampler sampler = new("Unsupported Shaders Pass");
 
         private static readonly ShaderTagId[] shader_tag_ids =
         {
@@ -22,21 +22,19 @@ namespace YutrelRP
         };
 
         private static Material error_material;
-#endif
 
         [Conditional("UNITY_EDITOR")]
-        public static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_reuslts,
+        internal static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
             in RenderTargets textures)
         {
-#if UNITY_EDITOR
-            using var builder = render_graph.AddRasterRenderPass<DefaultShaderPass>(sampler.name, out var pass,
+            using var builder = render_graph.AddRasterRenderPass<UnsupportedShadersPass>(sampler.name, out var pass,
                 sampler);
 
             if (error_material == null)
                 error_material = CoreUtils.CreateEngineMaterial(Shader.Find("Hidden/InternalErrorShader"));
 
             pass.list = render_graph.CreateRendererList(
-                new RendererListDesc(shader_tag_ids, culling_reuslts, camera)
+                new RendererListDesc(shader_tag_ids, culling_results, camera)
                 {
                     overrideMaterial = error_material,
                     renderQueueRange = RenderQueueRange.all
@@ -45,18 +43,21 @@ namespace YutrelRP
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);
 
-            builder.SetRenderFunc<DefaultShaderPass>(static (pass, context) => pass.Render(context));
-#endif
+            builder.SetRenderFunc<UnsupportedShadersPass>(static (pass, context) => pass.Render(context));
         }
 
-#if UNITY_EDITOR
-        // data
         private RendererListHandle list;
 
         private void Render(RasterGraphContext context)
         {
             context.cmd.DrawRendererList(list);
         }
-#endif
+
+        internal static void Cleanup()
+        {
+            CoreUtils.Destroy(error_material);
+            error_material = null;
+        }
     }
 }
+#endif

@@ -25,6 +25,7 @@ namespace YutrelRP
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
             DebugViewPass.Cleanup();
+            UnsupportedShadersPass.Cleanup();
 #endif
             LightResources.Cleanup();
             FinalPass.Cleanup();
@@ -99,7 +100,9 @@ namespace YutrelRP
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 
-                    DefaultShaderPass.Record(render_graph, camera, culling_results, textures);
+#if UNITY_EDITOR
+                    UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
+#endif
 
                     ToneMappingPass.Record(render_graph, textures, post_process_settings);
 
