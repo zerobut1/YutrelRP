@@ -11,6 +11,16 @@ namespace YutrelRP
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
 
+        public DDGISettings ddgiSettings = new();
+
+        [System.Serializable]
+        public class DDGISettings
+        {
+            public bool enabled = false;
+            public bool logDiagnostics = true;
+            [Min(0)] public int debugProbeRayDataSlice = 0;
+        }
+
         public RayTracingSmokeTestSettings rayTracingSmokeTestSettings = new();
 
         [System.Serializable]
@@ -43,6 +53,7 @@ namespace YutrelRP
             AmbientOcclusion = 9,
             RayTracingSmokeTestRayGen = 10,
             RayTracingSmokeTestRTASHitMiss = 11,
+            DDGIProbeRayData = 12,
         }
 #endif
     }

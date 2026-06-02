@@ -17,6 +17,7 @@ namespace YutrelRP
 
         public void Dispose()
         {
+            DDGIProbeTrace.Cleanup();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
             RayTracingSmokeTest.Cleanup();
@@ -72,8 +73,10 @@ namespace YutrelRP
                         : new Vector2Int(camera_target_texture.width, camera_target_texture.height);
 
                     var textures = frame_data.GetOrCreate<RenderTargets>();
+                    var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                     var light_resources = frame_data.GetOrCreate<LightResources>();
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
+                    ddgi_resources.Reset();
                     shadow_resources.Reset();
                     VolumeManager.instance.Update(camera.transform, ~0);
                     var post_process_settings =
@@ -100,6 +103,8 @@ namespace YutrelRP
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 
+                    DDGIProbeTrace.Record(render_graph, camera, settings, ref ddgi_resources);
+
 #if UNITY_EDITOR
                     UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
                     GizmosPass.Record(render_graph, camera, textures.scene_color, textures.scene_depth,
@@ -115,7 +120,8 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
-                        settings.shadowSettings, settings.debugViewMode, attachment_size);
+                        settings.shadowSettings, ddgi_resources, settings.debugViewMode,
+                        settings.ddgiSettings, attachment_size);
 
                     GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,
                         GizmoSubset.PostImageEffects);

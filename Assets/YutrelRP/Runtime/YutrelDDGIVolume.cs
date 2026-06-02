@@ -10,11 +10,18 @@ namespace YutrelRP
         public const float MinVolumeSize = 0.01f;
         public const int MinProbeCountPerAxis = 2;
         public const int MaxProbeCountPerAxis = 64;
+        public const int MinRaysPerProbe = 1;
+        public const int MaxRaysPerProbe = 1024;
         public const float MinProbePreviewRadius = 0.01f;
+        public const float MinProbeMaxRayDistance = 0.001f;
 
         [SerializeField] private Vector3 center = Vector3.zero;
         [SerializeField] private Vector3 size = new(10.0f, 5.0f, 10.0f);
         [SerializeField] private Vector3Int probeCount = new(4, 3, 4);
+        [Range(MinRaysPerProbe, MaxRaysPerProbe)]
+        [SerializeField] private int raysPerProbe = 64;
+        [Min(MinProbeMaxRayDistance)]
+        [SerializeField] private float probeMaxRayDistance = 100.0f;
         [Min(MinProbePreviewRadius)]
         [SerializeField] private float probePreviewRadius = 0.1f;
 
@@ -34,6 +41,18 @@ namespace YutrelRP
         {
             get => probeCount;
             set => probeCount = ClampProbeCount(value);
+        }
+
+        public int RaysPerProbe
+        {
+            get => raysPerProbe;
+            set => raysPerProbe = Mathf.Clamp(value, MinRaysPerProbe, MaxRaysPerProbe);
+        }
+
+        public float ProbeMaxRayDistance
+        {
+            get => probeMaxRayDistance;
+            set => probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, value);
         }
 
         public float ProbePreviewRadius
@@ -130,6 +149,8 @@ namespace YutrelRP
         {
             size = ClampSize(size);
             probeCount = ClampProbeCount(probeCount);
+            raysPerProbe = Mathf.Clamp(raysPerProbe, MinRaysPerProbe, MaxRaysPerProbe);
+            probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
             probePreviewRadius = Mathf.Max(MinProbePreviewRadius, probePreviewRadius);
             EnforceAxisAlignedRotation();
         }

@@ -8,9 +8,14 @@ TEXTURE2D(_ShadowMask);
 SAMPLER(sampler_ShadowMask);
 TEXTURE2D(_ScreenSpaceAO);
 SAMPLER(sampler_ScreenSpaceAO);
+TEXTURE2D_ARRAY(_DDGIProbeRayData);
+SAMPLER(sampler_DDGIProbeRayData);
 
 int _DebugViewMode;
 int _DebugViewIssue;
+float4 _DDGIProbeRayDataDimensions;
+int _DDGIProbeRayDataDebugSlice;
+float _DDGIProbeRayDataMaxDistance;
 
 struct DebugViewShadowData
 {
@@ -179,6 +184,31 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
     return float4(combined_AO.xxx, 1.0f);
 }
 
+float4 SampleDebugViewDDGIProbeRayData(float2 uv)
+{
+    uint width  = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
+    uint height = (uint)max(_DDGIProbeRayDataDimensions.y, 1.0f);
+    uint slice  = (uint)clamp(_DDGIProbeRayDataDebugSlice, 0, max((int)_DDGIProbeRayDataDimensions.z - 1, 0));
+
+    uint2 texel = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    float4 data = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, texel, slice);
+
+    float hit_kind = data.x;
+    if (hit_kind < 0.5f)
+    {
+        return float4(0.02f, 0.05f, 0.18f, 1.0f);
+    }
+
+    float distance01 = saturate(abs(data.y) / max(_DDGIProbeRayDataMaxDistance, 0.001f));
+    float depth_cue  = saturate(1.0f - distance01);
+    if (hit_kind > 1.5f)
+    {
+        return float4(0.95f, 0.18f, 0.85f, 1.0f);
+    }
+
+    return float4(depth_cue, lerp(0.2f, 1.0f, depth_cue), 0.06f, 1.0f);
+}
+
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 {
     if (_DebugViewIssue != 0)
@@ -224,6 +254,9 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 
     case 9:
         return SampleDebugViewAmbientOcclusion(input.uv);
+
+    case 12:
+        return SampleDebugViewDDGIProbeRayData(input.uv);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

@@ -1,0 +1,87 @@
+#pragma max_recursion_depth 1
+
+RWTexture2DArray<float4> _DDGIProbeRayData;
+RaytracingAccelerationStructure _RaytracingAccelerationStructure;
+
+float3 _DDGIVolumeMinWS;
+float3 _DDGIProbeSpacingWS;
+float4 _DDGIProbeCount;
+int _DDGIProbeRaysPerProbe;
+float _DDGIProbeMaxRayDistance;
+
+struct DDGIProbeTracePayload
+{
+    uint hitKind;
+    float rayT;
+};
+
+[shader("miss")]
+void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
+{
+    payload.hitKind = 0;
+    payload.rayT = -1.0;
+}
+
+[shader("closesthit")]
+void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTriangleIntersectionAttributes attributes)
+{
+    payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
+    payload.rayT = RayTCurrent();
+}
+
+float3 BuildProbeRayDirection(uint rayIndex, uint rayCount)
+{
+    float goldenAngle = 2.39996322972865332;
+    float normalizedIndex = (float(rayIndex) + 0.5) / max(float(rayCount), 1.0);
+    float z = 1.0 - 2.0 * normalizedIndex;
+    float radius = sqrt(saturate(1.0 - z * z));
+    float phi = float(rayIndex) * goldenAngle;
+    return normalize(float3(cos(phi) * radius, z, sin(phi) * radius));
+}
+
+[shader("raygeneration")]
+void RayGenDDGIProbeTrace()
+{
+    uint3 launchIndex = DispatchRaysIndex();
+    uint rayIndex = launchIndex.x;
+    uint planeProbeIndex = launchIndex.y;
+    uint probeY = launchIndex.z;
+
+    uint probeCountX = (uint)_DDGIProbeCount.x;
+    uint probeX = planeProbeIndex % probeCountX;
+    uint probeZ = planeProbeIndex / probeCountX;
+
+    float3 probeCoords = float3(probeX, probeY, probeZ);
+    float3 probePositionWS = _DDGIVolumeMinWS + probeCoords * _DDGIProbeSpacingWS;
+
+    RayDesc ray;
+    ray.Origin = probePositionWS;
+    ray.Direction = BuildProbeRayDirection(rayIndex, (uint)_DDGIProbeRaysPerProbe);
+    ray.TMin = 0.001;
+    ray.TMax = _DDGIProbeMaxRayDistance;
+
+    DDGIProbeTracePayload payload;
+    payload.hitKind = 0;
+    payload.rayT = -1.0;
+
+    TraceRay(_RaytracingAccelerationStructure,
+             RAY_FLAG_NONE,
+             0xFF,
+             0,
+             1,
+             0,
+             ray,
+             payload);
+
+    float4 encoded = float4(0.0, -1.0, 0.0, 1.0);
+    if (payload.hitKind == 1)
+    {
+        encoded = float4(1.0, payload.rayT, saturate(1.0 - payload.rayT / _DDGIProbeMaxRayDistance), 1.0);
+    }
+    else if (payload.hitKind == 2)
+    {
+        encoded = float4(2.0, -payload.rayT, saturate(1.0 - payload.rayT / _DDGIProbeMaxRayDistance), 1.0);
+    }
+
+    _DDGIProbeRayData[uint3(rayIndex, planeProbeIndex, probeY)] = encoded;
+}

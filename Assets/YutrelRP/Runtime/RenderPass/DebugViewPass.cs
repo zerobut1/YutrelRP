@@ -14,6 +14,10 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("Debug View Pass");
         private static readonly int debug_view_issue_ID = Shader.PropertyToID("_DebugViewIssue");
         private static readonly int debug_view_mode_ID = Shader.PropertyToID("_DebugViewMode");
+        private static readonly int ddgi_probe_ray_data_ID = DDGIResources.probe_ray_data_ID;
+        private static readonly int ddgi_probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
+        private static readonly int ddgi_probe_ray_data_debug_slice_ID = DDGIResources.probe_ray_data_debug_slice_ID;
+        private static readonly int ddgi_probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
         private static readonly int directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
         private static readonly int directional_shadow_distance_fade_ID = ShadowResources.directional_distance_fade_ID;
         private static MaterialPropertyBlock property_block;
@@ -23,7 +27,8 @@ namespace YutrelRP
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
             LightResources light_resources, ShadowResources shadow_resources, ShadowSettings shadow_settings,
-            YutrelRPSettings.DebugViewMode mode, Vector2Int attachment_size)
+            DDGIResources ddgi_resources, YutrelRPSettings.DebugViewMode mode,
+            YutrelRPSettings.DDGISettings ddgi_settings, Vector2Int attachment_size)
         {
             if (mode == YutrelRPSettings.DebugViewMode.Disabled || IsRayTracingSmokeTestMode(mode)) return;
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game) return;
@@ -44,7 +49,7 @@ namespace YutrelRP
             var debug_color = render_graph.CreateTexture(debug_color_desc);
 
             pass.mode = mode;
-            pass.issue = ValidateSources(mode, light_resources, shadow_resources, shadow_settings, textures);
+            pass.issue = ValidateSources(mode, light_resources, shadow_resources, shadow_settings, textures, ddgi_resources);
             pass.reads_GBuffer = pass.issue == Issue.None && IsGBufferMode(mode);
             pass.reads_scene_depth = pass.issue == Issue.None &&
                                      (mode == YutrelRPSettings.DebugViewMode.SceneDepth ||
@@ -52,6 +57,7 @@ namespace YutrelRP
             pass.reads_screen_space_ao = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.AmbientOcclusion;
             pass.reads_shadow_mask = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.ShadowOnly;
             pass.reads_CSM = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.CSMCascadeLevels;
+            pass.reads_DDGI_probe_ray_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayData;
 
             if (pass.reads_GBuffer)
             {
@@ -100,6 +106,22 @@ namespace YutrelRP
                 builder.UseBuffer(pass.directional_shadow_cascade_data_buffer);
             }
 
+            if (pass.reads_DDGI_probe_ray_data)
+            {
+                pass.ddgi_probe_ray_data = ddgi_resources.probe_ray_data;
+                pass.ddgi_probe_ray_data_dimensions = new Vector4(
+                    ddgi_resources.rays_per_probe,
+                    ddgi_resources.probe_count.x * ddgi_resources.probe_count.z,
+                    ddgi_resources.probe_count.y,
+                    0.0f);
+                pass.ddgi_probe_ray_data_debug_slice = Mathf.Clamp(
+                    ddgi_settings != null ? ddgi_settings.debugProbeRayDataSlice : 0,
+                    0,
+                    Mathf.Max(0, ddgi_resources.probe_count.y - 1));
+                pass.ddgi_probe_ray_data_max_distance = Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance);
+                builder.UseTexture(pass.ddgi_probe_ray_data);
+            }
+
             builder.SetRenderAttachment(debug_color, 0);
             builder.SetRenderFunc<DebugViewPass>(static (pass, context) => { pass.Render(context); });
 
@@ -123,7 +145,8 @@ namespace YutrelRP
         }
 
         private static Issue ValidateSources(YutrelRPSettings.DebugViewMode mode, LightResources light_resources,
-            ShadowResources shadow_resources, ShadowSettings shadow_settings, RenderTargets textures)
+            ShadowResources shadow_resources, ShadowSettings shadow_settings, RenderTargets textures,
+            DDGIResources ddgi_resources)
         {
             Issue issue = Issue.None;
 
@@ -174,6 +197,13 @@ namespace YutrelRP
                     }
 
                     break;
+                case YutrelRPSettings.DebugViewMode.DDGIProbeRayData:
+                    if (ddgi_resources == null || !ddgi_resources.probe_ray_data.IsValid())
+                    {
+                        issue = Issue.MissingDDGIProbeRayData;
+                    }
+
+                    break;
                 default:
                     issue = Issue.UnsupportedMode;
                     break;
@@ -201,6 +231,8 @@ namespace YutrelRP
                     return "the GBuffer source is missing";
                 case Issue.MissingSceneDepth:
                     return "the scene depth source is missing";
+                case Issue.MissingDDGIProbeRayData:
+                    return "DDGI ProbeRayData is missing; enable DDGI, add one active DDGI Volume, and enable Contribute GI on eligible opaque MeshRenderers";
                 case Issue.MissingShadowMask:
                     return "the shadow mask source is missing";
                 case Issue.UnsupportedCSMSource:
@@ -218,6 +250,7 @@ namespace YutrelRP
         private TextureHandle scene_depth;
         private TextureHandle screen_space_ao;
         private TextureHandle shadow_mask;
+        private TextureHandle ddgi_probe_ray_data;
         private BufferHandle directional_shadow_vp_matrices_buffer;
         private BufferHandle directional_shadow_cascade_data_buffer;
         private YutrelRPSettings.DebugViewMode mode;
@@ -227,8 +260,12 @@ namespace YutrelRP
         private bool reads_screen_space_ao;
         private bool reads_shadow_mask;
         private bool reads_CSM;
+        private bool reads_DDGI_probe_ray_data;
         private int directional_shadow_cascade_count;
         private Vector4 directional_shadow_distance_fade;
+        private Vector4 ddgi_probe_ray_data_dimensions;
+        private int ddgi_probe_ray_data_debug_slice;
+        private float ddgi_probe_ray_data_max_distance;
 
         private void Render(RasterGraphContext context)
         {
@@ -237,6 +274,9 @@ namespace YutrelRP
             property_block.Clear();
             property_block.SetInteger(debug_view_mode_ID, (int)mode);
             property_block.SetInteger(debug_view_issue_ID, (int)issue);
+            property_block.SetVector(ddgi_probe_ray_data_dimensions_ID, ddgi_probe_ray_data_dimensions);
+            property_block.SetInteger(ddgi_probe_ray_data_debug_slice_ID, ddgi_probe_ray_data_debug_slice);
+            property_block.SetFloat(ddgi_probe_ray_data_max_distance_ID, ddgi_probe_ray_data_max_distance);
             property_block.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);
             property_block.SetVector(directional_shadow_distance_fade_ID, directional_shadow_distance_fade);
 
@@ -269,6 +309,11 @@ namespace YutrelRP
                 property_block.SetBuffer(ShadowResources.directional_cascade_data_ID, directional_shadow_cascade_data_buffer);
             }
 
+            if (reads_DDGI_probe_ray_data)
+            {
+                property_block.SetTexture(ddgi_probe_ray_data_ID, ddgi_probe_ray_data);
+            }
+
             CoreUtils.DrawFullScreen(cmd, material, property_block);
         }
 
@@ -288,7 +333,8 @@ namespace YutrelRP
             UnsupportedCSMSource = 3,
             MissingCSMSource = 4,
             MissingSceneDepth = 5,
-            UnsupportedMode = 6
+            UnsupportedMode = 6,
+            MissingDDGIProbeRayData = 7
         }
     }
 }

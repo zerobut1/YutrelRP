@@ -48,6 +48,10 @@ MonoBehaviour:
         samplesPerSlice: 3
         thickness: 1
         denoiseRadius: 1
+    ddgiSettings:
+      enabled: 0
+      logDiagnostics: 1
+      debugProbeRayDataSlice: 0
     rayTracingSmokeTestSettings:
       enabled: 0
       mode: 1

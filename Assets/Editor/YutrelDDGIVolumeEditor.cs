@@ -19,6 +19,10 @@ namespace YutrelRP.Editor
             "Local DDGI bounds size. Values are clamped to a positive size.");
         private static readonly GUIContent probe_count_label = new("Probe Count",
             "Probe grid count per axis. Each axis is clamped to [2, 64].");
+        private static readonly GUIContent rays_per_probe_label = new("Rays Per Probe",
+            "Volume-owned ProbeRayData width and probe trace dispatch X dimension.");
+        private static readonly GUIContent probe_max_ray_distance_label = new("Probe Max Ray Distance",
+            "Volume-owned ray TMax for first-stage DDGI probe tracing.");
         private static readonly GUIContent probe_radius_label = new("Probe Preview Radius",
             "Scene View sphere radius in local units.");
 
@@ -29,6 +33,8 @@ namespace YutrelRP.Editor
         private SerializedProperty center_property;
         private SerializedProperty size_property;
         private SerializedProperty probe_count_property;
+        private SerializedProperty rays_per_probe_property;
+        private SerializedProperty probe_max_ray_distance_property;
         private SerializedProperty probe_preview_radius_property;
 
         private void OnEnable()
@@ -36,6 +42,8 @@ namespace YutrelRP.Editor
             center_property = serializedObject.FindProperty("center");
             size_property = serializedObject.FindProperty("size");
             probe_count_property = serializedObject.FindProperty("probeCount");
+            rays_per_probe_property = serializedObject.FindProperty("raysPerProbe");
+            probe_max_ray_distance_property = serializedObject.FindProperty("probeMaxRayDistance");
             probe_preview_radius_property = serializedObject.FindProperty("probePreviewRadius");
             Selection.selectionChanged += OnSelectionChanged;
         }
@@ -56,6 +64,8 @@ namespace YutrelRP.Editor
             EditorGUILayout.PropertyField(center_property, center_label);
             EditorGUILayout.PropertyField(size_property, size_label);
             EditorGUILayout.PropertyField(probe_count_property, probe_count_label);
+            EditorGUILayout.PropertyField(rays_per_probe_property, rays_per_probe_label);
+            EditorGUILayout.PropertyField(probe_max_ray_distance_property, probe_max_ray_distance_label);
             EditorGUILayout.PropertyField(probe_preview_radius_property, probe_radius_label);
 
             if (serializedObject.ApplyModifiedProperties())
@@ -158,6 +168,11 @@ namespace YutrelRP.Editor
             var spacing = volume.GetWorldProbeSpacing();
             EditorGUILayout.LabelField("Total Probes", volume.TotalProbeCount.ToString());
             EditorGUILayout.LabelField("World Probe Spacing", FormatVector3(spacing));
+            EditorGUILayout.LabelField("ProbeRayData Layout",
+                $"{volume.RaysPerProbe} x {volume.ProbeCount.x * volume.ProbeCount.z} x {volume.ProbeCount.y}");
+            EditorGUILayout.HelpBox(
+                "DDGI probe grid bounds are the Volume bounds: boundary probes lie on min/max. For indoor scenes, keep boundary probes inside lit air with a small offset from walls, floor, and ceiling; avoid shrinking the volume so receiver surfaces fall outside, and avoid overshooting far outside the building.",
+                MessageType.Info);
         }
 
         private void OnSelectionChanged()
