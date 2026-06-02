@@ -37,6 +37,14 @@ namespace YutrelRP
                 return;
             }
 
+#if UNITY_EDITOR
+            if (IsUnityFrameDebuggerActive())
+            {
+                LogStatus(ProbeTraceIssue.FrameDebuggerActive, null);
+                return;
+            }
+#endif
+
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game)
             {
                 return;
@@ -117,6 +125,7 @@ namespace YutrelRP
         private void Render(UnsafeGraphContext context)
         {
             var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+            cmd.BuildRayTracingAccelerationStructure(rayTracingAccelerationStructure);
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
@@ -274,7 +283,6 @@ namespace YutrelRP
                 return ProbeTraceIssue.NoContributors;
             }
 
-            accelerationStructure.Build();
             return accelerationStructure.GetInstanceCount() > 0 ? ProbeTraceIssue.None : ProbeTraceIssue.EmptyAccelerationStructure;
         }
 
@@ -394,6 +402,8 @@ namespace YutrelRP
                     return "acceleration-structure/geometry";
                 case ProbeTraceIssue.ResourceTooLarge:
                     return "resource/dimensions";
+                case ProbeTraceIssue.FrameDebuggerActive:
+                    return "editor/debugger";
                 default:
                     return "dispatch/output";
             }
@@ -424,10 +434,38 @@ namespace YutrelRP
                     return "DDGI RTAS build produced no instances";
                 case ProbeTraceIssue.ResourceTooLarge:
                     return "ProbeRayData dimensions exceed platform texture limits";
+                case ProbeTraceIssue.FrameDebuggerActive:
+                    return "Unity Frame Debugger is active; DDGI ProbeTrace uses D3D12 ray tracing commands that are skipped to avoid editor device-loss crashes";
                 default:
                     return "unknown failure";
             }
         }
+
+#if UNITY_EDITOR
+        private static bool IsUnityFrameDebuggerActive()
+        {
+            var frameDebuggerType =
+                typeof(EditorApplication).Assembly.GetType("UnityEditorInternal.FrameDebuggerUtility");
+            if (frameDebuggerType == null)
+            {
+                return false;
+            }
+
+            var enabledProperty = frameDebuggerType.GetProperty("enabled",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic);
+            if (enabledProperty != null && enabledProperty.PropertyType == typeof(bool))
+            {
+                return (bool)enabledProperty.GetValue(null);
+            }
+
+            var isLocalEnabledMethod = frameDebuggerType.GetMethod("IsLocalEnabled",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic,
+                null, System.Type.EmptyTypes, null);
+            return isLocalEnabledMethod != null && (bool)isLocalEnabledMethod.Invoke(null, null);
+        }
+#endif
 
         public static void Cleanup()
         {
@@ -447,7 +485,8 @@ namespace YutrelRP
             MissingRayTracingShader = 5,
             NoContributors = 6,
             EmptyAccelerationStructure = 7,
-            ResourceTooLarge = 8
+            ResourceTooLarge = 8,
+            FrameDebuggerActive = 9
         }
     }
 }
