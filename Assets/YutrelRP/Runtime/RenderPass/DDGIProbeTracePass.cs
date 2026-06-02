@@ -25,6 +25,11 @@ namespace YutrelRP
 
         private static RayTracingShader shader;
         private static RayTracingAccelerationStructure accelerationStructure;
+        private static RTHandle probeIrradianceRT;
+        private static RTHandle probeDistanceRT;
+        private static RTHandle probeDataRT;
+        private static DDGIResources.Identity persistentIdentity;
+        private static bool hasPersistentIdentity;
         private static string lastStatusKey;
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings.DDGISettings settings,
@@ -34,6 +39,7 @@ namespace YutrelRP
 
             if (settings == null || !settings.enabled)
             {
+                ReleasePersistentAtlases();
                 return;
             }
 
@@ -60,6 +66,11 @@ namespace YutrelRP
             if (issue == ProbeTraceIssue.None)
             {
                 issue = ValidateResourceDimensions(volume);
+            }
+
+            if (issue == ProbeTraceIssue.None)
+            {
+                issue = EnsurePersistentAtlases(renderGraph, volume, ref resources);
             }
 
             if (issue == ProbeTraceIssue.None)
@@ -91,9 +102,7 @@ namespace YutrelRP
 
             var probeRayData = renderGraph.CreateTexture(desc);
             resources.probe_ray_data = probeRayData;
-            resources.probe_count = probeCount;
-            resources.rays_per_probe = raysPerProbe;
-            resources.probe_max_ray_distance = volume.ProbeMaxRayDistance;
+            resources.SetVolumeMetadata(volume);
 
             using var builder = renderGraph.AddUnsafePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
             pass.probeRayData = probeRayData;
@@ -225,7 +234,106 @@ namespace YutrelRP
                 return ProbeTraceIssue.ResourceTooLarge;
             }
 
+            if (!ValidateAtlasDimensions(count, volume.ProbeIrradianceInteriorTexels + 2) ||
+                !ValidateAtlasDimensions(count, volume.ProbeDistanceInteriorTexels + 2) ||
+                count.x > SystemInfo.maxTextureSize || count.z > SystemInfo.maxTextureSize)
+            {
+                return ProbeTraceIssue.ResourceTooLarge;
+            }
+
             return ProbeTraceIssue.None;
+        }
+
+
+        private static bool ValidateAtlasDimensions(Vector3Int count, int tileSize)
+        {
+            return tileSize > 0 &&
+                   count.x <= SystemInfo.maxTextureSize / tileSize &&
+                   count.z <= SystemInfo.maxTextureSize / tileSize &&
+                   count.y <= SystemInfo.maxTextureArraySlices;
+        }
+
+        private static ProbeTraceIssue EnsurePersistentAtlases(RenderGraph renderGraph, YutrelDDGIVolume volume, ref DDGIResources resources)
+        {
+            var identity = new DDGIResources.Identity(volume);
+            if (!hasPersistentIdentity || !persistentIdentity.Equals(identity) ||
+                probeIrradianceRT == null || probeDistanceRT == null || probeDataRT == null)
+            {
+                ReleasePersistentAtlases();
+                try
+                {
+                    probeIrradianceRT = AllocAtlasRT(
+                        volume.ProbeCount.x * (volume.ProbeIrradianceInteriorTexels + 2),
+                        volume.ProbeCount.z * (volume.ProbeIrradianceInteriorTexels + 2),
+                        volume.ProbeCount.y,
+                        GraphicsFormat.R16G16B16A16_SFloat,
+                        "DDGI ProbeIrradiance");
+                    probeDistanceRT = AllocAtlasRT(
+                        volume.ProbeCount.x * (volume.ProbeDistanceInteriorTexels + 2),
+                        volume.ProbeCount.z * (volume.ProbeDistanceInteriorTexels + 2),
+                        volume.ProbeCount.y,
+                        GraphicsFormat.R16G16B16A16_SFloat,
+                        "DDGI ProbeDistance");
+                    probeDataRT = AllocAtlasRT(
+                        volume.ProbeCount.x,
+                        volume.ProbeCount.z,
+                        volume.ProbeCount.y,
+                        GraphicsFormat.R16G16B16A16_SFloat,
+                        "DDGI ProbeData");
+
+                    ClearPersistentAtlas(probeIrradianceRT, Color.black);
+                    ClearPersistentAtlas(probeDistanceRT, Color.black);
+                    ClearPersistentAtlas(probeDataRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
+                    persistentIdentity = identity;
+                    hasPersistentIdentity = true;
+                    Debug.Log($"YutrelRP DDGI persistent atlases initialized: {identity}.");
+                }
+                catch (System.Exception exception)
+                {
+                    Debug.LogWarning($"YutrelRP DDGI persistent atlas allocation failed: {exception.Message}");
+                    ReleasePersistentAtlases();
+                    return ProbeTraceIssue.ResourceAllocationFailed;
+                }
+            }
+
+            resources.SetVolumeMetadata(volume);
+            resources.probe_irradiance = renderGraph.ImportTexture(probeIrradianceRT);
+            resources.probe_distance = renderGraph.ImportTexture(probeDistanceRT);
+            resources.probe_data = renderGraph.ImportTexture(probeDataRT);
+            resources.has_persistent_atlas = resources.probe_irradiance.IsValid() &&
+                                             resources.probe_distance.IsValid() &&
+                                             resources.probe_data.IsValid();
+            return resources.has_persistent_atlas ? ProbeTraceIssue.None : ProbeTraceIssue.ResourceAllocationFailed;
+        }
+
+        private static RTHandle AllocAtlasRT(int width, int height, int slices, GraphicsFormat format, string name)
+        {
+            return RTHandles.Alloc(width, height, slices: slices, dimension: TextureDimension.Tex2DArray,
+                colorFormat: format, enableRandomWrite: true, filterMode: FilterMode.Point,
+                wrapMode: TextureWrapMode.Clamp, name: name);
+        }
+
+        private static void ClearPersistentAtlas(RTHandle handle, Color color)
+        {
+            var cmd = CommandBufferPool.Get("Clear DDGI Persistent Atlas");
+            for (var slice = 0; slice < handle.rt.volumeDepth; slice++)
+            {
+                cmd.SetRenderTarget(handle, 0, CubemapFace.Unknown, slice);
+                cmd.ClearRenderTarget(false, true, color);
+            }
+            Graphics.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
+        }
+
+        private static void ReleasePersistentAtlases()
+        {
+            RTHandles.Release(probeIrradianceRT);
+            RTHandles.Release(probeDistanceRT);
+            RTHandles.Release(probeDataRT);
+            probeIrradianceRT = null;
+            probeDistanceRT = null;
+            probeDataRT = null;
+            hasPersistentIdentity = false;
         }
 
         private static ProbeTraceIssue BuildAccelerationStructure(YutrelRPSettings.DDGISettings settings)
@@ -402,6 +510,8 @@ namespace YutrelRP
                     return "acceleration-structure/geometry";
                 case ProbeTraceIssue.ResourceTooLarge:
                     return "resource/dimensions";
+                case ProbeTraceIssue.ResourceAllocationFailed:
+                    return "resource/allocation";
                 case ProbeTraceIssue.FrameDebuggerActive:
                     return "editor/debugger";
                 default:
@@ -433,7 +543,9 @@ namespace YutrelRP
                 case ProbeTraceIssue.EmptyAccelerationStructure:
                     return "DDGI RTAS build produced no instances";
                 case ProbeTraceIssue.ResourceTooLarge:
-                    return "ProbeRayData dimensions exceed platform texture limits";
+                    return "DDGI texture dimensions exceed platform texture limits";
+                case ProbeTraceIssue.ResourceAllocationFailed:
+                    return "persistent DDGI atlas allocation or import failed";
                 case ProbeTraceIssue.FrameDebuggerActive:
                     return "Unity Frame Debugger is active; DDGI ProbeTrace uses D3D12 ray tracing commands that are skipped to avoid editor device-loss crashes";
                 default:
@@ -467,10 +579,16 @@ namespace YutrelRP
         }
 #endif
 
+        internal static void ReleasePersistentAtlasesForDisabled()
+        {
+            ReleasePersistentAtlases();
+        }
+
         public static void Cleanup()
         {
             accelerationStructure?.Dispose();
             accelerationStructure = null;
+            ReleasePersistentAtlases();
             shader = null;
             lastStatusKey = null;
         }
@@ -486,7 +604,8 @@ namespace YutrelRP
             NoContributors = 6,
             EmptyAccelerationStructure = 7,
             ResourceTooLarge = 8,
-            FrameDebuggerActive = 9
+            FrameDebuggerActive = 9,
+            ResourceAllocationFailed = 10
         }
     }
 }

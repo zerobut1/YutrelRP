@@ -18,6 +18,15 @@ namespace YutrelRP
         private static readonly int ddgi_probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int ddgi_probe_ray_data_debug_slice_ID = DDGIResources.probe_ray_data_debug_slice_ID;
         private static readonly int ddgi_probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
+        private static readonly int ddgi_probe_irradiance_ID = DDGIResources.probe_irradiance_ID;
+        private static readonly int ddgi_probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
+        private static readonly int ddgi_probe_irradiance_debug_slice_ID = DDGIResources.probe_irradiance_debug_slice_ID;
+        private static readonly int ddgi_probe_distance_ID = DDGIResources.probe_distance_ID;
+        private static readonly int ddgi_probe_distance_dimensions_ID = DDGIResources.probe_distance_dimensions_ID;
+        private static readonly int ddgi_probe_distance_debug_slice_ID = DDGIResources.probe_distance_debug_slice_ID;
+        private static readonly int ddgi_probe_data_ID = DDGIResources.probe_data_ID;
+        private static readonly int ddgi_probe_data_dimensions_ID = DDGIResources.probe_data_dimensions_ID;
+        private static readonly int ddgi_probe_data_debug_slice_ID = DDGIResources.probe_data_debug_slice_ID;
         private static readonly int directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
         private static readonly int directional_shadow_distance_fade_ID = ShadowResources.directional_distance_fade_ID;
         private static MaterialPropertyBlock property_block;
@@ -58,6 +67,9 @@ namespace YutrelRP
             pass.reads_shadow_mask = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.ShadowOnly;
             pass.reads_CSM = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.CSMCascadeLevels;
             pass.reads_DDGI_probe_ray_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayData;
+            pass.reads_DDGI_probe_irradiance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceAtlas;
+            pass.reads_DDGI_probe_distance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceAtlas;
+            pass.reads_DDGI_probe_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeData;
 
             if (pass.reads_GBuffer)
             {
@@ -109,17 +121,46 @@ namespace YutrelRP
             if (pass.reads_DDGI_probe_ray_data)
             {
                 pass.ddgi_probe_ray_data = ddgi_resources.probe_ray_data;
-                pass.ddgi_probe_ray_data_dimensions = new Vector4(
-                    ddgi_resources.rays_per_probe,
-                    ddgi_resources.probe_count.x * ddgi_resources.probe_count.z,
-                    ddgi_resources.probe_count.y,
-                    0.0f);
+                pass.ddgi_probe_ray_data_dimensions = ddgi_resources.ProbeRayDataDimensions;
                 pass.ddgi_probe_ray_data_debug_slice = Mathf.Clamp(
                     ddgi_settings != null ? ddgi_settings.debugProbeRayDataSlice : 0,
                     0,
                     Mathf.Max(0, ddgi_resources.probe_count.y - 1));
                 pass.ddgi_probe_ray_data_max_distance = Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance);
                 builder.UseTexture(pass.ddgi_probe_ray_data);
+            }
+
+            if (pass.reads_DDGI_probe_irradiance)
+            {
+                pass.ddgi_probe_irradiance = ddgi_resources.probe_irradiance;
+                pass.ddgi_probe_irradiance_dimensions = ddgi_resources.ProbeIrradianceDimensions;
+                pass.ddgi_probe_irradiance_debug_slice = Mathf.Clamp(
+                    ddgi_settings != null ? ddgi_settings.debugProbeIrradianceAtlasSlice : 0,
+                    0,
+                    Mathf.Max(0, ddgi_resources.probe_count.y - 1));
+                builder.UseTexture(pass.ddgi_probe_irradiance);
+            }
+
+            if (pass.reads_DDGI_probe_distance)
+            {
+                pass.ddgi_probe_distance = ddgi_resources.probe_distance;
+                pass.ddgi_probe_distance_dimensions = ddgi_resources.ProbeDistanceDimensions;
+                pass.ddgi_probe_distance_debug_slice = Mathf.Clamp(
+                    ddgi_settings != null ? ddgi_settings.debugProbeDistanceAtlasSlice : 0,
+                    0,
+                    Mathf.Max(0, ddgi_resources.probe_count.y - 1));
+                builder.UseTexture(pass.ddgi_probe_distance);
+            }
+
+            if (pass.reads_DDGI_probe_data)
+            {
+                pass.ddgi_probe_data = ddgi_resources.probe_data;
+                pass.ddgi_probe_data_dimensions = ddgi_resources.ProbeDataDimensions;
+                pass.ddgi_probe_data_debug_slice = Mathf.Clamp(
+                    ddgi_settings != null ? ddgi_settings.debugProbeDataSlice : 0,
+                    0,
+                    Mathf.Max(0, ddgi_resources.probe_count.y - 1));
+                builder.UseTexture(pass.ddgi_probe_data);
             }
 
             builder.SetRenderAttachment(debug_color, 0);
@@ -204,6 +245,27 @@ namespace YutrelRP
                     }
 
                     break;
+                case YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceAtlas:
+                    if (ddgi_resources == null || !ddgi_resources.probe_irradiance.IsValid())
+                    {
+                        issue = Issue.MissingDDGIProbeIrradiance;
+                    }
+
+                    break;
+                case YutrelRPSettings.DebugViewMode.DDGIProbeDistanceAtlas:
+                    if (ddgi_resources == null || !ddgi_resources.probe_distance.IsValid())
+                    {
+                        issue = Issue.MissingDDGIProbeDistance;
+                    }
+
+                    break;
+                case YutrelRPSettings.DebugViewMode.DDGIProbeData:
+                    if (ddgi_resources == null || !ddgi_resources.probe_data.IsValid())
+                    {
+                        issue = Issue.MissingDDGIProbeData;
+                    }
+
+                    break;
                 default:
                     issue = Issue.UnsupportedMode;
                     break;
@@ -233,6 +295,12 @@ namespace YutrelRP
                     return "the scene depth source is missing";
                 case Issue.MissingDDGIProbeRayData:
                     return "DDGI ProbeRayData is missing; enable DDGI, add one active DDGI Volume, and enable Contribute GI on eligible opaque MeshRenderers";
+                case Issue.MissingDDGIProbeIrradiance:
+                    return "DDGI ProbeIrradiance atlas is missing; enable DDGI and use a valid active DDGI Volume";
+                case Issue.MissingDDGIProbeDistance:
+                    return "DDGI ProbeDistance atlas is missing; enable DDGI and use a valid active DDGI Volume";
+                case Issue.MissingDDGIProbeData:
+                    return "DDGI ProbeData atlas is missing; enable DDGI and use a valid active DDGI Volume";
                 case Issue.MissingShadowMask:
                     return "the shadow mask source is missing";
                 case Issue.UnsupportedCSMSource:
@@ -251,6 +319,9 @@ namespace YutrelRP
         private TextureHandle screen_space_ao;
         private TextureHandle shadow_mask;
         private TextureHandle ddgi_probe_ray_data;
+        private TextureHandle ddgi_probe_irradiance;
+        private TextureHandle ddgi_probe_distance;
+        private TextureHandle ddgi_probe_data;
         private BufferHandle directional_shadow_vp_matrices_buffer;
         private BufferHandle directional_shadow_cascade_data_buffer;
         private YutrelRPSettings.DebugViewMode mode;
@@ -261,11 +332,20 @@ namespace YutrelRP
         private bool reads_shadow_mask;
         private bool reads_CSM;
         private bool reads_DDGI_probe_ray_data;
+        private bool reads_DDGI_probe_irradiance;
+        private bool reads_DDGI_probe_distance;
+        private bool reads_DDGI_probe_data;
         private int directional_shadow_cascade_count;
         private Vector4 directional_shadow_distance_fade;
         private Vector4 ddgi_probe_ray_data_dimensions;
         private int ddgi_probe_ray_data_debug_slice;
         private float ddgi_probe_ray_data_max_distance;
+        private Vector4 ddgi_probe_irradiance_dimensions;
+        private Vector4 ddgi_probe_distance_dimensions;
+        private Vector4 ddgi_probe_data_dimensions;
+        private int ddgi_probe_irradiance_debug_slice;
+        private int ddgi_probe_distance_debug_slice;
+        private int ddgi_probe_data_debug_slice;
 
         private void Render(RasterGraphContext context)
         {
@@ -277,6 +357,12 @@ namespace YutrelRP
             property_block.SetVector(ddgi_probe_ray_data_dimensions_ID, ddgi_probe_ray_data_dimensions);
             property_block.SetInteger(ddgi_probe_ray_data_debug_slice_ID, ddgi_probe_ray_data_debug_slice);
             property_block.SetFloat(ddgi_probe_ray_data_max_distance_ID, ddgi_probe_ray_data_max_distance);
+            property_block.SetVector(ddgi_probe_irradiance_dimensions_ID, ddgi_probe_irradiance_dimensions);
+            property_block.SetInteger(ddgi_probe_irradiance_debug_slice_ID, ddgi_probe_irradiance_debug_slice);
+            property_block.SetVector(ddgi_probe_distance_dimensions_ID, ddgi_probe_distance_dimensions);
+            property_block.SetInteger(ddgi_probe_distance_debug_slice_ID, ddgi_probe_distance_debug_slice);
+            property_block.SetVector(ddgi_probe_data_dimensions_ID, ddgi_probe_data_dimensions);
+            property_block.SetInteger(ddgi_probe_data_debug_slice_ID, ddgi_probe_data_debug_slice);
             property_block.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);
             property_block.SetVector(directional_shadow_distance_fade_ID, directional_shadow_distance_fade);
 
@@ -314,6 +400,21 @@ namespace YutrelRP
                 property_block.SetTexture(ddgi_probe_ray_data_ID, ddgi_probe_ray_data);
             }
 
+            if (reads_DDGI_probe_irradiance)
+            {
+                property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
+            }
+
+            if (reads_DDGI_probe_distance)
+            {
+                property_block.SetTexture(ddgi_probe_distance_ID, ddgi_probe_distance);
+            }
+
+            if (reads_DDGI_probe_data)
+            {
+                property_block.SetTexture(ddgi_probe_data_ID, ddgi_probe_data);
+            }
+
             CoreUtils.DrawFullScreen(cmd, material, property_block);
         }
 
@@ -334,7 +435,10 @@ namespace YutrelRP
             MissingCSMSource = 4,
             MissingSceneDepth = 5,
             UnsupportedMode = 6,
-            MissingDDGIProbeRayData = 7
+            MissingDDGIProbeRayData = 7,
+            MissingDDGIProbeIrradiance = 8,
+            MissingDDGIProbeDistance = 9,
+            MissingDDGIProbeData = 10
         }
     }
 }

@@ -19,6 +19,9 @@ namespace YutrelRP
             public bool enabled = false;
             public bool logDiagnostics = true;
             [Min(0)] public int debugProbeRayDataSlice = 0;
+            [Min(0)] public int debugProbeIrradianceAtlasSlice = 0;
+            [Min(0)] public int debugProbeDistanceAtlasSlice = 0;
+            [Min(0)] public int debugProbeDataSlice = 0;
         }
 
         public RayTracingSmokeTestSettings rayTracingSmokeTestSettings = new();
@@ -54,7 +57,9 @@ namespace YutrelRP
             RayTracingSmokeTestRayGen = 10,
             RayTracingSmokeTestRTASHitMiss = 11,
             DDGIProbeRayData = 12,
-        }
+            DDGIProbeIrradianceAtlas = 13,
+            DDGIProbeDistanceAtlas = 14,
+            DDGIProbeData = 15,        }
 #endif
     }
 

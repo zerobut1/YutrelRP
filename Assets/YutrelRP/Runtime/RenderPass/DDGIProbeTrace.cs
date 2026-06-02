@@ -15,6 +15,7 @@ namespace YutrelRP
         {
             if (!IsEnabled(settings))
             {
+                DDGIProbeTracePass.ReleasePersistentAtlasesForDisabled();
                 resources.Reset();
                 return;
             }

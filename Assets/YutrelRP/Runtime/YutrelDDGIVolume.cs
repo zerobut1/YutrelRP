@@ -14,6 +14,10 @@ namespace YutrelRP
         public const int MaxRaysPerProbe = 1024;
         public const float MinProbePreviewRadius = 0.01f;
         public const float MinProbeMaxRayDistance = 0.001f;
+        public const int MinProbeIrradianceInteriorTexels = 2;
+        public const int MaxProbeIrradianceInteriorTexels = 32;
+        public const int MinProbeDistanceInteriorTexels = 2;
+        public const int MaxProbeDistanceInteriorTexels = 64;
 
         [SerializeField] private Vector3 center = Vector3.zero;
         [SerializeField] private Vector3 size = new(10.0f, 5.0f, 10.0f);
@@ -22,6 +26,26 @@ namespace YutrelRP
         [SerializeField] private int raysPerProbe = 64;
         [Min(MinProbeMaxRayDistance)]
         [SerializeField] private float probeMaxRayDistance = 100.0f;
+        // Resource identity: probeCount/raysPerProbe/atlas texel sizes rebuild DDGI textures.
+        // Constant-only: max ray distance, bias, hysteresis, gamma/exponent/thresholds update shader constants without clearing atlas history.
+        [Range(MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels)]
+        [SerializeField] private int probeIrradianceInteriorTexels = 6;
+        [Range(MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels)]
+        [SerializeField] private int probeDistanceInteriorTexels = 14;
+        [Range(0.0f, 1.0f)]
+        [SerializeField] private float probeHysteresis = 0.97f;
+        [Min(0.0f)]
+        [SerializeField] private float probeNormalBias = 0.2f;
+        [Min(0.0f)]
+        [SerializeField] private float probeViewBias = 0.1f;
+        [Min(0.01f)]
+        [SerializeField] private float irradianceEncodingGamma = 5.0f;
+        [Min(0.01f)]
+        [SerializeField] private float distanceExponent = 50.0f;
+        [Min(0.0f)]
+        [SerializeField] private float irradianceThreshold = 0.2f;
+        [Min(0.0f)]
+        [SerializeField] private float brightnessThreshold = 2.0f;
         [Min(MinProbePreviewRadius)]
         [SerializeField] private float probePreviewRadius = 0.1f;
 
@@ -53,6 +77,60 @@ namespace YutrelRP
         {
             get => probeMaxRayDistance;
             set => probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, value);
+        }
+
+        public int ProbeIrradianceInteriorTexels
+        {
+            get => probeIrradianceInteriorTexels;
+            set => probeIrradianceInteriorTexels = Mathf.Clamp(value, MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels);
+        }
+
+        public int ProbeDistanceInteriorTexels
+        {
+            get => probeDistanceInteriorTexels;
+            set => probeDistanceInteriorTexels = Mathf.Clamp(value, MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels);
+        }
+
+        public float ProbeHysteresis
+        {
+            get => probeHysteresis;
+            set => probeHysteresis = Mathf.Clamp01(value);
+        }
+
+        public float ProbeNormalBias
+        {
+            get => probeNormalBias;
+            set => probeNormalBias = Mathf.Max(0.0f, value);
+        }
+
+        public float ProbeViewBias
+        {
+            get => probeViewBias;
+            set => probeViewBias = Mathf.Max(0.0f, value);
+        }
+
+        public float IrradianceEncodingGamma
+        {
+            get => irradianceEncodingGamma;
+            set => irradianceEncodingGamma = Mathf.Max(0.01f, value);
+        }
+
+        public float DistanceExponent
+        {
+            get => distanceExponent;
+            set => distanceExponent = Mathf.Max(0.01f, value);
+        }
+
+        public float IrradianceThreshold
+        {
+            get => irradianceThreshold;
+            set => irradianceThreshold = Mathf.Max(0.0f, value);
+        }
+
+        public float BrightnessThreshold
+        {
+            get => brightnessThreshold;
+            set => brightnessThreshold = Mathf.Max(0.0f, value);
         }
 
         public float ProbePreviewRadius
@@ -151,6 +229,15 @@ namespace YutrelRP
             probeCount = ClampProbeCount(probeCount);
             raysPerProbe = Mathf.Clamp(raysPerProbe, MinRaysPerProbe, MaxRaysPerProbe);
             probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
+            probeIrradianceInteriorTexels = Mathf.Clamp(probeIrradianceInteriorTexels, MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels);
+            probeDistanceInteriorTexels = Mathf.Clamp(probeDistanceInteriorTexels, MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels);
+            probeHysteresis = Mathf.Clamp01(probeHysteresis);
+            probeNormalBias = Mathf.Max(0.0f, probeNormalBias);
+            probeViewBias = Mathf.Max(0.0f, probeViewBias);
+            irradianceEncodingGamma = Mathf.Max(0.01f, irradianceEncodingGamma);
+            distanceExponent = Mathf.Max(0.01f, distanceExponent);
+            irradianceThreshold = Mathf.Max(0.0f, irradianceThreshold);
+            brightnessThreshold = Mathf.Max(0.0f, brightnessThreshold);
             probePreviewRadius = Mathf.Max(MinProbePreviewRadius, probePreviewRadius);
             EnforceAxisAlignedRotation();
         }

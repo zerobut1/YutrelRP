@@ -10,12 +10,24 @@ TEXTURE2D(_ScreenSpaceAO);
 SAMPLER(sampler_ScreenSpaceAO);
 TEXTURE2D_ARRAY(_DDGIProbeRayData);
 SAMPLER(sampler_DDGIProbeRayData);
+TEXTURE2D_ARRAY(_DDGIProbeIrradiance);
+SAMPLER(sampler_DDGIProbeIrradiance);
+TEXTURE2D_ARRAY(_DDGIProbeDistance);
+SAMPLER(sampler_DDGIProbeDistance);
+TEXTURE2D_ARRAY(_DDGIProbeData);
+SAMPLER(sampler_DDGIProbeData);
 
 int _DebugViewMode;
 int _DebugViewIssue;
 float4 _DDGIProbeRayDataDimensions;
 int _DDGIProbeRayDataDebugSlice;
 float _DDGIProbeRayDataMaxDistance;
+float4 _DDGIProbeIrradianceDimensions;
+int _DDGIProbeIrradianceDebugSlice;
+float4 _DDGIProbeDistanceDimensions;
+int _DDGIProbeDistanceDebugSlice;
+float4 _DDGIProbeDataDimensions;
+int _DDGIProbeDataDebugSlice;
 
 struct DebugViewShadowData
 {
@@ -209,6 +221,29 @@ float4 SampleDebugViewDDGIProbeRayData(float2 uv)
     return float4(depth_cue, lerp(0.2f, 1.0f, depth_cue), 0.06f, 1.0f);
 }
 
+float4 SampleDebugViewDDGIAtlas(Texture2DArray atlas, float4 dimensions, int debug_slice, float2 uv)
+{
+    uint width  = (uint)max(dimensions.x, 1.0f);
+    uint height = (uint)max(dimensions.y, 1.0f);
+    uint slice  = (uint)clamp(debug_slice, 0, max((int)dimensions.z - 1, 0));
+
+    uint2 texel = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    float4 data = atlas.Load(uint4(texel, slice, 0));
+    return float4(saturate(data.rgb), 1.0f);
+}
+
+float4 SampleDebugViewDDGIProbeData(float2 uv)
+{
+    uint width  = (uint)max(_DDGIProbeDataDimensions.x, 1.0f);
+    uint height = (uint)max(_DDGIProbeDataDimensions.y, 1.0f);
+    uint slice  = (uint)clamp(_DDGIProbeDataDebugSlice, 0, max((int)_DDGIProbeDataDimensions.z - 1, 0));
+
+    uint2 texel  = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    float4 data  = LOAD_TEXTURE2D_ARRAY(_DDGIProbeData, texel, slice);
+    float active = saturate(data.w);
+    return float4(abs(data.xyz) + active.xxx * float3(0.05f, 0.35f, 0.05f), 1.0f);
+}
+
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 {
     if (_DebugViewIssue != 0)
@@ -257,6 +292,15 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 
     case 12:
         return SampleDebugViewDDGIProbeRayData(input.uv);
+
+    case 13:
+        return SampleDebugViewDDGIAtlas(_DDGIProbeIrradiance, _DDGIProbeIrradianceDimensions, _DDGIProbeIrradianceDebugSlice, input.uv);
+
+    case 14:
+        return SampleDebugViewDDGIAtlas(_DDGIProbeDistance, _DDGIProbeDistanceDimensions, _DDGIProbeDistanceDebugSlice, input.uv);
+
+    case 15:
+        return SampleDebugViewDDGIProbeData(input.uv);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);
