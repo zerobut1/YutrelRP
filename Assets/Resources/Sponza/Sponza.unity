@@ -1263,7 +1263,7 @@ Transform:
   m_GameObject: {fileID: 939621526}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.05, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1281,9 +1281,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c31f8bb32da4ed190f66c4e5d5caa21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelDDGIVolume
-  center: {x: 0.0026351921, y: 0.62517357, z: -0.026195526}
-  size: {x: 10.561758, y: 12.655876, z: 24.03762}
-  probeCount: {x: 10, y: 12, z: 24}
+  center: {x: 0.0026350021, y: -0.17211962, z: -0.026195526}
+  size: {x: 10.561758, y: 11.06129, z: 24.03762}
+  probeCount: {x: 10, y: 11, z: 24}
+  raysPerProbe: 64
+  probeMaxRayDistance: 100
   probePreviewRadius: 0.075
 --- !u!1 &964583431
 GameObject:

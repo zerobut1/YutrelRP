@@ -49,7 +49,7 @@ MonoBehaviour:
         thickness: 1
         denoiseRadius: 1
     ddgiSettings:
-      enabled: 0
+      enabled: 1
       logDiagnostics: 1
       debugProbeRayDataSlice: 0
     rayTracingSmokeTestSettings:
