@@ -93,7 +93,6 @@ namespace YutrelRP
         {
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
-            public readonly int raysPerProbe;
             public readonly int irradianceInteriorTexels;
             public readonly int distanceInteriorTexels;
 
@@ -101,7 +100,6 @@ namespace YutrelRP
             {
                 volumeKey = volume != null ? volume.GetEntityId().GetHashCode() : 0;
                 probeCount = volume != null ? volume.ProbeCount : Vector3Int.zero;
-                raysPerProbe = volume != null ? volume.RaysPerProbe : 0;
                 irradianceInteriorTexels = volume != null ? volume.ProbeIrradianceInteriorTexels : 0;
                 distanceInteriorTexels = volume != null ? volume.ProbeDistanceInteriorTexels : 0;
             }
@@ -111,7 +109,6 @@ namespace YutrelRP
                 return obj is Identity other &&
                        volumeKey == other.volumeKey &&
                        probeCount == other.probeCount &&
-                       raysPerProbe == other.raysPerProbe &&
                        irradianceInteriorTexels == other.irradianceInteriorTexels &&
                        distanceInteriorTexels == other.distanceInteriorTexels;
             }
@@ -122,7 +119,6 @@ namespace YutrelRP
                 {
                     var hash = volumeKey;
                     hash = (hash * 397) ^ probeCount.GetHashCode();
-                    hash = (hash * 397) ^ raysPerProbe;
                     hash = (hash * 397) ^ irradianceInteriorTexels;
                     hash = (hash * 397) ^ distanceInteriorTexels;
                     return hash;
@@ -131,7 +127,7 @@ namespace YutrelRP
 
             public override string ToString()
             {
-                return $"volume={volumeKey}, probes={probeCount}, rays={raysPerProbe}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}";
+                return $"volume={volumeKey}, probes={probeCount}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}";
             }
         }
     }

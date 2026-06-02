@@ -46,6 +46,7 @@ namespace YutrelRP
 #if UNITY_EDITOR
             if (IsUnityFrameDebuggerActive())
             {
+                ReleasePersistentAtlases();
                 LogStatus(ProbeTraceIssue.FrameDebuggerActive, null);
                 return;
             }
@@ -53,6 +54,7 @@ namespace YutrelRP
 
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game)
             {
+                ReleasePersistentAtlases();
                 return;
             }
 
@@ -68,16 +70,23 @@ namespace YutrelRP
                 issue = ValidateResourceDimensions(volume);
             }
 
-            if (issue == ProbeTraceIssue.None)
+            if (issue != ProbeTraceIssue.None)
             {
-                issue = EnsurePersistentAtlases(renderGraph, volume, ref resources);
+                ReleasePersistentAtlases();
+                LogStatus(issue, volume);
+                return;
             }
 
-            if (issue == ProbeTraceIssue.None)
+            issue = EnsurePersistentAtlases(renderGraph, volume, ref resources);
+            if (issue != ProbeTraceIssue.None)
             {
-                issue = BuildAccelerationStructure(settings);
+                ReleasePersistentAtlases();
+                resources.Reset();
+                LogStatus(issue, volume);
+                return;
             }
 
+            issue = BuildAccelerationStructure(settings);
             LogStatus(issue, volume);
             if (issue != ProbeTraceIssue.None)
             {

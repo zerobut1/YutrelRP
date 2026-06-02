@@ -26,7 +26,8 @@ namespace YutrelRP
         [SerializeField] private int raysPerProbe = 64;
         [Min(MinProbeMaxRayDistance)]
         [SerializeField] private float probeMaxRayDistance = 100.0f;
-        // Resource identity: probeCount/raysPerProbe/atlas texel sizes rebuild DDGI textures.
+        // Persistent atlas identity: probeCount/atlas texel sizes rebuild DDGI history atlases.
+        // Frame-only: raysPerProbe changes ProbeRayData dimensions/metadata without clearing persistent atlas history.
         // Constant-only: max ray distance, bias, hysteresis, gamma/exponent/thresholds update shader constants without clearing atlas history.
         [Range(MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels)]
         [SerializeField] private int probeIrradianceInteriorTexels = 6;

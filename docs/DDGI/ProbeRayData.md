@@ -28,6 +28,10 @@ probeCount.y = 2
 probeCount = 2 x 2 x 2
 ```
 
+## 与 Persistent Atlas 的关系
+
+`raysPerProbe` 只决定本帧 `ProbeRayData` 的 width 和调试 metadata。持久化的 `ProbeIrradiance`、`ProbeDistance`、`ProbeData` atlas 尺寸由 `probeCount` 与各自 atlas tile texel 数决定，因此 persistent atlas identity 不包含 `raysPerProbe`；单独调整 ray 数不会清空这些 atlas 历史。
+
 ## Slice 含义
 
 `Texture2DArray` 的每个 slice 对应一层 Y 方向的 probe：

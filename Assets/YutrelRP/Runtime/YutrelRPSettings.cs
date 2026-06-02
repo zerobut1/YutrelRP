@@ -59,7 +59,8 @@ namespace YutrelRP
             DDGIProbeRayData = 12,
             DDGIProbeIrradianceAtlas = 13,
             DDGIProbeDistanceAtlas = 14,
-            DDGIProbeData = 15,        }
+            DDGIProbeData = 15,
+        }
 #endif
     }
 
