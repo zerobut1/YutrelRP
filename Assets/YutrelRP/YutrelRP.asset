@@ -51,7 +51,7 @@ MonoBehaviour:
     ddgiSettings:
       enabled: 1
       logDiagnostics: 1
-      probeTraceShader: {fileID: 4800000, guid: 65f12d8fcb90437eb5415e6d220ecb3e, type: 3}
+      probeTraceShader: {fileID: 4807578003741378534, guid: 65f12d8fcb90437eb5415e6d220ecb3e, type: 3}
       probeBlendShader: {fileID: 7200000, guid: e44a695187074910b946399458275444, type: 3}
       debugProbeRayDataSlice: 0
       debugProbeIrradianceAtlasSlice: 0
