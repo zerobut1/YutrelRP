@@ -150,7 +150,6 @@ namespace YutrelRP
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
-            cmd.BuildRayTracingAccelerationStructure(rayTracingAccelerationStructure);
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
@@ -421,6 +420,7 @@ namespace YutrelRP
                 return ProbeTraceIssue.NoContributors;
             }
 
+            accelerationStructure.Build();
             return accelerationStructure.GetInstanceCount() > 0 ? ProbeTraceIssue.None : ProbeTraceIssue.EmptyAccelerationStructure;
         }
 
