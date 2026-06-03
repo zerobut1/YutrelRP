@@ -81,6 +81,8 @@ Tile 内 `localTexel.x == 0`、`localTexel.y == 0`、`localTexel.x == tileTexelS
 
 现有 atlas debug view 会在空 atlas 上显示结构化可视化：border 为暖色边框，interior 使用 octahedral decode 后的方向颜色，并叠加 probe index tint。
 
+Probe blending 写入 border 时使用 `DDGIAtlasWrappedInteriorTexel`。该 helper 将 border texel 映射到 octahedral 对边或对角的 interior texel，再用对应的 interior 方向生成当前帧值；因此 border 不是未定义清空色，也不会跨 probe tile 读取。
+
 ## Octahedral 方向
 
 `DDGIOctahedralEncode` 输入单位方向，输出 `[0, 1]` 范围 UV。`DDGIOctahedralDecode` 输入 `[0, 1]` 范围 UV，输出单位方向。零长度输入会回退到确定性的 `float3(0, 1, 0)`，避免 NaN/Inf。
@@ -93,6 +95,8 @@ direction  = DDGIOctahedralDecode(interiorUV)
 ```
 
 后续 blending 写入 irradiance/distance atlas 时，应使用同一套 encode/decode 和同一套 border/interior 约定。
+
+当前 probe blending 阶段通过 `DDGIAtlasInteriorUV(localTexel, interiorTexels)` 取得 interior 或 border-wrapped interior 方向。
 
 ## ProbeData
 

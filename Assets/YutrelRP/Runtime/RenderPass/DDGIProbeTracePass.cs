@@ -113,21 +113,25 @@ namespace YutrelRP
             resources.probe_ray_data = probeRayData;
             resources.SetVolumeMetadata(volume);
 
-            using var builder = renderGraph.AddUnsafePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
-            pass.probeRayData = probeRayData;
-            pass.rayTracingShader = shader;
-            pass.rayTracingAccelerationStructure = accelerationStructure;
-            pass.volumeMinWS = volume.WorldBounds.min;
-            pass.probeSpacingWS = volume.GetWorldProbeSpacing();
-            pass.probeCount = probeCount;
-            pass.raysPerProbe = raysPerProbe;
-            pass.planeProbeCount = planeProbeCount;
-            pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
+            using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
+            {
+                pass.probeRayData = probeRayData;
+                pass.rayTracingShader = shader;
+                pass.rayTracingAccelerationStructure = accelerationStructure;
+                pass.volumeMinWS = volume.WorldBounds.min;
+                pass.probeSpacingWS = volume.GetWorldProbeSpacing();
+                pass.probeCount = probeCount;
+                pass.raysPerProbe = raysPerProbe;
+                pass.planeProbeCount = planeProbeCount;
+                pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
 
-            builder.UseTexture(probeRayData, AccessFlags.Write);
-            builder.AllowPassCulling(false);
-            builder.AllowGlobalStateModification(true);
-            builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
+                builder.UseTexture(probeRayData, AccessFlags.Write);
+                builder.AllowPassCulling(false);
+                builder.AllowGlobalStateModification(true);
+                builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
+            }
+
+            DDGIProbeBlendPass.Record(renderGraph, volume, ref resources, settings.logDiagnostics);
         }
 
         private TextureHandle probeRayData;
@@ -140,9 +144,9 @@ namespace YutrelRP
         private int planeProbeCount;
         private float probeMaxRayDistance;
 
-        private void Render(UnsafeGraphContext context)
+        private void Render(ComputeGraphContext context)
         {
-            var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+            var cmd = context.cmd;
             cmd.BuildRayTracingAccelerationStructure(rayTracingAccelerationStructure);
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
@@ -598,6 +602,7 @@ namespace YutrelRP
             accelerationStructure?.Dispose();
             accelerationStructure = null;
             ReleasePersistentAtlases();
+            DDGIProbeBlendPass.Cleanup();
             shader = null;
             lastStatusKey = null;
         }

@@ -58,6 +58,59 @@ bool DDGIAtlasLocalTexelIsBorder(uint2 local_texel, uint interior_texels)
            local_texel.y >= tile_texel_size - 1u;
 }
 
+uint2 DDGIAtlasWrappedInteriorTexel(uint2 local_texel, uint interior_texels)
+{
+    uint interior_texel_count = max(interior_texels, 1u);
+    uint tile_texel_size      = DDGIAtlasTileTexelSize(interior_texel_count);
+    uint last_interior_texel  = interior_texel_count - 1u;
+    bool left                 = local_texel.x == 0u;
+    bool right                = local_texel.x >= tile_texel_size - 1u;
+    bool bottom               = local_texel.y == 0u;
+    bool top                  = local_texel.y >= tile_texel_size - 1u;
+
+    if (left && bottom)
+    {
+        return uint2(last_interior_texel, last_interior_texel);
+    }
+    if (right && bottom)
+    {
+        return uint2(0u, last_interior_texel);
+    }
+    if (left && top)
+    {
+        return uint2(last_interior_texel, 0u);
+    }
+    if (right && top)
+    {
+        return uint2(0u, 0u);
+    }
+    if (left)
+    {
+        return uint2(last_interior_texel, min(interior_texel_count - local_texel.y, last_interior_texel));
+    }
+    if (right)
+    {
+        return uint2(0u, min(interior_texel_count - local_texel.y, last_interior_texel));
+    }
+    if (bottom)
+    {
+        return uint2(min(interior_texel_count - local_texel.x, last_interior_texel), last_interior_texel);
+    }
+    if (top)
+    {
+        return uint2(min(interior_texel_count - local_texel.x, last_interior_texel), 0u);
+    }
+
+    return min(local_texel - 1u, uint2(last_interior_texel, last_interior_texel));
+}
+
+float2 DDGIAtlasInteriorUV(uint2 local_texel, uint interior_texels)
+{
+    uint interior_texel_count = max(interior_texels, 1u);
+    uint2 interior_texel      = DDGIAtlasWrappedInteriorTexel(local_texel, interior_texel_count);
+    return (float2(interior_texel) + 0.5f) / float(interior_texel_count);
+}
+
 DDGIAtlasTexel DDGIProbeAtlasTexel(uint3 probe_coord, uint2 local_texel, uint interior_texels)
 {
     DDGIAtlasTexel texel;

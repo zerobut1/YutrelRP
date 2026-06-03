@@ -29,11 +29,10 @@ namespace YutrelRP
             pass.depth = depth;
             pass.renderer_list = render_graph.CreateGizmoRendererList(camera, gizmo_subset);
 
-            builder.UseTexture(pass.color, AccessFlags.ReadWrite);
+            builder.UseTexture(pass.color, AccessFlags.Write);
             builder.UseTexture(pass.depth, AccessFlags.ReadWrite);
             builder.UseRendererList(pass.renderer_list);
             builder.AllowPassCulling(false);
-            builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc<GizmosPass>(static (pass, context) => pass.Render(context));
         }

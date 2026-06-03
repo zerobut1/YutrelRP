@@ -1,0 +1,175 @@
+#pragma kernel BlendIrradiance
+#pragma kernel BlendDistance
+
+#include "Assets/YutrelRP/Shader/Utils/DDGI.hlsl"
+
+Texture2DArray<float4> _DDGIProbeRayData;
+RWTexture2DArray<float4> _DDGIProbeIrradiance;
+RWTexture2DArray<float4> _DDGIProbeDistance;
+
+float4 _DDGIProbeCount;
+float4 _DDGIProbeRayDataDimensions;
+float4 _DDGIProbeIrradianceDimensions;
+float4 _DDGIProbeDistanceDimensions;
+float _DDGIProbeRayDataMaxDistance;
+float _DDGIProbeHysteresis;
+
+static const uint DDGI_BLEND_THREAD_GROUP_SIZE_X = 8u;
+static const uint DDGI_BLEND_THREAD_GROUP_SIZE_Y = 8u;
+
+uint3 DDGIProbeBlendProbeCount()
+{
+    return uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
+}
+
+bool DDGIProbeBlendAtlasTexel(uint3 dispatch_id, float4 dimensions, out uint3 probe_coord, out uint2 local_texel, out uint interior_texels)
+{
+    uint width           = (uint)max(dimensions.x, 1.0f);
+    uint height          = (uint)max(dimensions.y, 1.0f);
+    uint slice_count     = (uint)max(dimensions.z, 1.0f);
+    uint tile_texel_size = (uint)max(dimensions.w, 3.0f);
+
+    probe_coord     = uint3(0u, 0u, 0u);
+    local_texel     = uint2(0u, 0u);
+    interior_texels = max(tile_texel_size - 2u, 1u);
+
+    if (dispatch_id.x >= width || dispatch_id.y >= height || dispatch_id.z >= slice_count)
+    {
+        return false;
+    }
+
+    uint3 probe_count = DDGIProbeBlendProbeCount();
+    probe_coord       = uint3(dispatch_id.x / tile_texel_size, dispatch_id.z, dispatch_id.y / tile_texel_size);
+    if (probe_coord.x >= probe_count.x || probe_coord.y >= probe_count.y || probe_coord.z >= probe_count.z)
+    {
+        return false;
+    }
+
+    local_texel = uint2(dispatch_id.x, dispatch_id.y) - DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels);
+    return local_texel.x < tile_texel_size && local_texel.y < tile_texel_size;
+}
+
+float4 DDGIProbeBlendHistory(float4 history, float4 current_value)
+{
+    float history_weight = history.a > 0.0f ? saturate(_DDGIProbeHysteresis) : 0.0f;
+    return lerp(current_value, history, history_weight);
+}
+
+float4 DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)
+{
+    return _DDGIProbeRayData.Load(uint4(DDGIProbeRayDataTexel(ray_index, probe_coord, probe_count), 0u));
+}
+
+float DDGIProbeBlendDirectionWeight(float3 atlas_direction, float3 ray_direction)
+{
+    float cosine = saturate(dot(atlas_direction, ray_direction));
+    return pow(cosine, 24.0f) + 0.0001f;
+}
+
+float3 DDGIProbeBlendDebugRadiance(float4 ray_data, float3 ray_direction)
+{
+    float hit_kind       = ray_data.x;
+    float max_distance   = max(_DDGIProbeRayDataMaxDistance, 0.001f);
+    float distance01     = saturate(abs(ray_data.y) / max_distance);
+    float depth_cue      = saturate(1.0f - distance01);
+    float3 ray_color     = ray_direction * 0.5f + 0.5f;
+    float3 miss_color    = lerp(float3(0.02f, 0.05f, 0.18f), ray_color * 0.35f, 0.45f);
+    float3 front_color   = lerp(float3(0.08f, 0.42f, 0.06f), ray_color, 0.55f) * (0.25f + depth_cue * 0.75f);
+    float3 back_color    = lerp(float3(0.95f, 0.12f, 0.85f), ray_color, 0.25f) * (0.2f + depth_cue * 0.45f);
+
+    if (hit_kind < 0.5f)
+    {
+        return saturate(miss_color);
+    }
+    if (hit_kind > 1.5f)
+    {
+        return saturate(back_color);
+    }
+    return saturate(front_color);
+}
+
+float3 DDGIProbeBlendDistanceMoments(float4 ray_data)
+{
+    float hit_kind     = ray_data.x;
+    float max_distance = max(_DDGIProbeRayDataMaxDistance, 0.001f);
+    bool hit           = hit_kind >= 0.5f;
+    float distance01   = hit ? saturate(abs(ray_data.y) / max_distance) : 1.0f;
+    float hit_weight   = hit_kind > 1.5f ? 0.5f : (hit ? 1.0f : 0.0f);
+    return float3(distance01, distance01 * distance01, hit_weight);
+}
+
+float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
+{
+    uint rays_per_probe = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
+    uint3 probe_count   = DDGIProbeBlendProbeCount();
+    float2 interior_uv  = DDGIAtlasInteriorUV(local_texel, interior_texels);
+    float3 direction    = DDGIOctahedralDecode(interior_uv);
+    float3 sum          = float3(0.0f, 0.0f, 0.0f);
+    float weight_sum    = 0.0f;
+
+    [loop]
+    for (uint ray_index = 0u; ray_index < rays_per_probe; ray_index++)
+    {
+        float3 ray_direction = DDGIBuildProbeRayDirection(ray_index, rays_per_probe);
+        float weight         = DDGIProbeBlendDirectionWeight(direction, ray_direction);
+        float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
+        sum += DDGIProbeBlendDebugRadiance(ray_data, ray_direction) * weight;
+        weight_sum += weight;
+    }
+
+    return sum / max(weight_sum, 0.0001f);
+}
+
+float3 DDGIProbeBlendDistance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
+{
+    uint rays_per_probe = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
+    uint3 probe_count   = DDGIProbeBlendProbeCount();
+    float2 interior_uv  = DDGIAtlasInteriorUV(local_texel, interior_texels);
+    float3 direction    = DDGIOctahedralDecode(interior_uv);
+    float3 sum          = float3(0.0f, 0.0f, 0.0f);
+    float weight_sum    = 0.0f;
+
+    [loop]
+    for (uint ray_index = 0u; ray_index < rays_per_probe; ray_index++)
+    {
+        float3 ray_direction = DDGIBuildProbeRayDirection(ray_index, rays_per_probe);
+        float weight         = DDGIProbeBlendDirectionWeight(direction, ray_direction);
+        float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
+        sum += DDGIProbeBlendDistanceMoments(ray_data) * weight;
+        weight_sum += weight;
+    }
+
+    return sum / max(weight_sum, 0.0001f);
+}
+
+[numthreads(8, 8, 1)]
+void BlendIrradiance(uint3 dispatch_id : SV_DispatchThreadID)
+{
+    uint3 probe_coord;
+    uint2 local_texel;
+    uint interior_texels;
+    if (!DDGIProbeBlendAtlasTexel(dispatch_id, _DDGIProbeIrradianceDimensions, probe_coord, local_texel, interior_texels))
+    {
+        return;
+    }
+
+    float3 irradiance = DDGIProbeBlendIrradiance(probe_coord, local_texel, interior_texels);
+    float4 current    = float4(irradiance, 1.0f);
+    _DDGIProbeIrradiance[dispatch_id] = DDGIProbeBlendHistory(_DDGIProbeIrradiance[dispatch_id], current);
+}
+
+[numthreads(8, 8, 1)]
+void BlendDistance(uint3 dispatch_id : SV_DispatchThreadID)
+{
+    uint3 probe_coord;
+    uint2 local_texel;
+    uint interior_texels;
+    if (!DDGIProbeBlendAtlasTexel(dispatch_id, _DDGIProbeDistanceDimensions, probe_coord, local_texel, interior_texels))
+    {
+        return;
+    }
+
+    float3 distance_moments = DDGIProbeBlendDistance(probe_coord, local_texel, interior_texels);
+    float4 current          = float4(distance_moments, 1.0f);
+    _DDGIProbeDistance[dispatch_id] = DDGIProbeBlendHistory(_DDGIProbeDistance[dispatch_id], current);
+}

@@ -52,7 +52,20 @@ namespace YutrelRP
                 issue = BuildAccelerationStructure(settings);
             }
 
-            using var builder = renderGraph.AddUnsafePass<RayTracingSmokeTestPass>(sampler.name, out var pass, sampler);
+            if (issue != SmokeTestIssue.None)
+            {
+                using var issueBuilder =
+                    renderGraph.AddRasterRenderPass<RayTracingSmokeTestPass>(sampler.name, out var issuePass, sampler);
+                issuePass.issue = issue;
+                issueBuilder.SetRenderAttachment(output, 0);
+                issueBuilder.AllowPassCulling(false);
+                issueBuilder.SetRenderFunc<RayTracingSmokeTestPass>(static (pass, context) => pass.RenderIssue(context));
+
+                LogStatus(issue, requestedMode);
+                return;
+            }
+
+            using var builder = renderGraph.AddComputePass<RayTracingSmokeTestPass>(sampler.name, out var pass, sampler);
             pass.output = output;
             pass.rayTracingShader = GetShader(requestedMode);
             pass.rayGenName = GetRayGenName(requestedMode);
@@ -83,14 +96,12 @@ namespace YutrelRP
         private Vector3 cameraPositionWS;
         private Matrix4x4 inverseViewProjection;
 
-        private void Render(UnsafeGraphContext context)
+        private void Render(ComputeGraphContext context)
         {
-            var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+            var cmd = context.cmd;
 
-            if (issue != SmokeTestIssue.None || rayTracingShader == null)
+            if (rayTracingShader == null)
             {
-                cmd.SetRenderTarget(output);
-                cmd.ClearRenderTarget(false, true, GetIssueColor(issue));
                 return;
             }
 
@@ -106,6 +117,11 @@ namespace YutrelRP
             }
 
             cmd.DispatchRays(rayTracingShader, rayGenName, (uint)width, (uint)height, 1, null);
+        }
+
+        private void RenderIssue(RasterGraphContext context)
+        {
+            context.cmd.ClearRenderTarget(false, true, GetIssueColor(issue));
         }
 
         private static SmokeTestIssue ValidateCapability(YutrelRPSettings.RayTracingSmokeTestMode mode)
