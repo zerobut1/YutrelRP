@@ -205,7 +205,8 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
 
 float3 DebugViewToneMapDDGIRadiance(float3 radiance)
 {
-    return saturate(1.0f - exp(-max(radiance, 0.0f) * 0.5f));
+    float3 exposed_radiance = ApplyPreExposure(max(radiance, 0.0f));
+    return saturate(1.0f - exp(-exposed_radiance * 0.5f));
 }
 
 float3 DebugViewDDGIDiffuseScale(GBufferData gbuffer_data, float2 uv)
