@@ -1,5 +1,7 @@
 #pragma max_recursion_depth 1
 
+#include "Assets/YutrelRP/Shader/Utils/DDGI.hlsl"
+
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
 
@@ -29,16 +31,6 @@ void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTria
     payload.rayT = RayTCurrent();
 }
 
-float3 BuildProbeRayDirection(uint rayIndex, uint rayCount)
-{
-    float goldenAngle = 2.39996322972865332;
-    float normalizedIndex = (float(rayIndex) + 0.5) / max(float(rayCount), 1.0);
-    float z = 1.0 - 2.0 * normalizedIndex;
-    float radius = sqrt(saturate(1.0 - z * z));
-    float phi = float(rayIndex) * goldenAngle;
-    return normalize(float3(cos(phi) * radius, z, sin(phi) * radius));
-}
-
 [shader("raygeneration")]
 void RayGenDDGIProbeTrace()
 {
@@ -47,16 +39,14 @@ void RayGenDDGIProbeTrace()
     uint planeProbeIndex = launchIndex.y;
     uint probeY = launchIndex.z;
 
-    uint probeCountX = (uint)_DDGIProbeCount.x;
-    uint probeX = planeProbeIndex % probeCountX;
-    uint probeZ = planeProbeIndex / probeCountX;
+    uint3 probeCount = uint3((uint)_DDGIProbeCount.x, (uint)_DDGIProbeCount.y, (uint)_DDGIProbeCount.z);
+    uint3 probeCoord = DDGIProbeCoordFromPlaneIndex(planeProbeIndex, probeY, probeCount);
 
-    float3 probeCoords = float3(probeX, probeY, probeZ);
-    float3 probePositionWS = _DDGIVolumeMinWS + probeCoords * _DDGIProbeSpacingWS;
+    float3 probePositionWS = DDGIProbeWorldPosition(_DDGIVolumeMinWS, _DDGIProbeSpacingWS, probeCoord);
 
     RayDesc ray;
     ray.Origin = probePositionWS;
-    ray.Direction = BuildProbeRayDirection(rayIndex, (uint)_DDGIProbeRaysPerProbe);
+    ray.Direction = DDGIBuildProbeRayDirection(rayIndex, (uint)_DDGIProbeRaysPerProbe);
     ray.TMin = 0.001;
     ray.TMax = _DDGIProbeMaxRayDistance;
 
@@ -83,5 +73,5 @@ void RayGenDDGIProbeTrace()
         encoded = float4(2.0, -payload.rayT, saturate(1.0 - payload.rayT / _DDGIProbeMaxRayDistance), 1.0);
     }
 
-    _DDGIProbeRayData[uint3(rayIndex, planeProbeIndex, probeY)] = encoded;
+    _DDGIProbeRayData[DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount)] = encoded;
 }

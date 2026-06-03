@@ -1,6 +1,7 @@
 #ifndef YUTREL_DEBUG_VIEW_PASS_INCLUDED
 #define YUTREL_DEBUG_VIEW_PASS_INCLUDED
 
+#include "Utils/DDGI.hlsl"
 #include "Utils/GBuffer.hlsl"
 #include "Utils/Shadow.hlsl"
 
@@ -19,6 +20,7 @@ SAMPLER(sampler_DDGIProbeData);
 
 int _DebugViewMode;
 int _DebugViewIssue;
+float4 _DDGIProbeCount;
 float4 _DDGIProbeRayDataDimensions;
 int _DDGIProbeRayDataDebugSlice;
 float _DDGIProbeRayDataMaxDistance;
@@ -198,38 +200,72 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
 
 float4 SampleDebugViewDDGIProbeRayData(float2 uv)
 {
-    uint width  = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
-    uint height = (uint)max(_DDGIProbeRayDataDimensions.y, 1.0f);
-    uint slice  = (uint)clamp(_DDGIProbeRayDataDebugSlice, 0, max((int)_DDGIProbeRayDataDimensions.z - 1, 0));
+    uint width        = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
+    uint height       = (uint)max(_DDGIProbeRayDataDimensions.y, 1.0f);
+    uint slice        = (uint)clamp(_DDGIProbeRayDataDebugSlice, 0, max((int)_DDGIProbeRayDataDimensions.z - 1, 0));
+    uint3 probe_count = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
 
-    uint2 texel = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
-    float4 data = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, texel, slice);
+    uint2 texel                = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    uint3 probe_coord          = DDGIProbeCoordFromPlaneIndex(texel.y, slice, probe_count);
+    uint3 ray_data_texel       = DDGIProbeRayDataTexel(texel.x, probe_coord, probe_count);
+    float4 data                = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, ray_data_texel.xy, ray_data_texel.z);
+    float3 ray_direction_color = DDGIBuildProbeRayDirection(texel.x, width) * 0.5f + 0.5f;
+    float probe_parity         = frac((float)(probe_coord.x + probe_coord.y + probe_coord.z) * 0.5f);
+    float row_line             = frac((1.0f - uv.y) * height) < 0.08f ? 1.0f : 0.0f;
 
     float hit_kind = data.x;
     if (hit_kind < 0.5f)
     {
-        return float4(0.02f, 0.05f, 0.18f, 1.0f);
+        float3 miss_color = lerp(float3(0.02f, 0.05f, 0.18f), ray_direction_color * 0.35f, 0.45f);
+        miss_color += probe_parity * 0.04f + row_line * 0.25f;
+        return float4(saturate(miss_color), 1.0f);
     }
 
     float distance01 = saturate(abs(data.y) / max(_DDGIProbeRayDataMaxDistance, 0.001f));
     float depth_cue  = saturate(1.0f - distance01);
     if (hit_kind > 1.5f)
     {
-        return float4(0.95f, 0.18f, 0.85f, 1.0f);
+        return float4(saturate(float3(0.95f, 0.18f, 0.85f) + row_line * 0.25f), 1.0f);
     }
 
-    return float4(depth_cue, lerp(0.2f, 1.0f, depth_cue), 0.06f, 1.0f);
+    return float4(saturate(float3(depth_cue, lerp(0.2f, 1.0f, depth_cue), 0.06f) + row_line * 0.25f), 1.0f);
+}
+
+float3 DebugViewDDGIIndexColor(uint3 probe_coord, uint3 probe_count)
+{
+    float3 denom = max(float3(probe_count) - 1.0f, 1.0f.xxx);
+    return float3(probe_coord) / denom;
 }
 
 float4 SampleDebugViewDDGIAtlas(Texture2DArray atlas, float4 dimensions, int debug_slice, float2 uv)
 {
-    uint width  = (uint)max(dimensions.x, 1.0f);
-    uint height = (uint)max(dimensions.y, 1.0f);
-    uint slice  = (uint)clamp(debug_slice, 0, max((int)dimensions.z - 1, 0));
+    uint width           = (uint)max(dimensions.x, 1.0f);
+    uint height          = (uint)max(dimensions.y, 1.0f);
+    uint slice           = (uint)clamp(debug_slice, 0, max((int)dimensions.z - 1, 0));
+    uint tile_texel_size = (uint)max(dimensions.w, 3.0f);
+    uint interior_texels = max(tile_texel_size - 2u, 1u);
+    uint3 probe_count    = uint3(max(width / tile_texel_size, 1u), max((uint)dimensions.z, 1u), max(height / tile_texel_size, 1u));
 
-    uint2 texel = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
-    float4 data = atlas.Load(uint4(texel, slice, 0));
-    return float4(saturate(data.rgb), 1.0f);
+    uint2 texel                = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    uint3 probe_coord          = uint3(min(texel.x / tile_texel_size, probe_count.x - 1u), slice, min(texel.y / tile_texel_size, probe_count.z - 1u));
+    uint2 local_texel          = texel - DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels);
+    DDGIAtlasTexel atlas_texel = DDGIProbeAtlasTexel(probe_coord, local_texel, interior_texels);
+    float4 data                = atlas.Load(uint4(texel, slice, 0));
+
+    if (atlas_texel.is_border)
+    {
+        float3 index_color = DebugViewDDGIIndexColor(probe_coord, probe_count);
+        return float4(saturate(float3(1.0f, 0.78f, 0.18f) * (0.65f + index_color * 0.35f)), 1.0f);
+    }
+
+    float2 interior_uv     = (float2(local_texel - 1u) + 0.5f) / max(float(interior_texels), 1.0f);
+    float3 direction       = DDGIOctahedralDecode(interior_uv);
+    float3 direction_color = direction * 0.5f + 0.5f;
+    float3 index_tint      = DebugViewDDGIIndexColor(probe_coord, probe_count) * 0.25f;
+    float3 stored_color    = saturate(data.rgb);
+    float stored_weight    = saturate(max(max(stored_color.r, stored_color.g), stored_color.b));
+    float3 debug_color     = saturate(direction_color * 0.75f + index_tint);
+    return float4(lerp(debug_color, stored_color, stored_weight * 0.55f), 1.0f);
 }
 
 float4 SampleDebugViewDDGIProbeData(float2 uv)
@@ -238,10 +274,16 @@ float4 SampleDebugViewDDGIProbeData(float2 uv)
     uint height = (uint)max(_DDGIProbeDataDimensions.y, 1.0f);
     uint slice  = (uint)clamp(_DDGIProbeDataDebugSlice, 0, max((int)_DDGIProbeDataDimensions.z - 1, 0));
 
-    uint2 texel  = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
-    float4 data  = LOAD_TEXTURE2D_ARRAY(_DDGIProbeData, texel, slice);
-    float active = saturate(data.w);
-    return float4(abs(data.xyz) + active.xxx * float3(0.05f, 0.35f, 0.05f), 1.0f);
+    uint2 texel         = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    uint3 probe_count   = uint3(width, (uint)max(_DDGIProbeDataDimensions.z, 1.0f), height);
+    uint3 probe_coord   = uint3(texel.x, slice, texel.y);
+    float4 data         = LOAD_TEXTURE2D_ARRAY(_DDGIProbeData, texel, slice);
+    float active        = saturate(data.w);
+    float3 index_color  = DebugViewDDGIIndexColor(probe_coord, probe_count);
+    float cell_line     = (frac(uv.x * width) < 0.08f || frac((1.0f - uv.y) * height) < 0.08f) ? 1.0f : 0.0f;
+    float3 offset_color = saturate(abs(data.xyz));
+    float3 active_color = active.xxx * float3(0.05f, 0.35f, 0.05f);
+    return float4(saturate(index_color * 0.35f + active_color + offset_color + cell_line * 0.25f), 1.0f);
 }
 
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target

@@ -14,6 +14,7 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("Debug View Pass");
         private static readonly int debug_view_issue_ID = Shader.PropertyToID("_DebugViewIssue");
         private static readonly int debug_view_mode_ID = Shader.PropertyToID("_DebugViewMode");
+        private static readonly int ddgi_probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int ddgi_probe_ray_data_ID = DDGIResources.probe_ray_data_ID;
         private static readonly int ddgi_probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int ddgi_probe_ray_data_debug_slice_ID = DDGIResources.probe_ray_data_debug_slice_ID;
@@ -59,6 +60,7 @@ namespace YutrelRP
 
             pass.mode = mode;
             pass.issue = ValidateSources(mode, light_resources, shadow_resources, shadow_settings, textures, ddgi_resources);
+            pass.ddgi_probe_count = ddgi_resources != null ? ddgi_resources.probe_count : Vector3Int.one;
             pass.reads_GBuffer = pass.issue == Issue.None && IsGBufferMode(mode);
             pass.reads_scene_depth = pass.issue == Issue.None &&
                                      (mode == YutrelRPSettings.DebugViewMode.SceneDepth ||
@@ -340,6 +342,7 @@ namespace YutrelRP
         private Vector4 ddgi_probe_ray_data_dimensions;
         private int ddgi_probe_ray_data_debug_slice;
         private float ddgi_probe_ray_data_max_distance;
+        private Vector3Int ddgi_probe_count;
         private Vector4 ddgi_probe_irradiance_dimensions;
         private Vector4 ddgi_probe_distance_dimensions;
         private Vector4 ddgi_probe_data_dimensions;
@@ -354,6 +357,7 @@ namespace YutrelRP
             property_block.Clear();
             property_block.SetInteger(debug_view_mode_ID, (int)mode);
             property_block.SetInteger(debug_view_issue_ID, (int)issue);
+            property_block.SetVector(ddgi_probe_count_ID, new Vector4(ddgi_probe_count.x, ddgi_probe_count.y, ddgi_probe_count.z, 0.0f));
             property_block.SetVector(ddgi_probe_ray_data_dimensions_ID, ddgi_probe_ray_data_dimensions);
             property_block.SetInteger(ddgi_probe_ray_data_debug_slice_ID, ddgi_probe_ray_data_debug_slice);
             property_block.SetFloat(ddgi_probe_ray_data_max_distance_ID, ddgi_probe_ray_data_max_distance);
