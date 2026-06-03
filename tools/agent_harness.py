@@ -224,6 +224,37 @@ def command_shader_format(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_doctor(args: argparse.Namespace) -> int:
+    unity = resolve_unity(args)
+    checks = [
+        ("Project root", PROJECT_ROOT.is_dir(), PROJECT_ROOT),
+        ("Unity editor", unity.is_file(), unity),
+        ("Shader root", SHADER_ROOT.is_dir(), SHADER_ROOT),
+    ]
+
+    lockfile = PROJECT_ROOT / "Temp" / "UnityLockfile"
+    has_error = False
+    for label, ok, path in checks:
+        status = "OK" if ok else "MISSING"
+        print(f"{status}: {label}: {path}")
+        has_error = has_error or not ok
+
+    if lockfile.exists():
+        print(f"WARN: Unity lockfile exists: {lockfile}")
+    else:
+        print(f"OK: Unity lockfile is absent: {lockfile}")
+
+    if DEFAULT_LOG_DIR.exists():
+        print(f"OK: Harness log directory exists: {DEFAULT_LOG_DIR}")
+    else:
+        print(f"INFO: Harness log directory will be created on demand: {DEFAULT_LOG_DIR}")
+
+    if has_error:
+        return fail("Harness doctor found missing required paths.")
+    print("PASS: Harness doctor completed.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Agent harness for the YutrelRP Unity project."
@@ -244,6 +275,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("compile", help="Open the project in Unity batchmode and check compile logs.")
+    subparsers.add_parser("doctor", help="Check harness paths without launching Unity.")
     subparsers.add_parser("test-editmode", help="Run Unity EditMode tests and parse the XML result.")
 
     shader_parser = subparsers.add_parser(
@@ -264,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "compile":
         return command_compile(args)
+    if args.command == "doctor":
+        return command_doctor(args)
     if args.command == "test-editmode":
         return command_test_editmode(args)
     if args.command == "shader-format":
