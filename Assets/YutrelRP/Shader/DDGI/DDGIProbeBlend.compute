@@ -84,7 +84,9 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
     for (uint ray_index = 0u; ray_index < rays_per_probe; ray_index++)
     {
         float3 ray_direction = DDGIBuildProbeRayDirection(ray_index, rays_per_probe);
-        float weight         = DDGIProbeBlendDirectionWeight(direction, ray_direction);
+        // Irradiance is queried by surface normal direction. A probe ray stores
+        // radiance arriving at the probe from the opposite of its traced direction.
+        float weight    = DDGIProbeBlendDirectionWeight(direction, -ray_direction);
         float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
         sum += max(ray_data.rgb, 0.0f) * weight;
         weight_sum += weight;

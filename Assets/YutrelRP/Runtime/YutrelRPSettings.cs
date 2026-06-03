@@ -69,6 +69,9 @@ namespace YutrelRP
             DDGIDiffuseOnly = 16,
             DDGICoverage = 17,
             DDGIVisibilityCoverage = 18,
+            DDGIProbeIrradianceScene = 19,
+            DDGIProbeRayDataQualityScene = 20,
+            DDGIProbeDistanceScene = 21,
         }
 #endif
     }

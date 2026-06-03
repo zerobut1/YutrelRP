@@ -108,10 +108,13 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
+            private const int IrradianceDirectionSemanticVersion = 2;
+
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
             public readonly int irradianceInteriorTexels;
             public readonly int distanceInteriorTexels;
+            public readonly int semanticVersion;
 
             public Identity(YutrelDDGIVolume volume)
             {
@@ -119,6 +122,7 @@ namespace YutrelRP
                 probeCount = volume != null ? volume.ProbeCount : Vector3Int.zero;
                 irradianceInteriorTexels = volume != null ? volume.ProbeIrradianceInteriorTexels : 0;
                 distanceInteriorTexels = volume != null ? volume.ProbeDistanceInteriorTexels : 0;
+                semanticVersion = IrradianceDirectionSemanticVersion;
             }
 
             public override bool Equals(object obj)
@@ -127,7 +131,8 @@ namespace YutrelRP
                        volumeKey == other.volumeKey &&
                        probeCount == other.probeCount &&
                        irradianceInteriorTexels == other.irradianceInteriorTexels &&
-                       distanceInteriorTexels == other.distanceInteriorTexels;
+                       distanceInteriorTexels == other.distanceInteriorTexels &&
+                       semanticVersion == other.semanticVersion;
             }
 
             public override int GetHashCode()
@@ -138,13 +143,14 @@ namespace YutrelRP
                     hash = (hash * 397) ^ probeCount.GetHashCode();
                     hash = (hash * 397) ^ irradianceInteriorTexels;
                     hash = (hash * 397) ^ distanceInteriorTexels;
+                    hash = (hash * 397) ^ semanticVersion;
                     return hash;
                 }
             }
 
             public override string ToString()
             {
-                return $"volume={volumeKey}, probes={probeCount}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}";
+                return $"volume={volumeKey}, probes={probeCount}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, semantic={semanticVersion}";
             }
         }
     }

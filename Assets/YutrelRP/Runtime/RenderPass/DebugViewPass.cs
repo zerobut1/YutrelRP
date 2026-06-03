@@ -45,7 +45,12 @@ namespace YutrelRP
             DDGIResources ddgi_resources, YutrelRPSettings.DebugViewMode mode,
             YutrelRPSettings.DDGISettings ddgi_settings, Vector2Int attachment_size)
         {
-            if (mode == YutrelRPSettings.DebugViewMode.Disabled || IsRayTracingSmokeTestMode(mode)) return;
+            if (mode == YutrelRPSettings.DebugViewMode.Disabled || IsRayTracingSmokeTestMode(mode) ||
+                IsDDGIProbeSceneMode(mode))
+            {
+                return;
+            }
+
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game) return;
 
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find(shader_name));
@@ -213,6 +218,13 @@ namespace YutrelRP
         {
             return mode == YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRayGen ||
                    mode == YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss;
+        }
+
+        private static bool IsDDGIProbeSceneMode(YutrelRPSettings.DebugViewMode mode)
+        {
+            return mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene ||
+                   mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene ||
+                   mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene;
         }
 
         private static bool IsGBufferMode(YutrelRPSettings.DebugViewMode mode)

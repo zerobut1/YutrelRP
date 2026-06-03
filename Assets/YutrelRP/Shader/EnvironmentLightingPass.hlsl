@@ -116,6 +116,19 @@ float3 EvaluateEnvironmentSpecular(StandardSurface surface, float3 specular_dfg,
            _EnvironmentSpecularMultiplier;
 }
 
+float3 EvaluateEnvironmentIBL(StandardSurface surface, float final_diffuse_AO)
+{
+    float3 dfg                 = SampleEnvironmentDfg(surface);
+    float3 specular_dfg        = EvaluateEnvironmentSpecularDfg(surface, dfg);
+    float3 energy_compensation = StandardEnergyCompensationFromDfgVisibility(surface, dfg.g);
+    float specular_AO          = EvaluateEnvironmentSpecularAO(surface, final_diffuse_AO);
+    float3 diffuse_scale       = surface.diffuse_color * (1.0f - specular_dfg) * final_diffuse_AO;
+    float3 environment_diffuse = EvaluateEnvironmentDiffuse(surface.normal_WS) * diffuse_scale * _EnvironmentIntensity *
+                                 _EnvironmentDiffuseMultiplier;
+    float3 specular_IBL        = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
+    return environment_diffuse + specular_IBL;
+}
+
 float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
 {
     EncodedGBuffer gbuffer;
@@ -132,26 +145,20 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
         discard;
     }
 
-    StandardSurface surface    = GBuffer2StandardSurface(gbuffer_data);
-    float screen_space_AO      = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
-    float final_diffuse_AO     = min(surface.material_AO, screen_space_AO);
-    float3 dfg                 = SampleEnvironmentDfg(surface);
-    float3 specular_dfg        = EvaluateEnvironmentSpecularDfg(surface, dfg);
-    float3 energy_compensation = StandardEnergyCompensationFromDfgVisibility(surface, dfg.g);
-    float specular_AO          = EvaluateEnvironmentSpecularAO(surface, final_diffuse_AO);
-    float3 diffuse_scale       = surface.diffuse_color * (1.0f - specular_dfg) * final_diffuse_AO;
-    float3 environment_diffuse = EvaluateEnvironmentDiffuse(surface.normal_WS) * diffuse_scale * _EnvironmentIntensity *
-                                 _EnvironmentDiffuseMultiplier;
-    DDGIGatherSample ddgi      = EvaluateDDGIGather(surface.position_WS, surface.normal_WS, surface.view_direction_WS);
-    float3 diffuse_IBL         = environment_diffuse;
+    StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
+    float screen_space_AO   = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
+    float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
+    // EvaluateEnvironmentIBL is intentionally kept above for future blending work,
+    // but this pass currently isolates DDGI and does not evaluate environment lighting.
+    float3 diffuse_scale  = surface.diffuse_color * final_diffuse_AO;
+    DDGIGatherSample ddgi = EvaluateDDGIGather(surface.position_WS, surface.normal_WS, surface.view_direction_WS);
     if (ddgi.coverage > 0.0f)
     {
         float3 ddgi_diffuse = ddgi.irradiance * diffuse_scale;
-        diffuse_IBL         = lerp(environment_diffuse, ddgi_diffuse, ddgi.coverage);
+        return float4(ApplyPreExposure(ddgi_diffuse * saturate(ddgi.coverage)), 0.0f);
     }
-    float3 specular_IBL = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
-    return float4(ApplyPreExposure(diffuse_IBL + specular_IBL), 0.0f);
+    return float4(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 #endif
