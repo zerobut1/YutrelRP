@@ -335,7 +335,7 @@ float4 SampleDebugViewDDGIGather(float2 uv, bool coverage_only)
     }
 
     float3 irradiance = DebugViewEvaluateDDGIIrradiance(position_WS, gbuffer_data.normal_WS) * coverage;
-    return float4(ApplyPreExposure(irradiance), 1.0f);
+    return float4(saturate(irradiance), 1.0f);
 }
 
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
