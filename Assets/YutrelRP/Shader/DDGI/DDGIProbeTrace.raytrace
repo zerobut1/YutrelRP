@@ -1,6 +1,7 @@
 #pragma max_recursion_depth 1
 
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
+#include "UnityRayTracingMeshUtils.cginc"
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
@@ -23,6 +24,16 @@ struct DDGIProbeTracePayload
 float3 DDGITraceFallbackNormalWS()
 {
     return DDGISafeNormalize(-WorldRayDirection(), float3(0.0, 1.0, 0.0));
+}
+
+float3 DDGITraceGeometricNormalWS()
+{
+    uint3 triangle_indices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
+    float3 p0             = UnityRayTracingFetchVertexAttribute3(triangle_indices.x, kVertexAttributePosition);
+    float3 p1             = UnityRayTracingFetchVertexAttribute3(triangle_indices.y, kVertexAttributePosition);
+    float3 p2             = UnityRayTracingFetchVertexAttribute3(triangle_indices.z, kVertexAttributePosition);
+    float3 normal_OS      = cross(p1 - p0, p2 - p0);
+    return DDGISafeNormalize(mul(normal_OS, (float3x3)WorldToObject3x4()), DDGITraceFallbackNormalWS());
 }
 
 float3 DDGITraceDirectDiffuseRadiance(float3 normalWS)
@@ -48,7 +59,7 @@ void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTria
 {
     payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
     payload.rayT = RayTCurrent();
-    payload.normalWS = DDGITraceFallbackNormalWS();
+    payload.normalWS = DDGITraceGeometricNormalWS();
 }
 
 [shader("raygeneration")]

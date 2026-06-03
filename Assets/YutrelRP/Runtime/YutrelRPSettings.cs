@@ -68,6 +68,7 @@ namespace YutrelRP
             DDGIProbeData = 15,
             DDGIDiffuseOnly = 16,
             DDGICoverage = 17,
+            DDGIVisibilityCoverage = 18,
         }
 #endif
     }

@@ -34,7 +34,6 @@ float3 _DDGIVolumeMinWS;
 float3 _DDGIVolumeMaxWS;
 float3 _DDGIProbeSpacingWS;
 float _DDGIGatherValid;
-float _DDGIGatherFadeDistance;
 float _DDGIDiffuseIntensity;
 
 struct DebugViewShadowData
@@ -310,19 +309,21 @@ float4 SampleDebugViewDDGIProbeData(float2 uv)
 
 float DebugViewEvaluateDDGICoverage(float3 position_WS)
 {
-    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIGatherFadeDistance) : 0.0f;
+    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS) : 0.0f;
 }
 
-float3 DebugViewEvaluateDDGIIrradiance(float3 position_WS, float3 normal_WS)
+DDGIGatherSample DebugViewEvaluateDDGIGather(float3 position_WS, float3 normal_WS, float3 view_direction_WS)
 {
-    uint3 probe_count    = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
-    uint interior_texels = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
-    float3 grid_coord    = (position_WS - _DDGIVolumeMinWS) / max(_DDGIProbeSpacingWS, 0.001f.xxx);
-    return DDGISampleTrilinearIrradiance(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, grid_coord, normal_WS, probe_count, interior_texels, _DDGIProbeIrradianceDimensions) *
-           _DDGIDiffuseIntensity;
+    uint3 probe_count       = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
+    uint irradiance_texels  = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
+    uint distance_texels    = (uint)max(_DDGIProbeDistanceDimensions.w - 2.0f, 1.0f);
+    DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance);
+    sample.irradiance *= _DDGIDiffuseIntensity;
+    sample.coverage *= _DDGIGatherValid > 0.5f ? 1.0f : 0.0f;
+    return sample;
 }
 
-float4 SampleDebugViewDDGIGather(float2 uv, bool coverage_only)
+float4 SampleDebugViewDDGIGather(float2 uv, int gather_debug_mode)
 {
     float scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, uv).r;
     if (!DebugViewIsValidSurfaceDepth(scene_depth))
@@ -343,16 +344,20 @@ float4 SampleDebugViewDDGIGather(float2 uv, bool coverage_only)
         return float4(0.0f, 0.0f, 0.0f, 1.0f);
     }
 
-    float3 position_WS = ComputeWorldSpacePositionFromFullScreenUV(uv, scene_depth);
-    float coverage     = DebugViewEvaluateDDGICoverage(position_WS);
-    if (coverage_only)
+    float3 position_WS    = ComputeWorldSpacePositionFromFullScreenUV(uv, scene_depth);
+    float3 view_WS        = GetWorldSpaceViewDirectionForSurface(position_WS);
+    DDGIGatherSample ddgi = DebugViewEvaluateDDGIGather(position_WS, gbuffer_data.normal_WS, view_WS);
+    if (gather_debug_mode == 1)
     {
-        return float4(coverage.xxx, 1.0f);
+        return float4(ddgi.coverage.xxx, 1.0f);
+    }
+    if (gather_debug_mode == 2)
+    {
+        return float4(ddgi.coverage, ddgi.visibility, ddgi.coverage * ddgi.visibility, 1.0f);
     }
 
-    float3 irradiance    = DebugViewEvaluateDDGIIrradiance(position_WS, gbuffer_data.normal_WS);
     float3 diffuse_scale = DebugViewDDGIDiffuseScale(gbuffer_data, uv);
-    float3 diffuse_only  = irradiance * diffuse_scale * coverage;
+    float3 diffuse_only  = ddgi.irradiance * diffuse_scale * ddgi.coverage;
     return float4(DebugViewToneMapDDGIRadiance(diffuse_only), 1.0f);
 }
 
@@ -415,10 +420,13 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
         return SampleDebugViewDDGIProbeData(input.uv);
 
     case 16:
-        return SampleDebugViewDDGIGather(input.uv, false);
+        return SampleDebugViewDDGIGather(input.uv, 0);
 
     case 17:
-        return SampleDebugViewDDGIGather(input.uv, true);
+        return SampleDebugViewDDGIGather(input.uv, 1);
+
+    case 18:
+        return SampleDebugViewDDGIGather(input.uv, 2);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

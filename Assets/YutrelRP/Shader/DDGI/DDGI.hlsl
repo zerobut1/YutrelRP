@@ -210,19 +210,14 @@ float3 DDGIBuildProbeRayDirection(uint ray_index, uint ray_count)
     return DDGISafeNormalize(float3(cos(phi) * radius, y, sin(phi) * radius), float3(0.0f, 1.0f, 0.0f));
 }
 
-float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume_max_WS, float fade_distance)
+float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume_max_WS, float3 probe_spacing_WS)
 {
-    float3 distance_to_min  = position_WS - volume_min_WS;
-    float3 distance_to_max  = volume_max_WS - position_WS;
-    float3 distance_to_edge = min(distance_to_min, distance_to_max);
-    float min_distance      = min(distance_to_edge.x, min(distance_to_edge.y, distance_to_edge.z));
-
-    if (min_distance <= 0.0f)
-    {
-        return 0.0f;
-    }
-
-    return smoothstep(0.0f, max(fade_distance, 0.001f), min_distance);
+    float3 outside_min      = max(volume_min_WS - position_WS, 0.0f.xxx);
+    float3 outside_max      = max(position_WS - volume_max_WS, 0.0f.xxx);
+    float3 outside_distance = outside_min + outside_max;
+    float3 fade_distance    = max(probe_spacing_WS, 0.001f.xxx);
+    float3 axis_coverage    = 1.0f.xxx - smoothstep(0.0f.xxx, fade_distance, outside_distance);
+    return saturate(axis_coverage.x * axis_coverage.y * axis_coverage.z);
 }
 
 #ifndef YUTREL_DDGI_NO_GATHER_SAMPLING
@@ -237,6 +232,13 @@ float2 DDGIProbeAtlasUV(uint3 probe_coord, float3 sample_direction, uint interio
 
 float3 DDGISampleProbeIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
                                  float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
+{
+    float2 uv = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
+    return atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
+}
+
+float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
+                               float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
 {
     float2 uv = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
     return atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
@@ -268,6 +270,115 @@ float3 DDGISampleTrilinearIrradiance(Texture2DArray atlas, SamplerState atlas_sa
     float3 c0  = lerp(c00, c10, weight.y);
     float3 c1  = lerp(c01, c11, weight.y);
     return lerp(c0, c1, weight.z);
+}
+
+struct DDGIGatherSample
+{
+    float3 irradiance;
+    float coverage;
+    float visibility;
+};
+
+float DDGIMinProbeSpacing(float3 probe_spacing_WS)
+{
+    return min(probe_spacing_WS.x, min(probe_spacing_WS.y, probe_spacing_WS.z));
+}
+
+float3 DDGIBiasedSurfacePosition(float3 position_WS, float3 normal_WS, float3 view_direction_WS, float3 probe_spacing_WS)
+{
+    float bias_scale  = max(DDGIMinProbeSpacing(probe_spacing_WS), 0.001f);
+    float normal_bias = bias_scale * 0.05f;
+    float view_bias   = bias_scale * 0.02f;
+    return position_WS + DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)) * normal_bias +
+           DDGISafeNormalize(view_direction_WS, float3(0.0f, 0.0f, 1.0f)) * view_bias;
+}
+
+float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float max_ray_distance, float tolerance)
+{
+    float ray_distance = max(max_ray_distance, 0.001f);
+    float mean         = saturate(distance_moments.r) * ray_distance;
+    float mean_sq      = saturate(distance_moments.g) * ray_distance * ray_distance;
+    float hit_ratio    = saturate(distance_moments.b);
+    float variance     = max(mean_sq - mean * mean, ray_distance * ray_distance * 0.0001f);
+    float delta        = surface_distance - mean - max(tolerance, 0.0f);
+
+    if (delta <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    float chebyshev = variance / (variance + delta * delta);
+    return lerp(1.0f, saturate(chebyshev), hit_ratio);
+}
+
+float DDGIProbeSurfaceWeight(float3 position_WS, float3 normal_WS, float3 probe_position_WS)
+{
+    float3 surface_to_probe = DDGISafeNormalize(probe_position_WS - position_WS, normal_WS);
+    return smoothstep(-0.2f, 0.2f, dot(DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)), surface_to_probe));
+}
+
+float DDGISampleProbeVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler, uint3 probe_coord,
+                                float3 position_WS, float3 biased_position_WS, float3 normal_WS,
+                                float3 volume_min_WS, float3 probe_spacing_WS, uint distance_interior_texels,
+                                float4 distance_dimensions, float max_ray_distance)
+{
+    float3 probe_position_WS = DDGIProbeWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord);
+    float3 probe_to_surface  = biased_position_WS - probe_position_WS;
+    float surface_distance   = length(probe_to_surface);
+    float3 sample_direction  = DDGISafeNormalize(probe_to_surface, normal_WS);
+    float3 distance_moments  = DDGISampleProbeDistance(distance_atlas, distance_sampler, probe_coord, sample_direction, distance_interior_texels, distance_dimensions);
+    float tolerance          = max(DDGIMinProbeSpacing(probe_spacing_WS) * 0.15f, max(max_ray_distance, 0.001f) * 0.01f);
+    float visibility         = DDGIProbeVisibility(distance_moments, surface_distance, max_ray_distance, tolerance);
+    return visibility * DDGIProbeSurfaceWeight(position_WS, normal_WS, probe_position_WS);
+}
+
+DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, SamplerState irradiance_sampler,
+                                           Texture2DArray distance_atlas, SamplerState distance_sampler,
+                                           float3 position_WS, float3 normal_WS, float3 view_direction_WS,
+                                           float3 volume_min_WS, float3 volume_max_WS, float3 probe_spacing_WS,
+                                           uint3 probe_count, uint irradiance_interior_texels,
+                                           uint distance_interior_texels, float4 irradiance_dimensions,
+                                           float4 distance_dimensions, float max_ray_distance)
+{
+    DDGIGatherSample result;
+    result.irradiance = 0.0f.xxx;
+    result.coverage   = DDGIVolumeCoverage(position_WS, volume_min_WS, volume_max_WS, probe_spacing_WS);
+    result.visibility = 0.0f;
+
+    float3 max_probe_coord = max(float3(probe_count) - 1.0f, 0.0f.xxx);
+    float3 grid_coord      = (position_WS - volume_min_WS) / max(probe_spacing_WS, 0.001f.xxx);
+    float3 clamped_coord   = clamp(grid_coord, 0.0f.xxx, max_probe_coord);
+    uint3 base_coord       = uint3(floor(clamped_coord));
+    uint3 next_coord       = min(base_coord + 1u, probe_count - 1u);
+    float3 weight          = saturate(clamped_coord - float3(base_coord));
+    float3 biased_position = DDGIBiasedSurfacePosition(position_WS, normal_WS, view_direction_WS, probe_spacing_WS);
+    float weight_sum       = 0.0f;
+
+    [unroll] for (uint z = 0u; z < 2u; z++)
+    {
+        [unroll] for (uint y = 0u; y < 2u; y++)
+        {
+            [unroll] for (uint x = 0u; x < 2u; x++)
+            {
+                uint3 probe_coord      = uint3(x == 0u ? base_coord.x : next_coord.x,
+                                               y == 0u ? base_coord.y : next_coord.y,
+                                               z == 0u ? base_coord.z : next_coord.z);
+                float3 axis_weight     = float3(x == 0u ? 1.0f - weight.x : weight.x,
+                                                y == 0u ? 1.0f - weight.y : weight.y,
+                                                z == 0u ? 1.0f - weight.z : weight.z);
+                float trilinear_weight = axis_weight.x * axis_weight.y * axis_weight.z;
+                float visibility       = DDGISampleProbeVisibility(distance_atlas, distance_sampler, probe_coord, position_WS, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
+                float3 irradiance      = DDGISampleProbeIrradiance(irradiance_atlas, irradiance_sampler, probe_coord, normal_WS, irradiance_interior_texels, irradiance_dimensions);
+
+                result.irradiance += max(irradiance, 0.0f) * trilinear_weight * visibility;
+                result.visibility += trilinear_weight * visibility;
+                weight_sum += trilinear_weight;
+            }
+        }
+    }
+
+    result.visibility = weight_sum > 0.0f ? saturate(result.visibility / weight_sum) : 0.0f;
+    return result;
 }
 
 #endif

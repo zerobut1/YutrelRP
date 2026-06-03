@@ -25,7 +25,6 @@ namespace YutrelRP
             volume_max_ws_ID = Shader.PropertyToID("_DDGIVolumeMaxWS"),
             probe_spacing_ws_ID = Shader.PropertyToID("_DDGIProbeSpacingWS"),
             gather_valid_ID = Shader.PropertyToID("_DDGIGatherValid"),
-            gather_fade_distance_ID = Shader.PropertyToID("_DDGIGatherFadeDistance"),
             diffuse_intensity_ID = Shader.PropertyToID("_DDGIDiffuseIntensity");
 
         public TextureHandle probe_ray_data;
@@ -40,7 +39,6 @@ namespace YutrelRP
         public Vector3 volume_min_ws;
         public Vector3 volume_max_ws;
         public Vector3 probe_spacing_ws;
-        public float gather_fade_distance;
         public bool has_gather_data;
         public bool has_persistent_atlas;
         public string diagnostic;
@@ -64,7 +62,6 @@ namespace YutrelRP
             volume_min_ws = Vector3.zero;
             volume_max_ws = Vector3.zero;
             probe_spacing_ws = Vector3.zero;
-            gather_fade_distance = 0.0f;
             has_gather_data = false;
             has_persistent_atlas = false;
             diagnostic = null;
@@ -81,8 +78,6 @@ namespace YutrelRP
             volume_min_ws = bounds.min;
             volume_max_ws = bounds.max;
             probe_spacing_ws = volume.GetWorldProbeSpacing();
-            gather_fade_distance = Mathf.Max(0.001f,
-                Mathf.Min(probe_spacing_ws.x, Mathf.Min(probe_spacing_ws.y, probe_spacing_ws.z)));
         }
 
         internal Vector4 ProbeRayDataDimensions => new(

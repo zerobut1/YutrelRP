@@ -11,6 +11,8 @@ TEXTURE2D(_ScreenSpaceAO);
 SAMPLER(sampler_ScreenSpaceAO);
 TEXTURE2D_ARRAY(_DDGIProbeIrradiance);
 SAMPLER(sampler_DDGIProbeIrradiance);
+TEXTURE2D_ARRAY(_DDGIProbeDistance);
+SAMPLER(sampler_DDGIProbeDistance);
 
 float4 _EnvironmentReflectionCube_HDR;
 float _EnvironmentIntensity;
@@ -19,11 +21,12 @@ float _EnvironmentSpecularMultiplier;
 float _IblRoughnessOneLevel;
 float4 _DDGIProbeCount;
 float4 _DDGIProbeIrradianceDimensions;
+float4 _DDGIProbeDistanceDimensions;
+float _DDGIProbeRayDataMaxDistance;
 float3 _DDGIVolumeMinWS;
 float3 _DDGIVolumeMaxWS;
 float3 _DDGIProbeSpacingWS;
 float _DDGIGatherValid;
-float _DDGIGatherFadeDistance;
 float _DDGIDiffuseIntensity;
 
 float4 _IblSH0;
@@ -64,16 +67,18 @@ uint3 GetDDGIProbeCount()
 
 float EvaluateDDGICoverage(float3 position_WS)
 {
-    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIGatherFadeDistance) : 0.0f;
+    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS) : 0.0f;
 }
 
-float3 EvaluateDDGIIrradiance(float3 position_WS, float3 normal_WS)
+DDGIGatherSample EvaluateDDGIGather(float3 position_WS, float3 normal_WS, float3 view_direction_WS)
 {
-    uint3 probe_count    = GetDDGIProbeCount();
-    uint interior_texels = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
-    float3 grid_coord    = (position_WS - _DDGIVolumeMinWS) / max(_DDGIProbeSpacingWS, 0.001f.xxx);
-    return DDGISampleTrilinearIrradiance(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, grid_coord, normal_WS, probe_count, interior_texels, _DDGIProbeIrradianceDimensions) *
-           _DDGIDiffuseIntensity;
+    uint3 probe_count       = GetDDGIProbeCount();
+    uint irradiance_texels  = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
+    uint distance_texels    = (uint)max(_DDGIProbeDistanceDimensions.w - 2.0f, 1.0f);
+    DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance);
+    sample.irradiance *= _DDGIDiffuseIntensity;
+    sample.coverage *= _DDGIGatherValid > 0.5f ? 1.0f : 0.0f;
+    return sample;
 }
 
 float3 SampleEnvironmentDfg(StandardSurface surface)
@@ -137,12 +142,12 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     float3 diffuse_scale       = surface.diffuse_color * (1.0f - specular_dfg) * final_diffuse_AO;
     float3 environment_diffuse = EvaluateEnvironmentDiffuse(surface.normal_WS) * diffuse_scale * _EnvironmentIntensity *
                                  _EnvironmentDiffuseMultiplier;
-    float ddgi_coverage        = EvaluateDDGICoverage(surface.position_WS);
+    DDGIGatherSample ddgi      = EvaluateDDGIGather(surface.position_WS, surface.normal_WS, surface.view_direction_WS);
     float3 diffuse_IBL         = environment_diffuse;
-    if (ddgi_coverage > 0.0f)
+    if (ddgi.coverage > 0.0f)
     {
-        float3 ddgi_diffuse = EvaluateDDGIIrradiance(surface.position_WS, surface.normal_WS) * diffuse_scale;
-        diffuse_IBL         = lerp(environment_diffuse, ddgi_diffuse, ddgi_coverage);
+        float3 ddgi_diffuse = ddgi.irradiance * diffuse_scale;
+        diffuse_IBL         = lerp(environment_diffuse, ddgi_diffuse, ddgi.coverage);
     }
     float3 specular_IBL = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
