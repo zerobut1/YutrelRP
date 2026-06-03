@@ -180,6 +180,9 @@ namespace YutrelRP
                 pass.GBuffer_B = textures.GBuffer_B;
                 pass.GBuffer_C = textures.GBuffer_C;
                 pass.scene_depth = textures.scene_depth;
+                pass.screen_space_ao = textures.screen_space_ao.IsValid()
+                    ? textures.screen_space_ao
+                    : render_graph.defaultResources.whiteTexture;
                 pass.ddgi_probe_irradiance = ddgi_resources.probe_irradiance;
                 pass.ddgi_probe_count = ddgi_resources.probe_count;
                 pass.ddgi_probe_irradiance_dimensions = ddgi_resources.ProbeIrradianceDimensions;
@@ -193,6 +196,7 @@ namespace YutrelRP
                 builder.UseTexture(pass.GBuffer_B);
                 builder.UseTexture(pass.GBuffer_C);
                 builder.UseTexture(pass.scene_depth);
+                builder.UseTexture(pass.screen_space_ao);
                 builder.UseTexture(pass.ddgi_probe_irradiance);
             }
 
@@ -482,6 +486,7 @@ namespace YutrelRP
                 property_block.SetTexture(RenderTargets.GBuffer_B_ID, GBuffer_B);
                 property_block.SetTexture(RenderTargets.GBuffer_C_ID, GBuffer_C);
                 property_block.SetTexture(RenderTargets.scene_depth_ID, scene_depth);
+                property_block.SetTexture(RenderTargets.screen_space_ao_ID, screen_space_ao);
                 property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
             }
 

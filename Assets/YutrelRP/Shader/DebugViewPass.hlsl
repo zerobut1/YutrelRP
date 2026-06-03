@@ -206,7 +206,16 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
 
 float3 DebugViewToneMapDDGIRadiance(float3 radiance)
 {
-    return saturate(1.0f - exp(-max(radiance, 0.0f)));
+    return saturate(1.0f - exp(-max(radiance, 0.0f) * 0.5f));
+}
+
+float3 DebugViewDDGIDiffuseScale(GBufferData gbuffer_data, float2 uv)
+{
+    float metallic        = saturate(gbuffer_data.metallic);
+    float material_AO     = saturate(gbuffer_data.material_AO);
+    float screen_space_AO = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, uv).r);
+    float combined_AO     = min(material_AO, screen_space_AO);
+    return max(gbuffer_data.base_color, 0.0f) * (1.0f - metallic) * combined_AO;
 }
 
 float4 SampleDebugViewDDGIProbeRayData(float2 uv)
@@ -341,8 +350,10 @@ float4 SampleDebugViewDDGIGather(float2 uv, bool coverage_only)
         return float4(coverage.xxx, 1.0f);
     }
 
-    float3 irradiance = DebugViewEvaluateDDGIIrradiance(position_WS, gbuffer_data.normal_WS) * coverage;
-    return float4(saturate(irradiance), 1.0f);
+    float3 irradiance    = DebugViewEvaluateDDGIIrradiance(position_WS, gbuffer_data.normal_WS);
+    float3 diffuse_scale = DebugViewDDGIDiffuseScale(gbuffer_data, uv);
+    float3 diffuse_only  = irradiance * diffuse_scale * coverage;
+    return float4(DebugViewToneMapDDGIRadiance(diffuse_only), 1.0f);
 }
 
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
