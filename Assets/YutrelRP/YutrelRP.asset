@@ -52,6 +52,10 @@ MonoBehaviour:
       enabled: 1
       logDiagnostics: 1
       debugProbeRayDataSlice: 0
+      debugProbeIrradianceAtlasSlice: 0
+      debugProbeDistanceAtlasSlice: 0
+      debugProbeDataSlice: 0
+      diffuseIntensity: 1
     rayTracingSmokeTestSettings:
       enabled: 0
       mode: 1
