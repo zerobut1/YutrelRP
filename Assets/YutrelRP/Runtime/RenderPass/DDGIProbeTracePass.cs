@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -23,9 +25,15 @@ namespace YutrelRP
         private static readonly int probeMaxRayDistanceID = Shader.PropertyToID("_DDGIProbeMaxRayDistance");
         private static readonly int directionalLightColorIlluminanceID = Shader.PropertyToID("_DDGIDirectionalLightColorIlluminance");
         private static readonly int directionalLightDirectionWSID = Shader.PropertyToID("_DDGIDirectionalLightDirectionWS");
+        private static readonly int traceInstanceSubMeshRangesID = Shader.PropertyToID("_DDGITraceInstanceSubMeshRanges");
+        private static readonly int traceSubMeshTriangleRangesID = Shader.PropertyToID("_DDGITraceSubMeshTriangleRanges");
+        private static readonly int traceTriangleNormalsID = Shader.PropertyToID("_DDGITraceTriangleNormals");
 
         private static RayTracingShader shader;
         private static RayTracingAccelerationStructure accelerationStructure;
+        private static GraphicsBuffer traceInstanceSubMeshRangesBuffer;
+        private static GraphicsBuffer traceSubMeshTriangleRangesBuffer;
+        private static GraphicsBuffer traceTriangleNormalsBuffer;
         private static RTHandle probeIrradianceRT;
         private static RTHandle probeDistanceRT;
         private static RTHandle probeDataRT;
@@ -124,6 +132,9 @@ namespace YutrelRP
                 pass.raysPerProbe = raysPerProbe;
                 pass.planeProbeCount = planeProbeCount;
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
+                pass.traceInstanceSubMeshRanges = traceInstanceSubMeshRangesBuffer;
+                pass.traceSubMeshTriangleRanges = traceSubMeshTriangleRangesBuffer;
+                pass.traceTriangleNormals = traceTriangleNormalsBuffer;
                 pass.SetDirectionalLight(lightResources);
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
@@ -144,6 +155,9 @@ namespace YutrelRP
         private int raysPerProbe;
         private int planeProbeCount;
         private float probeMaxRayDistance;
+        private GraphicsBuffer traceInstanceSubMeshRanges;
+        private GraphicsBuffer traceSubMeshTriangleRanges;
+        private GraphicsBuffer traceTriangleNormals;
         private Vector4 directionalLightColorIlluminance;
         private Vector4 directionalLightDirectionWS;
 
@@ -159,6 +173,9 @@ namespace YutrelRP
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeMaxRayDistanceID, probeMaxRayDistance);
+            cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceSubMeshRangesID, traceInstanceSubMeshRanges);
+            cmd.SetRayTracingBufferParam(rayTracingShader, traceSubMeshTriangleRangesID, traceSubMeshTriangleRanges);
+            cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightColorIlluminanceID,
                 directionalLightColorIlluminance);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightDirectionWSID, directionalLightDirectionWS);
@@ -367,6 +384,8 @@ namespace YutrelRP
 
         private static ProbeTraceIssue BuildAccelerationStructure(YutrelRPSettings.DDGISettings settings)
         {
+            ReleaseTraceGeometryBuffers();
+
             if (accelerationStructure == null)
             {
                 accelerationStructure = new RayTracingAccelerationStructure();
@@ -378,6 +397,9 @@ namespace YutrelRP
 
             var renderers = Object.FindObjectsByType<MeshRenderer>();
             var instanceCount = 0;
+            var instanceRanges = new List<UInt2>();
+            var subMeshRanges = new List<UInt2>();
+            var triangleNormals = new List<Vector4>();
 
             foreach (var renderer in renderers)
             {
@@ -396,6 +418,16 @@ namespace YutrelRP
                     continue;
                 }
 
+                if (!TryAppendTraceGeometry(renderer, instanceRanges, subMeshRanges, triangleNormals, out reason))
+                {
+                    if (settings.logDiagnostics)
+                    {
+                        Debug.LogWarning($"YutrelRP DDGI ProbeTrace skipped Contribute GI renderer '{renderer.name}': {reason}.");
+                    }
+
+                    continue;
+                }
+
                 try
                 {
                     var subMeshCount = GetSubMeshCount(renderer);
@@ -405,13 +437,20 @@ namespace YutrelRP
                         subMeshFlags[i] = RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.ClosestHitOnly;
                     }
 
-                    accelerationStructure.AddInstance(renderer, subMeshFlags: subMeshFlags, enableTriangleCulling: false,
-                        frontTriangleCounterClockwise: false, mask: 0xFF);
+                    var handle = accelerationStructure.AddInstance(renderer, subMeshFlags: subMeshFlags, enableTriangleCulling: false,
+                        frontTriangleCounterClockwise: false, mask: 0xFF, id: (uint)instanceCount);
+                    if (handle == 0)
+                    {
+                        RemoveLastTraceGeometry(instanceRanges, subMeshRanges, triangleNormals);
+                        continue;
+                    }
+
                     instanceCount++;
                 }
                 catch (System.Exception exception)
                 {
                     Debug.LogWarning($"YutrelRP DDGI ProbeTrace RTAS AddInstance failed for '{renderer.name}': {exception.Message}");
+                    RemoveLastTraceGeometry(instanceRanges, subMeshRanges, triangleNormals);
                 }
             }
 
@@ -420,8 +459,164 @@ namespace YutrelRP
                 return ProbeTraceIssue.NoContributors;
             }
 
+            if (!EnsureTraceGeometryBuffers(instanceRanges, subMeshRanges, triangleNormals))
+            {
+                ReleaseTraceGeometryBuffers();
+                return ProbeTraceIssue.ResourceAllocationFailed;
+            }
+
             accelerationStructure.Build();
             return accelerationStructure.GetInstanceCount() > 0 ? ProbeTraceIssue.None : ProbeTraceIssue.EmptyAccelerationStructure;
+        }
+
+        private static bool TryAppendTraceGeometry(MeshRenderer renderer, List<UInt2> instanceRanges,
+            List<UInt2> subMeshRanges, List<Vector4> triangleNormals, out string reason)
+        {
+            reason = null;
+            if (!renderer.TryGetComponent<MeshFilter>(out var meshFilter) || meshFilter.sharedMesh == null)
+            {
+                reason = "MeshRenderer has no shared mesh";
+                return false;
+            }
+
+            var mesh = meshFilter.sharedMesh;
+            Vector3[] vertices;
+            try
+            {
+                vertices = mesh.vertices;
+            }
+            catch (System.Exception exception)
+            {
+                reason = $"mesh vertex data is not CPU-readable for DDGI trace normals ({exception.Message})";
+                return false;
+            }
+
+            if (vertices == null || vertices.Length == 0)
+            {
+                reason = "mesh has no vertex positions";
+                return false;
+            }
+
+            var firstSubMeshRange = subMeshRanges.Count;
+            var firstTriangleNormal = triangleNormals.Count;
+            var subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+            var localToWorld = renderer.localToWorldMatrix;
+
+            for (var subMesh = 0; subMesh < subMeshCount; subMesh++)
+            {
+                int[] indices;
+                try
+                {
+                    indices = mesh.GetTriangles(subMesh);
+                }
+                catch (System.Exception exception)
+                {
+                    reason = $"mesh submesh index data is not CPU-readable for DDGI trace normals ({exception.Message})";
+                    RemoveTraceGeometry(instanceRanges, subMeshRanges, triangleNormals, firstSubMeshRange, firstTriangleNormal);
+                    return false;
+                }
+
+                var normalBase = triangleNormals.Count;
+                var triangleCount = indices != null ? indices.Length / 3 : 0;
+                subMeshRanges.Add(new UInt2((uint)normalBase, (uint)triangleCount));
+
+                for (var triangle = 0; triangle < triangleCount; triangle++)
+                {
+                    var i0 = indices[triangle * 3 + 0];
+                    var i1 = indices[triangle * 3 + 1];
+                    var i2 = indices[triangle * 3 + 2];
+                    if ((uint)i0 >= vertices.Length || (uint)i1 >= vertices.Length || (uint)i2 >= vertices.Length)
+                    {
+                        triangleNormals.Add(Vector4.zero);
+                        continue;
+                    }
+
+                    var p0 = localToWorld.MultiplyPoint3x4(vertices[i0]);
+                    var p1 = localToWorld.MultiplyPoint3x4(vertices[i1]);
+                    var p2 = localToWorld.MultiplyPoint3x4(vertices[i2]);
+                    var normal = Vector3.Cross(p1 - p0, p2 - p0);
+                    if (normal.sqrMagnitude <= 1.0e-10f)
+                    {
+                        triangleNormals.Add(Vector4.zero);
+                    }
+                    else
+                    {
+                        normal.Normalize();
+                        triangleNormals.Add(new Vector4(normal.x, normal.y, normal.z, 1.0f));
+                    }
+                }
+            }
+
+            instanceRanges.Add(new UInt2((uint)firstSubMeshRange, (uint)subMeshCount));
+            return triangleNormals.Count > firstTriangleNormal;
+        }
+
+        private static void RemoveLastTraceGeometry(List<UInt2> instanceRanges, List<UInt2> subMeshRanges,
+            List<Vector4> triangleNormals)
+        {
+            if (instanceRanges.Count == 0)
+            {
+                return;
+            }
+
+            var range = instanceRanges[^1];
+            var firstSubMeshRange = (int)range.x;
+            var firstTriangleNormal = firstSubMeshRange < subMeshRanges.Count ? (int)subMeshRanges[firstSubMeshRange].x : triangleNormals.Count;
+            instanceRanges.RemoveAt(instanceRanges.Count - 1);
+            RemoveTraceGeometry(instanceRanges, subMeshRanges, triangleNormals, firstSubMeshRange, firstTriangleNormal);
+        }
+
+        private static void RemoveTraceGeometry(List<UInt2> instanceRanges, List<UInt2> subMeshRanges,
+            List<Vector4> triangleNormals, int firstSubMeshRange, int firstTriangleNormal)
+        {
+            if (subMeshRanges.Count > firstSubMeshRange)
+            {
+                subMeshRanges.RemoveRange(firstSubMeshRange, subMeshRanges.Count - firstSubMeshRange);
+            }
+
+            if (triangleNormals.Count > firstTriangleNormal)
+            {
+                triangleNormals.RemoveRange(firstTriangleNormal, triangleNormals.Count - firstTriangleNormal);
+            }
+        }
+
+        private static bool EnsureTraceGeometryBuffers(List<UInt2> instanceRanges, List<UInt2> subMeshRanges,
+            List<Vector4> triangleNormals)
+        {
+            if (instanceRanges.Count == 0 || subMeshRanges.Count == 0 || triangleNormals.Count == 0)
+            {
+                return false;
+            }
+
+            traceInstanceSubMeshRangesBuffer = AllocStructuredBuffer(instanceRanges.Count, Marshal.SizeOf<UInt2>(),
+                "DDGI Trace Instance SubMesh Ranges");
+            traceSubMeshTriangleRangesBuffer = AllocStructuredBuffer(subMeshRanges.Count, Marshal.SizeOf<UInt2>(),
+                "DDGI Trace SubMesh Triangle Ranges");
+            traceTriangleNormalsBuffer = AllocStructuredBuffer(triangleNormals.Count, Marshal.SizeOf<Vector4>(),
+                "DDGI Trace Triangle Normals");
+            traceInstanceSubMeshRangesBuffer.SetData(instanceRanges);
+            traceSubMeshTriangleRangesBuffer.SetData(subMeshRanges);
+            traceTriangleNormalsBuffer.SetData(triangleNormals);
+            return true;
+        }
+
+        private static GraphicsBuffer AllocStructuredBuffer(int count, int stride, string name)
+        {
+            var buffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, Mathf.Max(count, 1), stride)
+            {
+                name = name
+            };
+            return buffer;
+        }
+
+        private static void ReleaseTraceGeometryBuffers()
+        {
+            traceInstanceSubMeshRangesBuffer?.Dispose();
+            traceSubMeshTriangleRangesBuffer?.Dispose();
+            traceTriangleNormalsBuffer?.Dispose();
+            traceInstanceSubMeshRangesBuffer = null;
+            traceSubMeshTriangleRangesBuffer = null;
+            traceTriangleNormalsBuffer = null;
         }
 
         private static bool IsDDGIContributeGIRenderer(Renderer renderer)
@@ -618,6 +813,7 @@ namespace YutrelRP
         {
             accelerationStructure?.Dispose();
             accelerationStructure = null;
+            ReleaseTraceGeometryBuffers();
             ReleasePersistentAtlases();
             DDGIProbeBlendPass.Cleanup();
             shader = null;
@@ -637,6 +833,19 @@ namespace YutrelRP
             ResourceTooLarge = 8,
             FrameDebuggerActive = 9,
             ResourceAllocationFailed = 10
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private readonly struct UInt2
+        {
+            public readonly uint x;
+            public readonly uint y;
+
+            public UInt2(uint x, uint y)
+            {
+                this.x = x;
+                this.y = y;
+            }
         }
     }
 }

@@ -1,10 +1,12 @@
 #pragma max_recursion_depth 1
 
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
-#include "UnityRayTracingMeshUtils.cginc"
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
+StructuredBuffer<uint2> _DDGITraceInstanceSubMeshRanges;
+StructuredBuffer<uint2> _DDGITraceSubMeshTriangleRanges;
+StructuredBuffer<float4> _DDGITraceTriangleNormals;
 
 float3 _DDGIVolumeMinWS;
 float3 _DDGIProbeSpacingWS;
@@ -28,12 +30,17 @@ float3 DDGITraceFallbackNormalWS()
 
 float3 DDGITraceGeometricNormalWS()
 {
-    uint3 triangle_indices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
-    float3 p0             = UnityRayTracingFetchVertexAttribute3(triangle_indices.x, kVertexAttributePosition);
-    float3 p1             = UnityRayTracingFetchVertexAttribute3(triangle_indices.y, kVertexAttributePosition);
-    float3 p2             = UnityRayTracingFetchVertexAttribute3(triangle_indices.z, kVertexAttributePosition);
-    float3 normal_OS      = cross(p1 - p0, p2 - p0);
-    return DDGISafeNormalize(mul(normal_OS, (float3x3)WorldToObject3x4()), DDGITraceFallbackNormalWS());
+    uint2 instance_range = _DDGITraceInstanceSubMeshRanges[InstanceID()];
+    uint sub_mesh_index  = min(GeometryIndex(), max(instance_range.y, 1u) - 1u);
+    uint2 triangle_range = _DDGITraceSubMeshTriangleRanges[instance_range.x + sub_mesh_index];
+    if (triangle_range.y == 0u)
+    {
+        return DDGITraceFallbackNormalWS();
+    }
+
+    uint normal_index = triangle_range.x + min(PrimitiveIndex(), triangle_range.y - 1u);
+    float4 normal_WS  = _DDGITraceTriangleNormals[normal_index];
+    return normal_WS.w > 0.5f ? DDGISafeNormalize(normal_WS.xyz, DDGITraceFallbackNormalWS()) : DDGITraceFallbackNormalWS();
 }
 
 float3 DDGITraceDirectDiffuseRadiance(float3 normalWS)
