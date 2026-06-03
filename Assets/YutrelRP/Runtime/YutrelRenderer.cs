@@ -99,11 +99,12 @@ namespace YutrelRP
                     ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
                         attachment_size);
 
-                    EnvironmentLightingPass.Record(render_graph, textures, light_resources);
+                    DDGIProbeTrace.Record(render_graph, camera, settings, ref ddgi_resources);
+
+                    EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources,
+                        settings.ddgiSettings);
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
-
-                    DDGIProbeTrace.Record(render_graph, camera, settings, ref ddgi_resources);
 
 #if UNITY_EDITOR
                     UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);

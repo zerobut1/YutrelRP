@@ -2,18 +2,29 @@
 #define YUTREL_ENVIRONMENT_LIGHTING_PASS_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
+#include "Utils/DDGI.hlsl"
 #include "Utils/ShadingModelStandard.hlsl"
 
 TEXTURECUBE(_EnvironmentReflectionCube);
 SAMPLER(sampler_EnvironmentReflectionCube);
 TEXTURE2D(_ScreenSpaceAO);
 SAMPLER(sampler_ScreenSpaceAO);
+TEXTURE2D_ARRAY(_DDGIProbeIrradiance);
+SAMPLER(sampler_DDGIProbeIrradiance);
 
 float4 _EnvironmentReflectionCube_HDR;
 float _EnvironmentIntensity;
 float _EnvironmentDiffuseMultiplier;
 float _EnvironmentSpecularMultiplier;
 float _IblRoughnessOneLevel;
+float4 _DDGIProbeCount;
+float4 _DDGIProbeIrradianceDimensions;
+float3 _DDGIVolumeMinWS;
+float3 _DDGIVolumeMaxWS;
+float3 _DDGIProbeSpacingWS;
+float _DDGIGatherValid;
+float _DDGIGatherFadeDistance;
+float _DDGIDiffuseIntensity;
 
 float4 _IblSH0;
 float4 _IblSH1;
@@ -44,6 +55,26 @@ float3 EvaluateEnvironmentDiffuse(float3 normal_WS)
     irradiance += _IblSH7.rgb * (normal_WS.z * normal_WS.x);
     irradiance += _IblSH8.rgb * (normal_WS.x * normal_WS.x - normal_WS.y * normal_WS.y);
     return max(0.0f, irradiance);
+}
+
+uint3 GetDDGIProbeCount()
+{
+    return uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
+}
+
+float EvaluateDDGICoverage(float3 position_WS)
+{
+    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIGatherFadeDistance) : 0.0f;
+}
+
+float3 EvaluateDDGIIrradiance(float3 position_WS, float3 normal_WS)
+{
+    uint3 probe_count    = GetDDGIProbeCount();
+    uint interior_texels = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
+    float3 grid_coord    = (position_WS - _DDGIVolumeMinWS) / max(_DDGIProbeSpacingWS, 0.001f.xxx);
+    return DDGISampleTrilinearIrradiance(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, grid_coord, normal_WS,
+                                         probe_count, interior_texels, _DDGIProbeIrradianceDimensions) *
+           _DDGIDiffuseIntensity;
 }
 
 float3 SampleEnvironmentDfg(StandardSurface surface)
@@ -104,9 +135,12 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     float3 specular_dfg        = EvaluateEnvironmentSpecularDfg(surface, dfg);
     float3 energy_compensation = StandardEnergyCompensationFromDfgVisibility(surface, dfg.g);
     float specular_AO          = EvaluateEnvironmentSpecularAO(surface, final_diffuse_AO);
-    float3 diffuse_IBL         = EvaluateEnvironmentDiffuse(surface.normal_WS) * surface.diffuse_color *
-                                 (1.0f - specular_dfg) * final_diffuse_AO * _EnvironmentIntensity *
+    float3 diffuse_scale       = surface.diffuse_color * (1.0f - specular_dfg) * final_diffuse_AO;
+    float3 environment_diffuse = EvaluateEnvironmentDiffuse(surface.normal_WS) * diffuse_scale * _EnvironmentIntensity *
                                  _EnvironmentDiffuseMultiplier;
+    float ddgi_coverage        = EvaluateDDGICoverage(surface.position_WS);
+    float3 ddgi_diffuse        = EvaluateDDGIIrradiance(surface.position_WS, surface.normal_WS) * diffuse_scale;
+    float3 diffuse_IBL         = lerp(environment_diffuse, ddgi_diffuse, ddgi_coverage);
     float3 specular_IBL        = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
     return float4(ApplyPreExposure(diffuse_IBL + specular_IBL), 0.0f);

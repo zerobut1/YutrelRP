@@ -163,4 +163,61 @@ float3 DDGIBuildProbeRayDirection(uint ray_index, uint ray_count)
     return DDGISafeNormalize(float3(cos(phi) * radius, y, sin(phi) * radius), float3(0.0f, 1.0f, 0.0f));
 }
 
+float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume_max_WS, float fade_distance)
+{
+    float3 distance_to_min = position_WS - volume_min_WS;
+    float3 distance_to_max = volume_max_WS - position_WS;
+    float min_distance     = min(min(distance_to_min.x, distance_to_min.y), min(distance_to_min.z, min(min(distance_to_max.x, distance_to_max.y), distance_to_max.z)));
+
+    if (min_distance <= 0.0f)
+    {
+        return 0.0f;
+    }
+
+    return smoothstep(0.0f, max(fade_distance, 0.001f), min_distance);
+}
+
+float2 DDGIProbeAtlasUV(uint3 probe_coord, float3 sample_direction, uint interior_texels, float2 atlas_dimensions)
+{
+    float2 encoded_direction = DDGIOctahedralEncode(sample_direction);
+    float2 tile_base         = float2(DDGIProbeAtlasInteriorBaseTexel(probe_coord, interior_texels));
+    float2 atlas_texel       = tile_base + encoded_direction * max(float(interior_texels), 1.0f);
+    return (atlas_texel + 0.5f) / max(atlas_dimensions, 1.0f.xx);
+}
+
+float3 DDGISampleProbeIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
+                                 float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
+{
+    float2 uv = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
+    return SAMPLE_TEXTURE2D_ARRAY_LOD(atlas, atlas_sampler, uv, probe_coord.y, 0.0f).rgb;
+}
+
+float3 DDGISampleTrilinearIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, float3 grid_coord,
+                                     float3 sample_direction, uint3 probe_count, uint interior_texels,
+                                     float4 atlas_dimensions)
+{
+    float3 max_probe_coord = max(float3(probe_count) - 1.0f, 0.0f.xxx);
+    float3 clamped_coord   = clamp(grid_coord, 0.0f.xxx, max_probe_coord);
+    uint3 base_coord       = uint3(floor(clamped_coord));
+    uint3 next_coord       = min(base_coord + 1u, probe_count - 1u);
+    float3 weight          = saturate(clamped_coord - float3(base_coord));
+
+    float3 c000 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(base_coord.x, base_coord.y, base_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c100 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(next_coord.x, base_coord.y, base_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c010 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(base_coord.x, next_coord.y, base_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c110 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(next_coord.x, next_coord.y, base_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c001 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(base_coord.x, base_coord.y, next_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c101 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(next_coord.x, base_coord.y, next_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c011 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(base_coord.x, next_coord.y, next_coord.z), sample_direction, interior_texels, atlas_dimensions);
+    float3 c111 = DDGISampleProbeIrradiance(atlas, atlas_sampler, uint3(next_coord.x, next_coord.y, next_coord.z), sample_direction, interior_texels, atlas_dimensions);
+
+    float3 c00 = lerp(c000, c100, weight.x);
+    float3 c10 = lerp(c010, c110, weight.x);
+    float3 c01 = lerp(c001, c101, weight.x);
+    float3 c11 = lerp(c011, c111, weight.x);
+    float3 c0  = lerp(c00, c10, weight.y);
+    float3 c1  = lerp(c01, c11, weight.y);
+    return lerp(c0, c1, weight.z);
+}
+
 #endif

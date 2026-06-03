@@ -25,7 +25,8 @@ namespace YutrelRP
             Shader.PropertyToID("_IblSH8")
         };
 
-        public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources)
+        public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources,
+            DDGIResources ddgi_resources, YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (!ValidateEnvironmentResources(light_resources)) return;
 
@@ -47,6 +48,15 @@ namespace YutrelRP
             pass.environment_diffuse_multiplier_ID = LightResources.environment_diffuse_multiplier_ID;
             pass.environment_specular_multiplier_ID = LightResources.environment_specular_multiplier_ID;
             pass.ibl_roughness_one_level_ID = LightResources.ibl_roughness_one_level_ID;
+            pass.ddgi_probe_irradiance_ID = DDGIResources.probe_irradiance_ID;
+            pass.ddgi_probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
+            pass.ddgi_probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
+            pass.ddgi_volume_min_ws_ID = DDGIResources.volume_min_ws_ID;
+            pass.ddgi_volume_max_ws_ID = DDGIResources.volume_max_ws_ID;
+            pass.ddgi_probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
+            pass.ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
+            pass.ddgi_gather_fade_distance_ID = DDGIResources.gather_fade_distance_ID;
+            pass.ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
 
             pass.GBuffer_A = textures.GBuffer_A;
             pass.GBuffer_B = textures.GBuffer_B;
@@ -64,6 +74,25 @@ namespace YutrelRP
             pass.ibl_roughness_one_level = light_resources.ibl_roughness_one_level;
             pass.ambient_probe = light_resources.environment_diffuse_sh;
 
+            pass.has_DDGI_gather = ddgi_resources != null && ddgi_resources.has_gather_data &&
+                                   ddgi_resources.probe_irradiance.IsValid() &&
+                                   ddgi_resources.probe_count.x > 1 &&
+                                   ddgi_resources.probe_count.y > 1 &&
+                                   ddgi_resources.probe_count.z > 1 &&
+                                   ddgi_resources.probe_irradiance_interior_texels > 0;
+            pass.ddgi_probe_irradiance = pass.has_DDGI_gather
+                ? ddgi_resources.probe_irradiance
+                : graph.defaultResources.whiteTexture;
+            pass.ddgi_probe_irradiance_dimensions = pass.has_DDGI_gather
+                ? ddgi_resources.ProbeIrradianceDimensions
+                : Vector4.zero;
+            pass.ddgi_probe_count = pass.has_DDGI_gather ? ddgi_resources.probe_count : Vector3Int.zero;
+            pass.ddgi_volume_min_ws = pass.has_DDGI_gather ? ddgi_resources.volume_min_ws : Vector3.zero;
+            pass.ddgi_volume_max_ws = pass.has_DDGI_gather ? ddgi_resources.volume_max_ws : Vector3.zero;
+            pass.ddgi_probe_spacing_ws = pass.has_DDGI_gather ? ddgi_resources.probe_spacing_ws : Vector3.zero;
+            pass.ddgi_gather_fade_distance = pass.has_DDGI_gather ? ddgi_resources.gather_fade_distance : 0.0f;
+            pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
+
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
@@ -71,6 +100,7 @@ namespace YutrelRP
             builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.DFG_LUT);
             builder.UseTexture(pass.environment_reflection_cube);
+            builder.UseTexture(pass.ddgi_probe_irradiance);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
             builder.SetRenderFunc<EnvironmentLightingPass>(static (pass, context) => pass.Render(context));
@@ -88,7 +118,16 @@ namespace YutrelRP
             environment_intensity_ID,
             environment_diffuse_multiplier_ID,
             environment_specular_multiplier_ID,
-            ibl_roughness_one_level_ID;
+            ibl_roughness_one_level_ID,
+            ddgi_probe_irradiance_ID,
+            ddgi_probe_irradiance_dimensions_ID,
+            ddgi_probe_count_ID,
+            ddgi_volume_min_ws_ID,
+            ddgi_volume_max_ws_ID,
+            ddgi_probe_spacing_ws_ID,
+            ddgi_gather_valid_ID,
+            ddgi_gather_fade_distance_ID,
+            ddgi_diffuse_intensity_ID;
 
         private TextureHandle
             GBuffer_A,
@@ -97,7 +136,8 @@ namespace YutrelRP
             scene_depth,
             screen_space_ao,
             DFG_LUT,
-            environment_reflection_cube;
+            environment_reflection_cube,
+            ddgi_probe_irradiance;
 
         private Vector4 environment_reflection_cube_hdr;
         private float environment_intensity;
@@ -105,6 +145,14 @@ namespace YutrelRP
         private float environment_specular_multiplier;
         private float ibl_roughness_one_level;
         private SphericalHarmonicsL2 ambient_probe;
+        private bool has_DDGI_gather;
+        private Vector4 ddgi_probe_irradiance_dimensions;
+        private Vector3Int ddgi_probe_count;
+        private Vector3 ddgi_volume_min_ws;
+        private Vector3 ddgi_volume_max_ws;
+        private Vector3 ddgi_probe_spacing_ws;
+        private float ddgi_gather_fade_distance;
+        private float ddgi_diffuse_intensity;
 
         private void Render(RasterGraphContext context)
         {
@@ -116,11 +164,21 @@ namespace YutrelRP
             property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
             property_block.SetTexture(dfg_lut_ID, DFG_LUT);
             property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
+            property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
             property_block.SetVector(environment_reflection_cube_hdr_ID, environment_reflection_cube_hdr);
             property_block.SetFloat(environment_intensity_ID, environment_intensity);
             property_block.SetFloat(environment_diffuse_multiplier_ID, environment_diffuse_multiplier);
             property_block.SetFloat(environment_specular_multiplier_ID, environment_specular_multiplier);
             property_block.SetFloat(ibl_roughness_one_level_ID, ibl_roughness_one_level);
+            property_block.SetVector(ddgi_probe_irradiance_dimensions_ID, ddgi_probe_irradiance_dimensions);
+            property_block.SetVector(ddgi_probe_count_ID,
+                new Vector4(ddgi_probe_count.x, ddgi_probe_count.y, ddgi_probe_count.z, 0.0f));
+            property_block.SetVector(ddgi_volume_min_ws_ID, ddgi_volume_min_ws);
+            property_block.SetVector(ddgi_volume_max_ws_ID, ddgi_volume_max_ws);
+            property_block.SetVector(ddgi_probe_spacing_ws_ID, ddgi_probe_spacing_ws);
+            property_block.SetFloat(ddgi_gather_valid_ID, has_DDGI_gather ? 1.0f : 0.0f);
+            property_block.SetFloat(ddgi_gather_fade_distance_ID, ddgi_gather_fade_distance);
+            property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
             SetIblShShaderConstants(property_block, ambient_probe);
 
             CoreUtils.DrawFullScreen(context.cmd, material, property_block);

@@ -22,6 +22,7 @@ namespace YutrelRP
             [Min(0)] public int debugProbeIrradianceAtlasSlice = 0;
             [Min(0)] public int debugProbeDistanceAtlasSlice = 0;
             [Min(0)] public int debugProbeDataSlice = 0;
+            [Min(0.0f)] public float diffuseIntensity = 1.0f;
         }
 
         public RayTracingSmokeTestSettings rayTracingSmokeTestSettings = new();
@@ -60,6 +61,8 @@ namespace YutrelRP
             DDGIProbeIrradianceAtlas = 13,
             DDGIProbeDistanceAtlas = 14,
             DDGIProbeData = 15,
+            DDGIDiffuseOnly = 16,
+            DDGICoverage = 17,
         }
 #endif
     }

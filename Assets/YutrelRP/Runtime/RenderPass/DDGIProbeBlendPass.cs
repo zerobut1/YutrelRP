@@ -40,9 +40,12 @@ namespace YutrelRP
             LogStatus(issue, volume, logDiagnostics);
             if (issue != ProbeBlendIssue.None)
             {
+                resources.has_gather_data = false;
                 resources.diagnostic = GetReason(issue);
                 return;
             }
+
+            resources.has_gather_data = true;
 
             using var builder = renderGraph.AddComputePass<DDGIProbeBlendPass>(sampler.name, out var pass, sampler);
             pass.probeRayData = resources.probe_ray_data;
