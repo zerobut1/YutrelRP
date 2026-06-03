@@ -4,8 +4,7 @@
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
-StructuredBuffer<uint2> _DDGITraceInstanceSubMeshRanges;
-StructuredBuffer<uint2> _DDGITraceSubMeshTriangleRanges;
+StructuredBuffer<uint2> _DDGITraceInstanceTriangleRanges;
 StructuredBuffer<float4> _DDGITraceTriangleNormals;
 
 float3 _DDGIVolumeMinWS;
@@ -30,9 +29,7 @@ float3 DDGITraceFallbackNormalWS()
 
 float3 DDGITraceGeometricNormalWS()
 {
-    uint2 instance_range = _DDGITraceInstanceSubMeshRanges[InstanceID()];
-    uint sub_mesh_index  = min(GeometryIndex(), max(instance_range.y, 1u) - 1u);
-    uint2 triangle_range = _DDGITraceSubMeshTriangleRanges[instance_range.x + sub_mesh_index];
+    uint2 triangle_range = _DDGITraceInstanceTriangleRanges[InstanceID()];
     if (triangle_range.y == 0u)
     {
         return DDGITraceFallbackNormalWS();
