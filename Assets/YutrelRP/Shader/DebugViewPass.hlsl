@@ -30,6 +30,12 @@ float4 _DDGIProbeDistanceDimensions;
 int _DDGIProbeDistanceDebugSlice;
 float4 _DDGIProbeDataDimensions;
 int _DDGIProbeDataDebugSlice;
+float3 _DDGIVolumeMinWS;
+float3 _DDGIVolumeMaxWS;
+float3 _DDGIProbeSpacingWS;
+float _DDGIGatherValid;
+float _DDGIGatherFadeDistance;
+float _DDGIDiffuseIntensity;
 
 struct DebugViewShadowData
 {
@@ -286,6 +292,52 @@ float4 SampleDebugViewDDGIProbeData(float2 uv)
     return float4(saturate(index_color * 0.35f + active_color + offset_color + cell_line * 0.25f), 1.0f);
 }
 
+float DebugViewEvaluateDDGICoverage(float3 position_WS)
+{
+    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIGatherFadeDistance) : 0.0f;
+}
+
+float3 DebugViewEvaluateDDGIIrradiance(float3 position_WS, float3 normal_WS)
+{
+    uint3 probe_count    = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
+    uint interior_texels = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
+    float3 grid_coord    = (position_WS - _DDGIVolumeMinWS) / max(_DDGIProbeSpacingWS, 0.001f.xxx);
+    return DDGISampleTrilinearIrradiance(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, grid_coord, normal_WS, probe_count, interior_texels, _DDGIProbeIrradianceDimensions) *
+           _DDGIDiffuseIntensity;
+}
+
+float4 SampleDebugViewDDGIGather(float2 uv, bool coverage_only)
+{
+    float scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, uv).r;
+    if (!DebugViewIsValidSurfaceDepth(scene_depth))
+    {
+        return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
+    EncodedGBuffer gbuffer;
+    gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, uv);
+    gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, uv);
+    gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, uv);
+    gbuffer.scene_depth = scene_depth;
+    gbuffer.uv          = uv;
+
+    GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
+    if (gbuffer_data.shading_model_id != 1)
+    {
+        return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
+    float3 position_WS = ComputeWorldSpacePositionFromFullScreenUV(uv, scene_depth);
+    float coverage     = DebugViewEvaluateDDGICoverage(position_WS);
+    if (coverage_only)
+    {
+        return float4(coverage.xxx, 1.0f);
+    }
+
+    float3 irradiance = DebugViewEvaluateDDGIIrradiance(position_WS, gbuffer_data.normal_WS) * coverage;
+    return float4(ApplyPreExposure(irradiance), 1.0f);
+}
+
 float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 {
     if (_DebugViewIssue != 0)
@@ -343,6 +395,12 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 
     case 15:
         return SampleDebugViewDDGIProbeData(input.uv);
+
+    case 16:
+        return SampleDebugViewDDGIGather(input.uv, false);
+
+    case 17:
+        return SampleDebugViewDDGIGather(input.uv, true);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

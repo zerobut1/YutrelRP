@@ -67,41 +67,42 @@ uint2 DDGIAtlasWrappedInteriorTexel(uint2 local_texel, uint interior_texels)
     bool right                = local_texel.x >= tile_texel_size - 1u;
     bool bottom               = local_texel.y == 0u;
     bool top                  = local_texel.y >= tile_texel_size - 1u;
+    uint2 result              = min(local_texel - 1u, uint2(last_interior_texel, last_interior_texel));
 
     if (left && bottom)
     {
-        return uint2(last_interior_texel, last_interior_texel);
+        result = uint2(last_interior_texel, last_interior_texel);
     }
-    if (right && bottom)
+    else if (right && bottom)
     {
-        return uint2(0u, last_interior_texel);
+        result = uint2(0u, last_interior_texel);
     }
-    if (left && top)
+    else if (left && top)
     {
-        return uint2(last_interior_texel, 0u);
+        result = uint2(last_interior_texel, 0u);
     }
-    if (right && top)
+    else if (right && top)
     {
-        return uint2(0u, 0u);
+        result = uint2(0u, 0u);
     }
-    if (left)
+    else if (left)
     {
-        return uint2(last_interior_texel, min(interior_texel_count - local_texel.y, last_interior_texel));
+        result = uint2(last_interior_texel, min(interior_texel_count - local_texel.y, last_interior_texel));
     }
-    if (right)
+    else if (right)
     {
-        return uint2(0u, min(interior_texel_count - local_texel.y, last_interior_texel));
+        result = uint2(0u, min(interior_texel_count - local_texel.y, last_interior_texel));
     }
-    if (bottom)
+    else if (bottom)
     {
-        return uint2(min(interior_texel_count - local_texel.x, last_interior_texel), last_interior_texel);
+        result = uint2(min(interior_texel_count - local_texel.x, last_interior_texel), last_interior_texel);
     }
-    if (top)
+    else if (top)
     {
-        return uint2(min(interior_texel_count - local_texel.x, last_interior_texel), 0u);
+        result = uint2(min(interior_texel_count - local_texel.x, last_interior_texel), 0u);
     }
 
-    return min(local_texel - 1u, uint2(last_interior_texel, last_interior_texel));
+    return result;
 }
 
 float2 DDGIAtlasInteriorUV(uint2 local_texel, uint interior_texels)
@@ -165,9 +166,10 @@ float3 DDGIBuildProbeRayDirection(uint ray_index, uint ray_count)
 
 float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume_max_WS, float fade_distance)
 {
-    float3 distance_to_min = position_WS - volume_min_WS;
-    float3 distance_to_max = volume_max_WS - position_WS;
-    float min_distance     = min(min(distance_to_min.x, distance_to_min.y), min(distance_to_min.z, min(min(distance_to_max.x, distance_to_max.y), distance_to_max.z)));
+    float3 distance_to_min  = position_WS - volume_min_WS;
+    float3 distance_to_max  = volume_max_WS - position_WS;
+    float3 distance_to_edge = min(distance_to_min, distance_to_max);
+    float min_distance      = min(distance_to_edge.x, min(distance_to_edge.y, distance_to_edge.z));
 
     if (min_distance <= 0.0f)
     {
@@ -177,19 +179,21 @@ float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume
     return smoothstep(0.0f, max(fade_distance, 0.001f), min_distance);
 }
 
+#ifndef YUTREL_DDGI_NO_GATHER_SAMPLING
+
 float2 DDGIProbeAtlasUV(uint3 probe_coord, float3 sample_direction, uint interior_texels, float2 atlas_dimensions)
 {
     float2 encoded_direction = DDGIOctahedralEncode(sample_direction);
     float2 tile_base         = float2(DDGIProbeAtlasInteriorBaseTexel(probe_coord, interior_texels));
-    float2 atlas_texel       = tile_base + encoded_direction * max(float(interior_texels), 1.0f);
-    return (atlas_texel + 0.5f) / max(atlas_dimensions, 1.0f.xx);
+    float2 atlas_texel       = tile_base + encoded_direction * max(float(interior_texels) - 1.0f, 0.0f);
+    return (atlas_texel + 0.5f) / max(atlas_dimensions, float2(1.0f, 1.0f));
 }
 
 float3 DDGISampleProbeIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
                                  float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
 {
     float2 uv = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
-    return SAMPLE_TEXTURE2D_ARRAY_LOD(atlas, atlas_sampler, uv, probe_coord.y, 0.0f).rgb;
+    return atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
 }
 
 float3 DDGISampleTrilinearIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, float3 grid_coord,
@@ -197,7 +201,7 @@ float3 DDGISampleTrilinearIrradiance(Texture2DArray atlas, SamplerState atlas_sa
                                      float4 atlas_dimensions)
 {
     float3 max_probe_coord = max(float3(probe_count) - 1.0f, 0.0f.xxx);
-    float3 clamped_coord   = clamp(grid_coord, 0.0f.xxx, max_probe_coord);
+    float3 clamped_coord   = clamp(grid_coord, float3(0.0f, 0.0f, 0.0f), max_probe_coord);
     uint3 base_coord       = uint3(floor(clamped_coord));
     uint3 next_coord       = min(base_coord + 1u, probe_count - 1u);
     float3 weight          = saturate(clamped_coord - float3(base_coord));
@@ -219,5 +223,7 @@ float3 DDGISampleTrilinearIrradiance(Texture2DArray atlas, SamplerState atlas_sa
     float3 c1  = lerp(c01, c11, weight.y);
     return lerp(c0, c1, weight.z);
 }
+
+#endif
 
 #endif

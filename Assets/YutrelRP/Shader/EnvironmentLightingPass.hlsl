@@ -72,8 +72,7 @@ float3 EvaluateDDGIIrradiance(float3 position_WS, float3 normal_WS)
     uint3 probe_count    = GetDDGIProbeCount();
     uint interior_texels = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
     float3 grid_coord    = (position_WS - _DDGIVolumeMinWS) / max(_DDGIProbeSpacingWS, 0.001f.xxx);
-    return DDGISampleTrilinearIrradiance(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, grid_coord, normal_WS,
-                                         probe_count, interior_texels, _DDGIProbeIrradianceDimensions) *
+    return DDGISampleTrilinearIrradiance(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, grid_coord, normal_WS, probe_count, interior_texels, _DDGIProbeIrradianceDimensions) *
            _DDGIDiffuseIntensity;
 }
 
@@ -139,9 +138,13 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     float3 environment_diffuse = EvaluateEnvironmentDiffuse(surface.normal_WS) * diffuse_scale * _EnvironmentIntensity *
                                  _EnvironmentDiffuseMultiplier;
     float ddgi_coverage        = EvaluateDDGICoverage(surface.position_WS);
-    float3 ddgi_diffuse        = EvaluateDDGIIrradiance(surface.position_WS, surface.normal_WS) * diffuse_scale;
-    float3 diffuse_IBL         = lerp(environment_diffuse, ddgi_diffuse, ddgi_coverage);
-    float3 specular_IBL        = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
+    float3 diffuse_IBL         = environment_diffuse;
+    if (ddgi_coverage > 0.0f)
+    {
+        float3 ddgi_diffuse = EvaluateDDGIIrradiance(surface.position_WS, surface.normal_WS) * diffuse_scale;
+        diffuse_IBL         = lerp(environment_diffuse, ddgi_diffuse, ddgi_coverage);
+    }
+    float3 specular_IBL = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
 
     return float4(ApplyPreExposure(diffuse_IBL + specular_IBL), 0.0f);
 }

@@ -82,7 +82,7 @@ namespace YutrelRP
                                    ddgi_resources.probe_irradiance_interior_texels > 0;
             pass.ddgi_probe_irradiance = pass.has_DDGI_gather
                 ? ddgi_resources.probe_irradiance
-                : graph.defaultResources.whiteTexture;
+                : TextureHandle.nullHandle;
             pass.ddgi_probe_irradiance_dimensions = pass.has_DDGI_gather
                 ? ddgi_resources.ProbeIrradianceDimensions
                 : Vector4.zero;
@@ -100,7 +100,10 @@ namespace YutrelRP
             builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.DFG_LUT);
             builder.UseTexture(pass.environment_reflection_cube);
-            builder.UseTexture(pass.ddgi_probe_irradiance);
+            if (pass.has_DDGI_gather)
+            {
+                builder.UseTexture(pass.ddgi_probe_irradiance);
+            }
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
             builder.SetRenderFunc<EnvironmentLightingPass>(static (pass, context) => pass.Render(context));
@@ -164,7 +167,10 @@ namespace YutrelRP
             property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
             property_block.SetTexture(dfg_lut_ID, DFG_LUT);
             property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
-            property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
+            if (has_DDGI_gather)
+            {
+                property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
+            }
             property_block.SetVector(environment_reflection_cube_hdr_ID, environment_reflection_cube_hdr);
             property_block.SetFloat(environment_intensity_ID, environment_intensity);
             property_block.SetFloat(environment_diffuse_multiplier_ID, environment_diffuse_multiplier);

@@ -1,6 +1,7 @@
 #pragma kernel BlendIrradiance
 #pragma kernel BlendDistance
 
+#define YUTREL_DDGI_NO_GATHER_SAMPLING
 #include "Assets/YutrelRP/Shader/Utils/DDGI.hlsl"
 
 Texture2DArray<float4> _DDGIProbeRayData;
@@ -33,20 +34,13 @@ bool DDGIProbeBlendAtlasTexel(uint3 dispatch_id, float4 dimensions, out uint3 pr
     local_texel     = uint2(0u, 0u);
     interior_texels = max(tile_texel_size - 2u, 1u);
 
-    if (dispatch_id.x >= width || dispatch_id.y >= height || dispatch_id.z >= slice_count)
-    {
-        return false;
-    }
-
     uint3 probe_count = DDGIProbeBlendProbeCount();
     probe_coord       = uint3(dispatch_id.x / tile_texel_size, dispatch_id.z, dispatch_id.y / tile_texel_size);
-    if (probe_coord.x >= probe_count.x || probe_coord.y >= probe_count.y || probe_coord.z >= probe_count.z)
-    {
-        return false;
-    }
+    bool valid         = dispatch_id.x < width && dispatch_id.y < height && dispatch_id.z < slice_count &&
+                         probe_coord.x < probe_count.x && probe_coord.y < probe_count.y && probe_coord.z < probe_count.z;
 
-    local_texel = uint2(dispatch_id.x, dispatch_id.y) - DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels);
-    return local_texel.x < tile_texel_size && local_texel.y < tile_texel_size;
+    local_texel = valid ? uint2(dispatch_id.x, dispatch_id.y) - DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels) : uint2(0u, 0u);
+    return valid && local_texel.x < tile_texel_size && local_texel.y < tile_texel_size;
 }
 
 float4 DDGIProbeBlendHistory(float4 history, float4 current_value)

@@ -28,6 +28,12 @@ namespace YutrelRP
         private static readonly int ddgi_probe_data_ID = DDGIResources.probe_data_ID;
         private static readonly int ddgi_probe_data_dimensions_ID = DDGIResources.probe_data_dimensions_ID;
         private static readonly int ddgi_probe_data_debug_slice_ID = DDGIResources.probe_data_debug_slice_ID;
+        private static readonly int ddgi_volume_min_ws_ID = DDGIResources.volume_min_ws_ID;
+        private static readonly int ddgi_volume_max_ws_ID = DDGIResources.volume_max_ws_ID;
+        private static readonly int ddgi_probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
+        private static readonly int ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
+        private static readonly int ddgi_gather_fade_distance_ID = DDGIResources.gather_fade_distance_ID;
+        private static readonly int ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
         private static readonly int directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
         private static readonly int directional_shadow_distance_fade_ID = ShadowResources.directional_distance_fade_ID;
         private static MaterialPropertyBlock property_block;
@@ -72,6 +78,9 @@ namespace YutrelRP
             pass.reads_DDGI_probe_irradiance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceAtlas;
             pass.reads_DDGI_probe_distance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceAtlas;
             pass.reads_DDGI_probe_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeData;
+            pass.reads_DDGI_gather = pass.issue == Issue.None &&
+                                     (mode == YutrelRPSettings.DebugViewMode.DDGIDiffuseOnly ||
+                                      mode == YutrelRPSettings.DebugViewMode.DDGICoverage);
 
             if (pass.reads_GBuffer)
             {
@@ -163,6 +172,28 @@ namespace YutrelRP
                     0,
                     Mathf.Max(0, ddgi_resources.probe_count.y - 1));
                 builder.UseTexture(pass.ddgi_probe_data);
+            }
+
+            if (pass.reads_DDGI_gather)
+            {
+                pass.GBuffer_A = textures.GBuffer_A;
+                pass.GBuffer_B = textures.GBuffer_B;
+                pass.GBuffer_C = textures.GBuffer_C;
+                pass.scene_depth = textures.scene_depth;
+                pass.ddgi_probe_irradiance = ddgi_resources.probe_irradiance;
+                pass.ddgi_probe_count = ddgi_resources.probe_count;
+                pass.ddgi_probe_irradiance_dimensions = ddgi_resources.ProbeIrradianceDimensions;
+                pass.ddgi_volume_min_ws = ddgi_resources.volume_min_ws;
+                pass.ddgi_volume_max_ws = ddgi_resources.volume_max_ws;
+                pass.ddgi_probe_spacing_ws = ddgi_resources.probe_spacing_ws;
+                pass.ddgi_gather_fade_distance = ddgi_resources.gather_fade_distance;
+                pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
+
+                builder.UseTexture(pass.GBuffer_A);
+                builder.UseTexture(pass.GBuffer_B);
+                builder.UseTexture(pass.GBuffer_C);
+                builder.UseTexture(pass.scene_depth);
+                builder.UseTexture(pass.ddgi_probe_irradiance);
             }
 
             builder.SetRenderAttachment(debug_color, 0);
@@ -268,6 +299,20 @@ namespace YutrelRP
                     }
 
                     break;
+                case YutrelRPSettings.DebugViewMode.DDGIDiffuseOnly:
+                case YutrelRPSettings.DebugViewMode.DDGICoverage:
+                    if (!textures.GBuffer_A.IsValid() || !textures.GBuffer_B.IsValid() ||
+                        !textures.GBuffer_C.IsValid() || !textures.scene_depth.IsValid())
+                    {
+                        issue = Issue.MissingGBuffer;
+                    }
+                    else if (ddgi_resources == null || !ddgi_resources.has_gather_data ||
+                             !ddgi_resources.probe_irradiance.IsValid())
+                    {
+                        issue = Issue.MissingDDGIProbeIrradiance;
+                    }
+
+                    break;
                 default:
                     issue = Issue.UnsupportedMode;
                     break;
@@ -337,6 +382,7 @@ namespace YutrelRP
         private bool reads_DDGI_probe_irradiance;
         private bool reads_DDGI_probe_distance;
         private bool reads_DDGI_probe_data;
+        private bool reads_DDGI_gather;
         private int directional_shadow_cascade_count;
         private Vector4 directional_shadow_distance_fade;
         private Vector4 ddgi_probe_ray_data_dimensions;
@@ -349,6 +395,11 @@ namespace YutrelRP
         private int ddgi_probe_irradiance_debug_slice;
         private int ddgi_probe_distance_debug_slice;
         private int ddgi_probe_data_debug_slice;
+        private Vector3 ddgi_volume_min_ws;
+        private Vector3 ddgi_volume_max_ws;
+        private Vector3 ddgi_probe_spacing_ws;
+        private float ddgi_gather_fade_distance;
+        private float ddgi_diffuse_intensity;
 
         private void Render(RasterGraphContext context)
         {
@@ -367,6 +418,12 @@ namespace YutrelRP
             property_block.SetInteger(ddgi_probe_distance_debug_slice_ID, ddgi_probe_distance_debug_slice);
             property_block.SetVector(ddgi_probe_data_dimensions_ID, ddgi_probe_data_dimensions);
             property_block.SetInteger(ddgi_probe_data_debug_slice_ID, ddgi_probe_data_debug_slice);
+            property_block.SetVector(ddgi_volume_min_ws_ID, ddgi_volume_min_ws);
+            property_block.SetVector(ddgi_volume_max_ws_ID, ddgi_volume_max_ws);
+            property_block.SetVector(ddgi_probe_spacing_ws_ID, ddgi_probe_spacing_ws);
+            property_block.SetFloat(ddgi_gather_valid_ID, reads_DDGI_gather ? 1.0f : 0.0f);
+            property_block.SetFloat(ddgi_gather_fade_distance_ID, ddgi_gather_fade_distance);
+            property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
             property_block.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);
             property_block.SetVector(directional_shadow_distance_fade_ID, directional_shadow_distance_fade);
 
@@ -417,6 +474,15 @@ namespace YutrelRP
             if (reads_DDGI_probe_data)
             {
                 property_block.SetTexture(ddgi_probe_data_ID, ddgi_probe_data);
+            }
+
+            if (reads_DDGI_gather)
+            {
+                property_block.SetTexture(RenderTargets.GBuffer_A_ID, GBuffer_A);
+                property_block.SetTexture(RenderTargets.GBuffer_B_ID, GBuffer_B);
+                property_block.SetTexture(RenderTargets.GBuffer_C_ID, GBuffer_C);
+                property_block.SetTexture(RenderTargets.scene_depth_ID, scene_depth);
+                property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
             }
 
             CoreUtils.DrawFullScreen(cmd, material, property_block);
