@@ -30,7 +30,7 @@ probeY        = slice
 
 ## Irradiance 语义
 
-`ProbeIrradiance` 当前存储的是 debug/first-version radiance accumulation，不是最终直接光照辐照度。
+`ProbeIrradiance` 当前存储的是 first-version direct diffuse radiance accumulation，不是包含 visibility、material albedo、shadow 或 multi-bounce 的最终 DDGI 质量实现。
 
 每个 atlas texel 先通过 `DDGIAtlasInteriorUV` 和 `DDGIOctahedralDecode` 得到 octahedral 方向，然后遍历当前 probe 的全部 ray：
 
@@ -38,19 +38,19 @@ probeY        = slice
 weight = pow(saturate(dot(atlasDirection, rayDirection)), 24) + 0.0001
 ```
 
-ray contribution 来自 `ProbeRayData` 的 hit/miss/debug 编码：
+ray contribution 直接来自 `ProbeRayData.rgb`：
 
 ```text
-miss           -> 稳定的暗蓝 debug radiance
-front-face hit -> 由 ray direction 与 depth cue 混合出的绿色/方向色 debug radiance
-back-face hit  -> 品红 debug radiance，表示需要后续质量阶段处理的背面命中
+miss           -> black radiance
+front-face hit -> no-shadow directional direct diffuse radiance
+back-face hit  -> black radiance, state 保留在 ProbeRayData.a
 ```
 
-因此 irradiance atlas 能显示 per-probe、per-direction、hit/miss 相关的稳定低频分布，但后续 gather 不能把它视为物理正确的 PBR direct lighting radiance。
+因此 irradiance atlas 能随当前帧方向光颜色、强度和方向变化；关闭方向光后会向黑色收敛。后续 gather 可以把它作为真实 direct radiance 数据流基线，但仍不能把它视为最终物理完整的 DDGI 结果。
 
 ## Distance 语义
 
-`ProbeDistance` 当前存储归一化 distance moments 与 hit ratio：
+`ProbeDistance` 当前从 `ProbeRayData.a` 解析 signed distance/state，并存储归一化 distance moments 与 hit ratio：
 
 ```text
 R = weighted mean(distance / probeMaxRayDistance)

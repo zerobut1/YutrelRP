@@ -1,7 +1,8 @@
 #ifndef YUTREL_DDGI_INCLUDED
 #define YUTREL_DDGI_INCLUDED
 
-static const float YUTREL_DDGI_GOLDEN_ANGLE = 2.39996322972865332f;
+static const float YUTREL_DDGI_GOLDEN_ANGLE                   = 2.39996322972865332f;
+static const float YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET = 1.0f;
 
 struct DDGIAtlasTexel
 {
@@ -129,6 +130,46 @@ float3 DDGISafeNormalize(float3 value, float3 fallback)
 {
     float length_sq = dot(value, value);
     return length_sq > 1.0e-10f ? value * rsqrt(length_sq) : fallback;
+}
+
+float DDGIProbeRayDataEncodeMiss(float max_distance)
+{
+    return -(max(max_distance, 0.001f) + YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET);
+}
+
+float DDGIProbeRayDataEncodeFrontface(float distance)
+{
+    return max(distance, 0.0f);
+}
+
+float DDGIProbeRayDataEncodeBackface(float distance)
+{
+    return -max(distance, 0.0f);
+}
+
+float DDGIProbeRayDataMissThreshold(float max_distance)
+{
+    return -(max(max_distance, 0.001f) + YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET * 0.5f);
+}
+
+bool DDGIProbeRayDataIsMiss(float signed_distance, float max_distance)
+{
+    return signed_distance <= DDGIProbeRayDataMissThreshold(max_distance);
+}
+
+bool DDGIProbeRayDataIsBackface(float signed_distance, float max_distance)
+{
+    return signed_distance < 0.0f && !DDGIProbeRayDataIsMiss(signed_distance, max_distance);
+}
+
+bool DDGIProbeRayDataIsFrontface(float signed_distance)
+{
+    return signed_distance > 0.0f;
+}
+
+float DDGIProbeRayDataDistance(float signed_distance, float max_distance)
+{
+    return DDGIProbeRayDataIsMiss(signed_distance, max_distance) ? max(max_distance, 0.001f) : abs(signed_distance);
 }
 
 float2 DDGIOctahedralWrap(float2 value)

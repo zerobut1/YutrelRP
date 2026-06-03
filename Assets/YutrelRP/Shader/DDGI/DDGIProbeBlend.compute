@@ -60,35 +60,14 @@ float DDGIProbeBlendDirectionWeight(float3 atlas_direction, float3 ray_direction
     return pow(cosine, 24.0f) + 0.0001f;
 }
 
-float3 DDGIProbeBlendDebugRadiance(float4 ray_data, float3 ray_direction)
-{
-    float hit_kind       = ray_data.x;
-    float max_distance   = max(_DDGIProbeRayDataMaxDistance, 0.001f);
-    float distance01     = saturate(abs(ray_data.y) / max_distance);
-    float depth_cue      = saturate(1.0f - distance01);
-    float3 ray_color     = ray_direction * 0.5f + 0.5f;
-    float3 miss_color    = lerp(float3(0.02f, 0.05f, 0.18f), ray_color * 0.35f, 0.45f);
-    float3 front_color   = lerp(float3(0.08f, 0.42f, 0.06f), ray_color, 0.55f) * (0.25f + depth_cue * 0.75f);
-    float3 back_color    = lerp(float3(0.95f, 0.12f, 0.85f), ray_color, 0.25f) * (0.2f + depth_cue * 0.45f);
-
-    if (hit_kind < 0.5f)
-    {
-        return saturate(miss_color);
-    }
-    if (hit_kind > 1.5f)
-    {
-        return saturate(back_color);
-    }
-    return saturate(front_color);
-}
-
 float3 DDGIProbeBlendDistanceMoments(float4 ray_data)
 {
-    float hit_kind     = ray_data.x;
-    float max_distance = max(_DDGIProbeRayDataMaxDistance, 0.001f);
-    bool hit           = hit_kind >= 0.5f;
-    float distance01   = hit ? saturate(abs(ray_data.y) / max_distance) : 1.0f;
-    float hit_weight   = hit_kind > 1.5f ? 0.5f : (hit ? 1.0f : 0.0f);
+    float max_distance    = max(_DDGIProbeRayDataMaxDistance, 0.001f);
+    float signed_distance = ray_data.a;
+    bool miss             = DDGIProbeRayDataIsMiss(signed_distance, max_distance);
+    bool backface         = DDGIProbeRayDataIsBackface(signed_distance, max_distance);
+    float distance01      = saturate(DDGIProbeRayDataDistance(signed_distance, max_distance) / max_distance);
+    float hit_weight      = miss ? 0.0f : (backface ? 0.5f : 1.0f);
     return float3(distance01, distance01 * distance01, hit_weight);
 }
 
@@ -107,7 +86,7 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
         float3 ray_direction = DDGIBuildProbeRayDirection(ray_index, rays_per_probe);
         float weight         = DDGIProbeBlendDirectionWeight(direction, ray_direction);
         float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
-        sum += DDGIProbeBlendDebugRadiance(ray_data, ray_direction) * weight;
+        sum += max(ray_data.rgb, 0.0f) * weight;
         weight_sum += weight;
     }
 

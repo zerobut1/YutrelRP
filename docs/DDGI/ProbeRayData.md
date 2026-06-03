@@ -1,6 +1,6 @@
 # DDGI ProbeRayData 贴图说明
 
-`DDGI ProbeRayData` 是 DDGI Probe Trace 阶段生成的调试贴图，用来保存每个 probe 发出的每条 ray 的原始命中结果。它目前不是最终的 GI 辐照度贴图，也不是最终参与光照采样的缓存，而是用于验证 probe trace 是否正确命中场景几何。
+`DDGI ProbeRayData` 是 DDGI Probe Trace 阶段生成的逐 ray 数据贴图，用来保存每个 probe 发出的每条 ray 的 direct radiance 与命中状态。它是 `ProbeIrradiance` blending 的输入，同时仍可用于验证 probe trace 是否正确命中场景几何。
 
 ## 贴图尺寸
 
@@ -68,52 +68,36 @@ row 3 = probe (x=1, y=slice, z=1)
 
 ## RGBA 编码
 
-每个像素保存一条 ray 的命中结果：
+每个像素保存一条 ray 的 radiance 与 signed distance/state：
 
 ```text
-R = hitKind
-G = ray distance
-B = normalized distance cue
-A = 1
+RGB = radiance
+A   = signed distance / state
 ```
 
-### R 通道
+### RGB 通道
 
-`R` 表示命中类型：
+`RGB` 表示该 ray 在命中 front-face 几何时计算出的无阴影方向光 direct diffuse radiance。第一版使用：
 
 ```text
-0 = miss
-1 = front-face hit
-2 = back-face hit
+geometry normal
+default diffuse color
+current-frame first directional light color / intensity / direction
 ```
 
-在 RenderDoc 中建议单独查看 R 通道，并把显示范围设为 `0..2`。
+不读取材质 albedo，不做方向光阴影。miss、back-face hit、无方向光时写黑色 radiance。
 
-### G 通道
+### A 通道
 
-`G` 表示命中距离：
+`A` 表示 signed distance/state：
 
 ```text
 front-face hit: +distance
 back-face hit : -distance
-miss          : -1
+miss          : -(probeMaxRayDistance + 1)
 ```
 
-在 RenderDoc 中查看 G 通道时，建议把范围设为 `0..probeMaxRayDistance`。如果看 RGBA 合成图，距离值经常会超过 `0..1`，因此容易被夹成白色。
-
-### B 通道
-
-`B` 是距离的归一化提示值：
-
-```text
-B = saturate(1 - distance / probeMaxRayDistance)
-```
-
-越近越亮，越远越暗。miss 时为 `0`。
-
-### A 通道
-
-`A` 固定为 `1`，目前没有额外含义。
+因此 `A > 0` 为 front-face hit，`A < 0` 且大于 miss sentinel 阈值为 back-face hit，低于 miss sentinel 阈值为 miss。后续 visibility、relocation、classification 可以继续复用这个状态区分。
 
 ## RenderDoc 查看建议
 
@@ -130,10 +114,10 @@ size      = raysPerProbe x (probeCount.x * probeCount.z) x probeCount.y
 
 查看时建议：
 
-1. 先看 R 通道，确认 miss/front-face/back-face 分布。
-2. 再看 G 通道，确认命中距离是否符合 probe 到几何体的距离。
-3. 再看 B 通道，确认近处更亮、远处更暗。
-4. 最后才看 RGBA 合成图。合成图只适合快速感知分布，不适合判断精确数据。
+1. 先看 RGB 或 DDGI ProbeRayData debug view，确认 radiance 是否随方向光颜色、强度、方向变化。
+2. 再看 A 通道，确认 miss/front-face/back-face 分布。
+3. 在 RenderDoc 中查看 A 通道时，建议显示范围覆盖 `-probeMaxRayDistance..probeMaxRayDistance`，并记住 miss 会落在 `-(probeMaxRayDistance + 1)`。
+4. 最后才看 RGBA 合成图。合成图可能受 HDR 数值和显示范围影响，不适合判断精确数据。
 
 ## 基础验证方式
 
@@ -147,8 +131,8 @@ size      = raysPerProbe x (probeCount.x * probeCount.z) x probeCount.y
 预期结果：
 
 ```text
-朝向地板的 ray 应该命中，R 为 1 或 2，G 为到地板的距离。
-朝向天空的 ray 应该 miss，R 为 0。
+朝向地板的 ray 应该命中，A 为正距离或负距离。
+朝向天空的 ray 应该 miss，A 约为 `-(probeMaxRayDistance + 1)`。
 关闭地板 Contribute GI 后，相关命中应该消失。
 ```
 

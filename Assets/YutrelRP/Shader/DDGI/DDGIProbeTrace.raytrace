@@ -1,5 +1,6 @@
 #pragma max_recursion_depth 1
 
+#include "UnityRayTracingMeshUtils.cginc"
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
@@ -10,12 +11,35 @@ float3 _DDGIProbeSpacingWS;
 float4 _DDGIProbeCount;
 int _DDGIProbeRaysPerProbe;
 float _DDGIProbeMaxRayDistance;
+float4 _DDGIDirectionalLightColorIlluminance;
+float4 _DDGIDirectionalLightDirectionWS;
 
 struct DDGIProbeTracePayload
 {
     uint hitKind;
     float rayT;
+    float3 normalWS;
 };
+
+float3 DDGITraceGeometricNormalWS()
+{
+    uint3 triangle_indices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
+    float3 p0              = UnityRayTracingFetchVertexAttribute3(triangle_indices.x, kVertexAttributePosition);
+    float3 p1              = UnityRayTracingFetchVertexAttribute3(triangle_indices.y, kVertexAttributePosition);
+    float3 p2              = UnityRayTracingFetchVertexAttribute3(triangle_indices.z, kVertexAttributePosition);
+    return DDGISafeNormalize(mul(cross(p1 - p0, p2 - p0), (float3x3)WorldToObject3x4()), -WorldRayDirection());
+}
+
+float3 DDGITraceDirectDiffuseRadiance(float3 normalWS)
+{
+    float has_directional_light = _DDGIDirectionalLightDirectionWS.w;
+    float3 light_direction      = DDGISafeNormalize(_DDGIDirectionalLightDirectionWS.xyz, float3(0.0, 1.0, 0.0));
+    float no_l                  = saturate(dot(DDGISafeNormalize(normalWS, float3(0.0, 1.0, 0.0)), light_direction));
+    float illuminance           = max(_DDGIDirectionalLightColorIlluminance.w, 0.0);
+    float3 light_radiance       = max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0) * illuminance;
+    float3 default_diffuse      = float3(0.8, 0.8, 0.8);
+    return default_diffuse * 0.31830988618379067 * light_radiance * no_l * has_directional_light;
+}
 
 [shader("miss")]
 void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
@@ -29,6 +53,7 @@ void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTria
 {
     payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
     payload.rayT = RayTCurrent();
+    payload.normalWS = DDGITraceGeometricNormalWS();
 }
 
 [shader("raygeneration")]
@@ -53,6 +78,7 @@ void RayGenDDGIProbeTrace()
     DDGIProbeTracePayload payload;
     payload.hitKind = 0;
     payload.rayT = -1.0;
+    payload.normalWS = float3(0.0, 1.0, 0.0);
 
     TraceRay(_RaytracingAccelerationStructure,
              RAY_FLAG_NONE,
@@ -63,14 +89,15 @@ void RayGenDDGIProbeTrace()
              ray,
              payload);
 
-    float4 encoded = float4(0.0, -1.0, 0.0, 1.0);
+    float4 encoded = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeMiss(_DDGIProbeMaxRayDistance));
     if (payload.hitKind == 1)
     {
-        encoded = float4(1.0, payload.rayT, saturate(1.0 - payload.rayT / _DDGIProbeMaxRayDistance), 1.0);
+        float3 radiance = DDGITraceDirectDiffuseRadiance(payload.normalWS);
+        encoded = float4(radiance, DDGIProbeRayDataEncodeFrontface(payload.rayT));
     }
     else if (payload.hitKind == 2)
     {
-        encoded = float4(2.0, -payload.rayT, saturate(1.0 - payload.rayT / _DDGIProbeMaxRayDistance), 1.0);
+        encoded = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeBackface(payload.rayT));
     }
 
     _DDGIProbeRayData[DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount)] = encoded;

@@ -21,6 +21,8 @@ namespace YutrelRP
         private static readonly int probeCountID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int raysPerProbeID = Shader.PropertyToID("_DDGIProbeRaysPerProbe");
         private static readonly int probeMaxRayDistanceID = Shader.PropertyToID("_DDGIProbeMaxRayDistance");
+        private static readonly int directionalLightColorIlluminanceID = Shader.PropertyToID("_DDGIDirectionalLightColorIlluminance");
+        private static readonly int directionalLightDirectionWSID = Shader.PropertyToID("_DDGIDirectionalLightDirectionWS");
 
         private static RayTracingShader shader;
         private static RayTracingAccelerationStructure accelerationStructure;
@@ -32,7 +34,7 @@ namespace YutrelRP
         private static string lastStatusKey;
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings.DDGISettings settings,
-            ref DDGIResources resources)
+            LightResources lightResources, ref DDGIResources resources)
         {
             resources.Reset();
 
@@ -123,6 +125,7 @@ namespace YutrelRP
                 pass.raysPerProbe = raysPerProbe;
                 pass.planeProbeCount = planeProbeCount;
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
+                pass.SetDirectionalLight(lightResources);
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.AllowPassCulling(false);
@@ -142,6 +145,8 @@ namespace YutrelRP
         private int raysPerProbe;
         private int planeProbeCount;
         private float probeMaxRayDistance;
+        private Vector4 directionalLightColorIlluminance;
+        private Vector4 directionalLightDirectionWS;
 
         private void Render(ComputeGraphContext context)
         {
@@ -156,8 +161,26 @@ namespace YutrelRP
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeMaxRayDistanceID, probeMaxRayDistance);
+            cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightColorIlluminanceID,
+                directionalLightColorIlluminance);
+            cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightDirectionWSID, directionalLightDirectionWS);
             cmd.DispatchRays(rayTracingShader, RayGenName, (uint)raysPerProbe, (uint)planeProbeCount,
                 (uint)probeCount.y, null);
+        }
+
+        private void SetDirectionalLight(LightResources lightResources)
+        {
+            directionalLightColorIlluminance = Vector4.zero;
+            directionalLightDirectionWS = Vector4.zero;
+            if (lightResources == null || lightResources.directional_light_count <= 0)
+            {
+                return;
+            }
+
+            var light = lightResources.directional_light_data[0];
+            directionalLightColorIlluminance = new Vector4(light.color.x, light.color.y, light.color.z,
+                Mathf.Max(0.0f, light.illuminance));
+            directionalLightDirectionWS = new Vector4(light.direction.x, light.direction.y, light.direction.z, 1.0f);
         }
 
         private static ProbeTraceIssue ValidateCapability()

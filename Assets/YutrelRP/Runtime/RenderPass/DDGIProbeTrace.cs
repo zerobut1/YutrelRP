@@ -11,7 +11,7 @@ namespace YutrelRP
         }
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings settings,
-            ref DDGIResources resources)
+            LightResources lightResources, ref DDGIResources resources)
         {
             if (!IsEnabled(settings))
             {
@@ -20,7 +20,7 @@ namespace YutrelRP
                 return;
             }
 
-            DDGIProbeTracePass.Record(renderGraph, camera, settings.ddgiSettings, ref resources);
+            DDGIProbeTracePass.Record(renderGraph, camera, settings.ddgiSettings, lightResources, ref resources);
         }
 
         internal static void Cleanup()
