@@ -6,7 +6,6 @@ namespace YutrelRP
 {
     internal sealed class DDGIProbeBlendPass
     {
-        private const string ShaderResourcePath = "Shader/DDGIProbeBlend";
         private const string IrradianceKernelName = "BlendIrradiance";
         private const string DistanceKernelName = "BlendDistance";
         private const int ThreadGroupSizeX = 8;
@@ -28,16 +27,16 @@ namespace YutrelRP
         private static int distanceKernel = -1;
         private static string lastStatusKey;
 
-        internal static void Record(RenderGraph renderGraph, YutrelDDGIVolume volume, ref DDGIResources resources,
-            bool logDiagnostics)
+        internal static void Record(RenderGraph renderGraph, YutrelDDGIVolume volume,
+            YutrelRPSettings.DDGISettings settings, ref DDGIResources resources)
         {
             var issue = Validate(resources, volume);
             if (issue == ProbeBlendIssue.None)
             {
-                issue = ValidateShaderResource();
+                issue = ValidateShaderResource(settings);
             }
 
-            LogStatus(issue, volume, logDiagnostics);
+            LogStatus(issue, volume, settings != null && settings.logDiagnostics);
             if (issue != ProbeBlendIssue.None)
             {
                 resources.has_gather_data = false;
@@ -137,28 +136,36 @@ namespace YutrelRP
             return ProbeBlendIssue.None;
         }
 
-        private static ProbeBlendIssue ValidateShaderResource()
+        private static ProbeBlendIssue ValidateShaderResource(YutrelRPSettings.DDGISettings settings)
         {
+            var configuredShader = settings?.probeBlendShader;
+            if (shader != configuredShader)
+            {
+                shader = configuredShader;
+                irradianceKernel = -1;
+                distanceKernel = -1;
+            }
+
             if (shader == null)
             {
-                shader = Resources.Load<ComputeShader>(ShaderResourcePath);
-                if (shader == null)
-                {
-                    return ProbeBlendIssue.MissingComputeShader;
-                }
+                return ProbeBlendIssue.MissingComputeShader;
+            }
 
-                try
-                {
-                    irradianceKernel = shader.FindKernel(IrradianceKernelName);
-                    distanceKernel = shader.FindKernel(DistanceKernelName);
-                }
-                catch (System.Exception)
-                {
-                    shader = null;
-                    irradianceKernel = -1;
-                    distanceKernel = -1;
-                    return ProbeBlendIssue.MissingKernel;
-                }
+            if (irradianceKernel >= 0 && distanceKernel >= 0)
+            {
+                return ProbeBlendIssue.None;
+            }
+
+            try
+            {
+                irradianceKernel = shader.FindKernel(IrradianceKernelName);
+                distanceKernel = shader.FindKernel(DistanceKernelName);
+            }
+            catch (System.Exception)
+            {
+                irradianceKernel = -1;
+                distanceKernel = -1;
+                return ProbeBlendIssue.MissingKernel;
             }
 
             return irradianceKernel >= 0 && distanceKernel >= 0 ? ProbeBlendIssue.None : ProbeBlendIssue.MissingKernel;
@@ -224,7 +231,7 @@ namespace YutrelRP
                 case ProbeBlendIssue.InvalidMetadata:
                     return "DDGI probe count, ray count, or atlas texel metadata is invalid";
                 case ProbeBlendIssue.MissingComputeShader:
-                    return "Resources/Shader/DDGIProbeBlend ComputeShader asset is missing or invalid";
+                    return "YutrelRPAsset DDGI probeBlendShader is missing or invalid";
                 case ProbeBlendIssue.MissingKernel:
                     return "DDGIProbeBlend compute shader is missing a required kernel";
                 default:

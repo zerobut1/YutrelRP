@@ -32,7 +32,7 @@ probeCount = 2 x 2 x 2
 
 `raysPerProbe` 只决定本帧 `ProbeRayData` 的 width 和调试 metadata。持久化的 `ProbeIrradiance`、`ProbeDistance`、`ProbeData` atlas 尺寸由 `probeCount` 与各自 atlas tile texel 数决定，因此 persistent atlas identity 不包含 `raysPerProbe`；单独调整 ray 数不会清空这些 atlas 历史。
 
-Shader 侧权威约定见 `docs/DDGI/ShaderFoundation.md` 与 `Assets/YutrelRP/Shader/Utils/DDGI.hlsl`。后续 DDGI pass 应复用其中的 probe index、ProbeRayData texel、atlas tile 与 octahedral helper。
+Shader 侧权威约定见 `docs/DDGI/ShaderFoundation.md` 与 `Assets/YutrelRP/Shader/DDGI/DDGI.hlsl`。后续 DDGI pass 应复用其中的 probe index、ProbeRayData texel、atlas tile 与 octahedral helper。
 
 ## Slice 含义
 

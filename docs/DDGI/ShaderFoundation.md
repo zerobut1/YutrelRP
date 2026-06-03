@@ -1,6 +1,6 @@
 # DDGI Shader Foundation 约定
 
-本文记录当前阶段 DDGI shader 侧的最小 contract。后续 probe blending、atlas 写入和 screen-space gather 应优先复用 `Assets/YutrelRP/Shader/Utils/DDGI.hlsl`，不要重新定义索引、方向或 atlas 布局。
+本文记录当前阶段 DDGI shader 侧的最小 contract。后续 probe blending、atlas 写入和 screen-space gather 应优先复用 `Assets/YutrelRP/Shader/DDGI/DDGI.hlsl`，不要重新定义索引、方向或 atlas 布局。
 
 ## Probe 坐标
 

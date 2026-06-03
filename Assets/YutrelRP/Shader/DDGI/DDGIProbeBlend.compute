@@ -2,7 +2,7 @@
 #pragma kernel BlendDistance
 
 #define YUTREL_DDGI_NO_GATHER_SAMPLING
-#include "Assets/YutrelRP/Shader/Utils/DDGI.hlsl"
+#include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
 
 Texture2DArray<float4> _DDGIProbeRayData;
 RWTexture2DArray<float4> _DDGIProbeIrradiance;

@@ -51,6 +51,8 @@ MonoBehaviour:
     ddgiSettings:
       enabled: 1
       logDiagnostics: 1
+      probeTraceShader: {fileID: 4800000, guid: 65f12d8fcb90437eb5415e6d220ecb3e, type: 3}
+      probeBlendShader: {fileID: 7200000, guid: e44a695187074910b946399458275444, type: 3}
       debugProbeRayDataSlice: 0
       debugProbeIrradianceAtlasSlice: 0
       debugProbeDistanceAtlasSlice: 0
@@ -59,4 +61,6 @@ MonoBehaviour:
     rayTracingSmokeTestSettings:
       enabled: 0
       mode: 1
+      rayGenShader: {fileID: 4800000, guid: b920493ffe156d741acc3335c2dd7bee, type: 3}
+      rtasShader: {fileID: 4800000, guid: 9f58d9f55cba41908442952ace07cc8e, type: 3}
     debugViewMode: 0

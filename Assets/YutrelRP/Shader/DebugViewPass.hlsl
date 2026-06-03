@@ -1,7 +1,7 @@
 #ifndef YUTREL_DEBUG_VIEW_PASS_INCLUDED
 #define YUTREL_DEBUG_VIEW_PASS_INCLUDED
 
-#include "Utils/DDGI.hlsl"
+#include "DDGI/DDGI.hlsl"
 #include "Utils/GBuffer.hlsl"
 #include "Utils/Shadow.hlsl"
 

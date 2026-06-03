@@ -10,7 +10,6 @@ namespace YutrelRP
 {
     internal sealed class DDGIProbeTracePass
     {
-        private const string ShaderResourcePath = "Shader/DDGIProbeTrace";
         private const string RayGenName = "RayGenDDGIProbeTrace";
         private const string ShaderPassName = "YutrelRPDDGIProbeTrace";
 
@@ -62,7 +61,7 @@ namespace YutrelRP
             var volume = issue == ProbeTraceIssue.None ? ResolveActiveVolume(out issue) : null;
             if (issue == ProbeTraceIssue.None)
             {
-                issue = ValidateShaderResource();
+                issue = ValidateShaderResource(settings);
             }
 
             if (issue == ProbeTraceIssue.None)
@@ -131,7 +130,7 @@ namespace YutrelRP
                 builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
             }
 
-            DDGIProbeBlendPass.Record(renderGraph, volume, ref resources, settings.logDiagnostics);
+            DDGIProbeBlendPass.Record(renderGraph, volume, settings, ref resources);
         }
 
         private TextureHandle probeRayData;
@@ -209,13 +208,9 @@ namespace YutrelRP
             return selected;
         }
 
-        private static ProbeTraceIssue ValidateShaderResource()
+        private static ProbeTraceIssue ValidateShaderResource(YutrelRPSettings.DDGISettings settings)
         {
-            if (shader == null)
-            {
-                shader = Resources.Load<RayTracingShader>(ShaderResourcePath);
-            }
-
+            shader = settings?.probeTraceShader;
             return shader == null ? ProbeTraceIssue.MissingRayTracingShader : ProbeTraceIssue.None;
         }
 
@@ -550,7 +545,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.InvalidVolume:
                     return "active DDGI Volume has invalid bounds, probe counts, ray count, or ray distance";
                 case ProbeTraceIssue.MissingRayTracingShader:
-                    return "Resources/Shader/DDGIProbeTrace RayTracingShader asset is missing or invalid";
+                    return "YutrelRPAsset DDGI probeTraceShader is missing or invalid";
                 case ProbeTraceIssue.NoContributors:
                     return "no enabled opaque MeshRenderer with Unity Contribute GI was found";
                 case ProbeTraceIssue.EmptyAccelerationStructure:

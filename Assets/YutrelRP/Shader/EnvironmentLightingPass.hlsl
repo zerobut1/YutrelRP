@@ -1,8 +1,8 @@
 #ifndef YUTREL_ENVIRONMENT_LIGHTING_PASS_INCLUDED
 #define YUTREL_ENVIRONMENT_LIGHTING_PASS_INCLUDED
 
+#include "DDGI/DDGI.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
-#include "Utils/DDGI.hlsl"
 #include "Utils/ShadingModelStandard.hlsl"
 
 TEXTURECUBE(_EnvironmentReflectionCube);

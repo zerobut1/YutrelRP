@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace YutrelRP
 {
@@ -18,6 +19,8 @@ namespace YutrelRP
         {
             public bool enabled = false;
             public bool logDiagnostics = true;
+            public RayTracingShader probeTraceShader;
+            public ComputeShader probeBlendShader;
             [Min(0)] public int debugProbeRayDataSlice = 0;
             [Min(0)] public int debugProbeIrradianceAtlasSlice = 0;
             [Min(0)] public int debugProbeDistanceAtlasSlice = 0;
@@ -32,6 +35,8 @@ namespace YutrelRP
         {
             public bool enabled = false;
             public RayTracingSmokeTestMode mode = RayTracingSmokeTestMode.RayGenOnly;
+            public RayTracingShader rayGenShader;
+            public RayTracingShader rtasShader;
         }
 
         public enum RayTracingSmokeTestMode

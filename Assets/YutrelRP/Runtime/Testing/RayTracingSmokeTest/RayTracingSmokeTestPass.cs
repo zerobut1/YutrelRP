@@ -7,8 +7,6 @@ namespace YutrelRP
 {
     internal sealed class RayTracingSmokeTestPass
     {
-        private const string RayGenShaderResourcePath = "Shader/RayTracingSmokeTest";
-        private const string RTASShaderResourcePath = "Shader/RayTracingSmokeTestRTAS";
         private const string RayGenOnlyName = "RayGenSmokeTest";
         private const string RTASRayGenName = "RayGenSmokeTestRTAS";
         private const string ShaderPassName = "RayTracingSmokeTest";
@@ -43,7 +41,7 @@ namespace YutrelRP
             textures.final_color = output;
 
             var capability = ValidateCapability(settings.mode);
-            var resourceIssue = capability == SmokeTestIssue.None ? ValidateShaderResource(settings.mode) : SmokeTestIssue.None;
+            var resourceIssue = capability == SmokeTestIssue.None ? ValidateShaderResource(settings) : SmokeTestIssue.None;
             var issue = capability != SmokeTestIssue.None ? capability : resourceIssue;
             var requestedMode = settings.mode;
 
@@ -150,21 +148,15 @@ namespace YutrelRP
             return mode == YutrelRPSettings.RayTracingSmokeTestMode.RTASHitMiss ? RTASRayGenName : RayGenOnlyName;
         }
 
-        private static SmokeTestIssue ValidateShaderResource(YutrelRPSettings.RayTracingSmokeTestMode mode)
+        private static SmokeTestIssue ValidateShaderResource(YutrelRPSettings.RayTracingSmokeTestSettings settings)
         {
+            var mode = settings != null ? settings.mode : YutrelRPSettings.RayTracingSmokeTestMode.RayGenOnly;
+            rayGenShader = settings?.rayGenShader;
+            rtasShader = settings?.rtasShader;
+
             if (mode == YutrelRPSettings.RayTracingSmokeTestMode.RTASHitMiss)
             {
-                if (rtasShader == null)
-                {
-                    rtasShader = Resources.Load<RayTracingShader>(RTASShaderResourcePath);
-                }
-
                 return rtasShader == null ? SmokeTestIssue.MissingRayTracingShader : SmokeTestIssue.None;
-            }
-
-            if (rayGenShader == null)
-            {
-                rayGenShader = Resources.Load<RayTracingShader>(RayGenShaderResourcePath);
             }
 
             return rayGenShader == null ? SmokeTestIssue.MissingRayTracingShader : SmokeTestIssue.None;
@@ -304,7 +296,7 @@ namespace YutrelRP
                 case SmokeTestIssue.UnsupportedRayTracing:
                     return "SystemInfo.supportsRayTracing is false";
                 case SmokeTestIssue.MissingRayTracingShader:
-                    return "Resources/Shader/RayTracingSmokeTest or RayTracingSmokeTestRTAS RayTracingShader asset is missing or invalid";
+                    return "YutrelRPAsset RayTracingSmokeTest rayGenShader or rtasShader is missing or invalid";
                 case SmokeTestIssue.NoTestGeometry:
                     return "no active RayTracingSmokeTestObject with an enabled Renderer was found";
                 case SmokeTestIssue.EmptyAccelerationStructure:
