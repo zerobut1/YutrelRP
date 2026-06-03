@@ -137,6 +137,11 @@ float DDGIProbeRayDataEncodeMiss(float max_distance)
     return -(max(max_distance, 0.001f) + YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET);
 }
 
+float DDGIProbeRayDataEncodeTracePending(float max_distance)
+{
+    return -(max(max_distance, 0.001f) + YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET + 2.0f);
+}
+
 float DDGIProbeRayDataEncodeFrontface(float distance)
 {
     return max(distance, 0.0f);

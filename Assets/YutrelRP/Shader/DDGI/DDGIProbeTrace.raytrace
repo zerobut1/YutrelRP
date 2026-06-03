@@ -85,6 +85,9 @@ void RayGenDDGIProbeTrace()
     payload.rayT = -1.0;
     payload.normalWS = float3(0.0, 1.0, 0.0);
 
+    uint3 rayDataTexel = DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount);
+    _DDGIProbeRayData[rayDataTexel] = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeTracePending(_DDGIProbeMaxRayDistance));
+
     TraceRay(_RaytracingAccelerationStructure,
              RAY_FLAG_NONE,
              0xFF,
@@ -105,5 +108,5 @@ void RayGenDDGIProbeTrace()
         encoded = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeBackface(payload.rayT));
     }
 
-    _DDGIProbeRayData[DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount)] = encoded;
+    _DDGIProbeRayData[rayDataTexel] = encoded;
 }
