@@ -74,6 +74,8 @@ Packages/Graphics
 .idea
 Assembly-CSharp.csproj.DotSettings
 *.log
+__pycache__/
+*.py[cod]
 Assets/Scene
 Assets/Texture
 Assets/Scene.meta
