@@ -105,7 +105,7 @@ namespace YutrelRP
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 clearBuffer = true,
-                clearColor = Color.black,
+                clearColor = new Color(0.0f, 0.0f, 0.0f, -volume.ProbeMaxRayDistance - 2.0f),
                 name = "DDGI ProbeRayData"
             };
 
