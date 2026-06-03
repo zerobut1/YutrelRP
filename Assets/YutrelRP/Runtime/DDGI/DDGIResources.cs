@@ -116,7 +116,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int IrradianceDirectionSemanticVersion = 3;
+            private const int IrradianceDirectionSemanticVersion = 4;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
