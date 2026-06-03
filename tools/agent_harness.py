@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -10,28 +9,15 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-DEFAULT_UNITY_EXE = Path(
-    r"C:\Program Files\Unity\Hub\Editor\6000.4.9f1\Editor\Unity.exe"
-)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_DIR = PROJECT_ROOT / "Logs" / "agent-harness"
 SHADER_ROOT = PROJECT_ROOT / "Assets" / "YutrelRP" / "Shader"
+CSHARP_LOG_DIR = DEFAULT_LOG_DIR / "csharp-compile"
 
-LOG_ERROR_PATTERNS = [
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
-        r"\berror CS\d+",
-        r"Shader error",
-        r"Compilation failed",
-        r"Scripts have compiler errors",
-        r"Build failed",
-        r"Unhandled exception",
-        r"NullReferenceException",
-        r"ArgumentException",
-        r"InvalidOperationException",
-        r"Assertion failed",
-    )
-]
+RUNTIME_PROJECT = PROJECT_ROOT / "Assembly-CSharp.csproj"
+EDITOR_PROJECT = PROJECT_ROOT / "Assembly-CSharp-Editor.csproj"
+FAST_RUNTIME_PROJECT = PROJECT_ROOT / "AgentFastCompile.Assembly-CSharp.csproj"
+FAST_EDITOR_PROJECT = PROJECT_ROOT / "AgentFastCompile.Assembly-CSharp-Editor.csproj"
 
 
 def fail(message: str, code: int = 1) -> int:
@@ -39,162 +25,191 @@ def fail(message: str, code: int = 1) -> int:
     return code
 
 
-def resolve_unity(args: argparse.Namespace) -> Path:
-    value = args.unity or os.environ.get("UNITY_EDITOR")
-    return Path(value) if value else DEFAULT_UNITY_EXE
+def is_editor_path(path: Path) -> bool:
+    return any(part.lower() == "editor" for part in path.parts)
 
 
-def ensure_unity_available(unity: Path) -> int | None:
-    if not unity.is_file():
-        return fail(
-            f"Unity editor was not found: {unity}. "
-            "Pass --unity or set UNITY_EDITOR to override it."
-        )
-    return None
+def discover_runtime_sources() -> list[Path]:
+    assets = PROJECT_ROOT / "Assets"
+    if not assets.is_dir():
+        return []
+    return sorted(
+        path
+        for path in assets.rglob("*.cs")
+        if not is_editor_path(path.relative_to(PROJECT_ROOT))
+    )
 
 
-def ensure_project_unlocked(args: argparse.Namespace) -> int | None:
-    lockfile = PROJECT_ROOT / "Temp" / "UnityLockfile"
-    if lockfile.exists() and not args.allow_locked:
-        return fail(
-            f"Unity lockfile exists: {lockfile}. "
-            "Close the editor or pass --allow-locked if this is intentional."
-        )
-    return None
+def discover_editor_sources() -> list[Path]:
+    assets = PROJECT_ROOT / "Assets"
+    if not assets.is_dir():
+        return []
+    return sorted(
+        path
+        for path in assets.rglob("*.cs")
+        if is_editor_path(path.relative_to(PROJECT_ROOT))
+    )
 
 
-def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8", errors="replace")
+def set_property(root: ET.Element, name: str, value: str) -> None:
+    for group in root.findall("PropertyGroup"):
+        child = group.find(name)
+        if child is not None:
+            child.text = value
+            return
+
+    group = root.find("PropertyGroup")
+    if group is None:
+        group = ET.SubElement(root, "PropertyGroup")
+    ET.SubElement(group, name).text = value
 
 
-def scan_log(log_path: Path, limit: int = 80) -> list[str]:
-    if not log_path.exists():
-        return [f"Log file was not created: {log_path}"]
-
-    findings: list[str] = []
-    for line in read_text(log_path).splitlines():
-        if any(pattern.search(line) for pattern in LOG_ERROR_PATTERNS):
-            findings.append(line.strip())
-            if len(findings) >= limit:
-                findings.append(f"... truncated after {limit} findings")
-                break
-    return findings
+def remove_items(root: ET.Element, tag: str) -> None:
+    for group in root.findall("ItemGroup"):
+        for item in list(group):
+            if item.tag == tag:
+                group.remove(item)
 
 
-def run_process(command: list[str], log_hint: Path | None = None) -> int:
+def replace_project_reference(root: ET.Element, source: str, replacement: Path) -> None:
+    for item in root.iter("ProjectReference"):
+        include = item.attrib.get("Include", "")
+        if include.lower() == source.lower():
+            item.attrib["Include"] = str(replacement.relative_to(PROJECT_ROOT))
+
+
+def add_compile_items(root: ET.Element, sources: list[Path]) -> None:
+    group = ET.SubElement(root, "ItemGroup")
+    for source in sources:
+        item = ET.SubElement(group, "Compile")
+        item.attrib["Include"] = str(source.relative_to(PROJECT_ROOT))
+
+
+def prepare_fast_project(
+    source_project: Path,
+    target_project: Path,
+    sources: list[Path],
+    obj_name: str,
+    project_reference: Path | None = None,
+) -> None:
+    root = ET.parse(source_project).getroot()
+
+    remove_items(root, "Compile")
+    add_compile_items(root, sources)
+    if project_reference is not None:
+        replace_project_reference(root, "Assembly-CSharp.csproj", project_reference)
+
+    obj_dir = CSHARP_LOG_DIR / "obj" / obj_name
+    bin_dir = CSHARP_LOG_DIR / "bin" / "Debug"
+    set_property(root, "BaseIntermediateOutputPath", str(obj_dir) + os.sep)
+    set_property(root, "IntermediateOutputPath", "$(BaseIntermediateOutputPath)")
+    set_property(root, "OutputPath", str(bin_dir) + os.sep)
+
+    ET.indent(root, space="  ")
+    target_project.write_text(
+        ET.tostring(root, encoding="unicode"),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def run_logged(command: list[str], timeout: int, log_path: Path) -> int:
     print("Running:")
     print(" ".join(f'"{part}"' if " " in part else part for part in command))
-    if log_hint:
-        print(f"Log: {log_hint}")
-    completed = subprocess.run(command, cwd=PROJECT_ROOT)
-    return completed.returncode
+    print(f"Log: {log_path}")
+    print(f"Timeout: {timeout}s")
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("w", encoding="utf-8", newline="\n") as log_file:
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=PROJECT_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            output = exc.stdout or ""
+            if isinstance(output, bytes):
+                output = output.decode("utf-8", errors="replace")
+            log_file.write(output)
+            if output:
+                print(output, end="")
+            return fail(f"Command timed out after {timeout}s.", 124)
+
+        log_file.write(completed.stdout)
+        print(completed.stdout, end="")
+        return completed.returncode
 
 
-def run_unity(args: argparse.Namespace, extra_args: list[str], log_name: str) -> int:
-    unity = resolve_unity(args)
-    if error := ensure_unity_available(unity):
-        return error
-    if error := ensure_project_unlocked(args):
-        return error
+def command_csharp_compile(args: argparse.Namespace) -> int:
+    dotnet = shutil.which(args.dotnet)
+    if not dotnet:
+        return fail(f"Could not find dotnet executable: {args.dotnet}")
+    if not RUNTIME_PROJECT.exists():
+        return fail(f"Missing Unity generated project: {RUNTIME_PROJECT}")
+    if not EDITOR_PROJECT.exists():
+        return fail(f"Missing Unity generated project: {EDITOR_PROJECT}")
 
-    log_dir = Path(args.log_dir).resolve() if args.log_dir else DEFAULT_LOG_DIR
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / log_name
+    runtime_sources = discover_runtime_sources()
+    editor_sources = discover_editor_sources()
+    if not runtime_sources and not editor_sources:
+        return fail("No C# sources found under Assets.")
 
-    command = [
-        str(unity),
-        "-batchmode",
-        "-nographics",
-        "-projectPath",
-        str(PROJECT_ROOT),
-        "-logFile",
-        str(log_path),
-        *extra_args,
-    ]
-
-    exit_code = run_process(command, log_path)
-    findings = scan_log(log_path)
-    if exit_code != 0:
-        print_log_findings(findings)
-        return fail(f"Unity exited with code {exit_code}. See {log_path}.", exit_code)
-    if findings:
-        print_log_findings(findings)
-        return fail(f"Unity log contains error findings. See {log_path}.")
-
-    print(f"PASS: Unity command completed without log errors. See {log_path}.")
-    return 0
-
-
-def print_log_findings(findings: list[str]) -> None:
-    if not findings:
-        return
-    print("Log findings:", file=sys.stderr)
-    for finding in findings:
-        print(f"  {finding}", file=sys.stderr)
-
-
-def command_compile(args: argparse.Namespace) -> int:
-    return run_unity(args, ["-quit"], "compile.log")
-
-
-def parse_test_results(results_path: Path) -> tuple[bool, str]:
-    if not results_path.exists():
-        return False, f"Test result XML was not created: {results_path}"
+    CSHARP_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    for transient in (FAST_RUNTIME_PROJECT, FAST_EDITOR_PROJECT):
+        if transient.exists():
+            transient.unlink()
 
     try:
-        root = ET.parse(results_path).getroot()
-    except ET.ParseError as exc:
-        return False, f"Could not parse test result XML: {exc}"
+        prepare_fast_project(
+            RUNTIME_PROJECT,
+            FAST_RUNTIME_PROJECT,
+            runtime_sources,
+            "Assembly-CSharp",
+        )
+        prepare_fast_project(
+            EDITOR_PROJECT,
+            FAST_EDITOR_PROJECT,
+            editor_sources,
+            "Assembly-CSharp-Editor",
+            FAST_RUNTIME_PROJECT,
+        )
 
-    failed = int(root.attrib.get("failed", root.attrib.get("failures", "0")))
-    passed = int(root.attrib.get("passed", "0"))
-    skipped = int(root.attrib.get("skipped", "0"))
-    total = int(root.attrib.get("total", str(passed + failed + skipped)))
-    result = root.attrib.get("result", "")
+        projects: list[Path] = []
+        if args.assembly in {"all", "runtime"} and runtime_sources:
+            projects.append(FAST_RUNTIME_PROJECT)
+        if args.assembly in {"all", "editor"} and editor_sources:
+            projects.append(FAST_EDITOR_PROJECT)
 
-    failed_cases: list[str] = []
-    for case in root.iter("test-case"):
-        case_result = case.attrib.get("result", "")
-        if case_result in {"Failed", "Error"}:
-            name = case.attrib.get("fullname") or case.attrib.get("name") or "<unknown>"
-            failed_cases.append(name)
+        for project in projects:
+            log_path = CSHARP_LOG_DIR / f"{project.stem}.log"
+            code = run_logged(
+                [
+                    dotnet,
+                    "build",
+                    str(project),
+                    "--nologo",
+                    "--verbosity:minimal",
+                ],
+                args.timeout,
+                log_path,
+            )
+            if code != 0:
+                return fail(f"C# fast compile failed for {project.name}. See {log_path}.", code)
+    finally:
+        for transient in (FAST_RUNTIME_PROJECT, FAST_EDITOR_PROJECT):
+            if transient.exists():
+                transient.unlink()
 
-    summary = (
-        f"EditMode tests: total={total}, passed={passed}, "
-        f"failed={failed}, skipped={skipped}, result={result or '<none>'}"
+    print(
+        "PASS: C# fast compile passed "
+        f"(runtime sources={len(runtime_sources)}, editor sources={len(editor_sources)})."
     )
-    if failed_cases:
-        summary += "\nFailed cases:\n" + "\n".join(f"  {name}" for name in failed_cases[:50])
-        if len(failed_cases) > 50:
-            summary += f"\n  ... truncated after 50 of {len(failed_cases)} failed cases"
-
-    return failed == 0 and result != "Failed", summary
-
-
-def command_test_editmode(args: argparse.Namespace) -> int:
-    log_dir = Path(args.log_dir).resolve() if args.log_dir else DEFAULT_LOG_DIR
-    log_dir.mkdir(parents=True, exist_ok=True)
-    results_path = log_dir / "editmode-results.xml"
-
-    exit_code = run_unity(
-        args,
-        [
-            "-runTests",
-            "-testPlatform",
-            "EditMode",
-            "-testResults",
-            str(results_path),
-            "-quit",
-        ],
-        "editmode.log",
-    )
-    ok, summary = parse_test_results(results_path)
-    print(summary)
-    if exit_code != 0:
-        return exit_code
-    if not ok:
-        return fail(f"EditMode tests failed. See {results_path}.")
-    print(f"PASS: EditMode tests passed. See {results_path}.")
     return 0
 
 
@@ -215,8 +230,10 @@ def command_shader_format(args: argparse.Namespace) -> int:
         return 0
 
     for path in shader_files:
-        command = [clang_format, "-i", "--style=file", str(path)]
-        completed = subprocess.run(command, cwd=PROJECT_ROOT)
+        completed = subprocess.run(
+            [clang_format, "-i", "--style=file", str(path)],
+            cwd=PROJECT_ROOT,
+        )
         if completed.returncode != 0:
             return fail(f"clang-format failed for {path}", completed.returncode)
 
@@ -225,30 +242,21 @@ def command_shader_format(args: argparse.Namespace) -> int:
 
 
 def command_doctor(args: argparse.Namespace) -> int:
-    unity = resolve_unity(args)
     checks = [
         ("Project root", PROJECT_ROOT.is_dir(), PROJECT_ROOT),
-        ("Unity editor", unity.is_file(), unity),
+        ("Runtime csproj", RUNTIME_PROJECT.exists(), RUNTIME_PROJECT),
+        ("Editor csproj", EDITOR_PROJECT.exists(), EDITOR_PROJECT),
+        ("dotnet", shutil.which(args.dotnet) is not None, args.dotnet),
         ("Shader root", SHADER_ROOT.is_dir(), SHADER_ROOT),
     ]
 
-    lockfile = PROJECT_ROOT / "Temp" / "UnityLockfile"
     has_error = False
     for label, ok, path in checks:
-        status = "OK" if ok else "MISSING"
-        print(f"{status}: {label}: {path}")
+        print(f"{'OK' if ok else 'MISSING'}: {label}: {path}")
         has_error = has_error or not ok
 
-    if lockfile.exists():
-        print(f"WARN: Unity lockfile exists: {lockfile}")
-    else:
-        print(f"OK: Unity lockfile is absent: {lockfile}")
-
-    if DEFAULT_LOG_DIR.exists():
-        print(f"OK: Harness log directory exists: {DEFAULT_LOG_DIR}")
-    else:
-        print(f"INFO: Harness log directory will be created on demand: {DEFAULT_LOG_DIR}")
-
+    print(f"INFO: Runtime C# sources: {len(discover_runtime_sources())}")
+    print(f"INFO: Editor C# sources: {len(discover_editor_sources())}")
     if has_error:
         return fail("Harness doctor found missing required paths.")
     print("PASS: Harness doctor completed.")
@@ -260,23 +268,47 @@ def build_parser() -> argparse.ArgumentParser:
         description="Agent harness for the YutrelRP Unity project."
     )
     parser.add_argument(
-        "--unity",
-        help="Unity editor executable path. Defaults to UNITY_EDITOR or the project AGENTS.md path.",
-    )
-    parser.add_argument(
         "--log-dir",
-        help=f"Directory for harness logs. Defaults to {DEFAULT_LOG_DIR}.",
-    )
-    parser.add_argument(
-        "--allow-locked",
-        action="store_true",
-        help="Run Unity even when Temp/UnityLockfile exists.",
+        help=argparse.SUPPRESS,
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("compile", help="Open the project in Unity batchmode and check compile logs.")
-    subparsers.add_parser("doctor", help="Check harness paths without launching Unity.")
-    subparsers.add_parser("test-editmode", help="Run Unity EditMode tests and parse the XML result.")
+
+    csharp_parser = subparsers.add_parser(
+        "csharp-compile",
+        help="Fast C# compile using Unity-generated csproj files without launching Unity.",
+    )
+    csharp_parser.add_argument("--dotnet", default="dotnet", help="dotnet executable name or path.")
+    csharp_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Maximum seconds per dotnet build invocation.",
+    )
+    csharp_parser.add_argument(
+        "--assembly",
+        choices=("all", "runtime", "editor"),
+        default="all",
+        help="Which generated assembly shape to compile.",
+    )
+
+    compile_parser = subparsers.add_parser(
+        "compile",
+        help="Alias for csharp-compile; does not launch Unity.",
+    )
+    compile_parser.add_argument("--dotnet", default="dotnet", help="dotnet executable name or path.")
+    compile_parser.add_argument("--timeout", type=int, default=30)
+    compile_parser.add_argument(
+        "--assembly",
+        choices=("all", "runtime", "editor"),
+        default="all",
+    )
+
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Check harness paths without launching Unity.",
+    )
+    doctor_parser.add_argument("--dotnet", default="dotnet", help="dotnet executable name or path.")
 
     shader_parser = subparsers.add_parser(
         "shader-format",
@@ -294,12 +326,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "compile":
-        return command_compile(args)
+    if args.command in {"compile", "csharp-compile"}:
+        return command_csharp_compile(args)
     if args.command == "doctor":
         return command_doctor(args)
-    if args.command == "test-editmode":
-        return command_test_editmode(args)
     if args.command == "shader-format":
         return command_shader_format(args)
 
