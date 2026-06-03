@@ -123,7 +123,7 @@ namespace YutrelRP.Editor
             SceneView.RepaintAll();
         }
 
-        [DrawGizmo(GizmoType.Active | GizmoType.Selected | GizmoType.NonSelected | GizmoType.Pickable)]
+        [DrawGizmo(GizmoType.Active | GizmoType.Selected)]
         private static void DrawDDGIVolumeGizmo(YutrelDDGIVolume volume, GizmoType gizmo_type)
         {
             if (volume == null || !volume.isActiveAndEnabled)
@@ -131,13 +131,8 @@ namespace YutrelRP.Editor
                 return;
             }
 
-            var selected = (gizmo_type & (GizmoType.Active | GizmoType.Selected)) != 0;
-            DrawVolumeBounds(volume, selected);
-
-            if (selected)
-            {
-                DrawProbeGrid(volume);
-            }
+            DrawVolumeBounds(volume, true);
+            DrawProbeGrid(volume);
         }
 
         private void DrawSingleVolumeInspector(YutrelDDGIVolume volume)
