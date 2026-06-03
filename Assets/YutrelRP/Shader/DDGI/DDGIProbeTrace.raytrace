@@ -1,12 +1,16 @@
 #pragma max_recursion_depth 1
 
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
 StructuredBuffer<uint2> _DDGITraceInstanceTriangleRanges;
 StructuredBuffer<float4> _DDGITraceInstanceBaseColors;
 StructuredBuffer<float4> _DDGITraceTriangleNormals;
+TextureCube<float4> _EnvironmentReflectionCube;
+SamplerState sampler_EnvironmentReflectionCube;
 
 float3 _DDGIVolumeMinWS;
 float3 _DDGIProbeSpacingWS;
@@ -15,6 +19,12 @@ int _DDGIProbeRaysPerProbe;
 float _DDGIProbeMaxRayDistance;
 float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
+float4 _EnvironmentReflectionCube_HDR;
+float _EnvironmentIntensity;
+float _EnvironmentDiffuseMultiplier;
+float _DDGIEnvironmentValid;
+
+static const float3 DDGI_TRACE_FALLBACK_SKYLIGHT_RADIANCE = float3(0.015f, 0.018f, 0.022f);
 
 struct DDGIProbeTracePayload
 {
@@ -92,6 +102,23 @@ float3 DDGITraceDirectDiffuseRadiance(float3 positionWS, float3 normalWS, float3
     return max(baseColor, 0.0f) * 0.31830988618379067f * light_radiance * no_l * visibility * has_directional_light;
 }
 
+float3 DDGITraceEnvironmentRadiance(float3 directionWS)
+{
+    if (_DDGIEnvironmentValid <= 0.5f)
+    {
+        return DDGI_TRACE_FALLBACK_SKYLIGHT_RADIANCE;
+    }
+
+    float3 direction = DDGISafeNormalize(directionWS, float3(0.0f, 1.0f, 0.0f));
+    float4 encoded  = _EnvironmentReflectionCube.SampleLevel(sampler_EnvironmentReflectionCube, direction, 0.0f);
+    float3 radiance = DecodeHDREnvironment(encoded, _EnvironmentReflectionCube_HDR) *
+                      max(_EnvironmentIntensity, 0.0f) * max(_EnvironmentDiffuseMultiplier, 0.0f);
+    radiance = float3(IsFinite(radiance.r) ? radiance.r : 0.0f,
+                      IsFinite(radiance.g) ? radiance.g : 0.0f,
+                      IsFinite(radiance.b) ? radiance.b : 0.0f);
+    return min(max(radiance, 0.0f), 65504.0f);
+}
+
 [shader("miss")]
 void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
 {
@@ -145,7 +172,7 @@ void RayGenDDGIProbeTrace()
              ray,
              payload);
 
-    float4 encoded = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeMiss(_DDGIProbeMaxRayDistance));
+    float4 encoded = float4(DDGITraceEnvironmentRadiance(ray.Direction), DDGIProbeRayDataEncodeMiss(_DDGIProbeMaxRayDistance));
     if (payload.hitKind == 1)
     {
         float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
