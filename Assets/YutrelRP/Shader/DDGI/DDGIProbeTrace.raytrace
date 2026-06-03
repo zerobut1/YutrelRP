@@ -30,6 +30,11 @@ float3 DDGITraceGeometricNormalWS()
     return DDGISafeNormalize(mul(cross(p1 - p0, p2 - p0), (float3x3)WorldToObject3x4()), -WorldRayDirection());
 }
 
+float3 DDGITraceOrientFrontfaceNormal(float3 normalWS)
+{
+    return dot(normalWS, WorldRayDirection()) <= 0.0 ? normalWS : -normalWS;
+}
+
 float3 DDGITraceDirectDiffuseRadiance(float3 normalWS)
 {
     float has_directional_light = _DDGIDirectionalLightDirectionWS.w;
@@ -53,7 +58,7 @@ void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTria
 {
     payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
     payload.rayT = RayTCurrent();
-    payload.normalWS = DDGITraceGeometricNormalWS();
+    payload.normalWS = DDGITraceOrientFrontfaceNormal(DDGITraceGeometricNormalWS());
 }
 
 [shader("raygeneration")]

@@ -55,7 +55,6 @@ namespace YutrelRP
 
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game)
             {
-                ReleasePersistentAtlases();
                 return;
             }
 
