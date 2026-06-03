@@ -5,6 +5,7 @@
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
 StructuredBuffer<uint2> _DDGITraceInstanceTriangleRanges;
+StructuredBuffer<float4> _DDGITraceInstanceBaseColors;
 StructuredBuffer<float4> _DDGITraceTriangleNormals;
 
 float3 _DDGIVolumeMinWS;
@@ -20,6 +21,7 @@ struct DDGIProbeTracePayload
     uint hitKind;
     float rayT;
     float3 normalWS;
+    float3 baseColor;
 };
 
 float3 DDGITraceFallbackNormalWS()
@@ -40,15 +42,54 @@ float3 DDGITraceGeometricNormalWS()
     return normal_WS.w > 0.5f ? DDGISafeNormalize(normal_WS.xyz, DDGITraceFallbackNormalWS()) : DDGITraceFallbackNormalWS();
 }
 
-float3 DDGITraceDirectDiffuseRadiance(float3 normalWS)
+float3 DDGITraceBaseColor()
+{
+    return max(_DDGITraceInstanceBaseColors[InstanceID()].rgb, 0.0f);
+}
+
+float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 lightDirection)
+{
+    if (_DDGIDirectionalLightDirectionWS.w <= 0.5f)
+    {
+        return 0.0f;
+    }
+
+    float3 normalized_normal = DDGISafeNormalize(normalWS, float3(0.0f, 1.0f, 0.0f));
+    float3 ray_offset        = normalized_normal * 0.01f + lightDirection * 0.01f;
+
+    RayDesc shadow_ray;
+    shadow_ray.Origin    = positionWS + ray_offset;
+    shadow_ray.Direction = lightDirection;
+    shadow_ray.TMin      = 0.001f;
+    shadow_ray.TMax      = _DDGIProbeMaxRayDistance;
+
+    DDGIProbeTracePayload shadow_payload;
+    shadow_payload.hitKind   = 0u;
+    shadow_payload.rayT      = -1.0f;
+    shadow_payload.normalWS  = normalized_normal;
+    shadow_payload.baseColor = 0.0f.xxx;
+
+    TraceRay(_RaytracingAccelerationStructure,
+             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+             0xFF,
+             0,
+             1,
+             0,
+             shadow_ray,
+             shadow_payload);
+
+    return shadow_payload.hitKind == 0u ? 1.0f : 0.0f;
+}
+
+float3 DDGITraceDirectDiffuseRadiance(float3 positionWS, float3 normalWS, float3 baseColor)
 {
     float has_directional_light = _DDGIDirectionalLightDirectionWS.w;
     float3 light_direction      = DDGISafeNormalize(_DDGIDirectionalLightDirectionWS.xyz, float3(0.0, 1.0, 0.0));
     float no_l                  = saturate(dot(DDGISafeNormalize(normalWS, float3(0.0, 1.0, 0.0)), light_direction));
     float illuminance           = max(_DDGIDirectionalLightColorIlluminance.w, 0.0);
     float3 light_radiance       = max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0) * illuminance;
-    float3 default_diffuse      = float3(0.8, 0.8, 0.8);
-    return default_diffuse * 0.31830988618379067 * light_radiance * no_l * has_directional_light;
+    float visibility            = no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, normalWS, light_direction) : 0.0f;
+    return max(baseColor, 0.0f) * 0.31830988618379067f * light_radiance * no_l * visibility * has_directional_light;
 }
 
 [shader("miss")]
@@ -64,6 +105,7 @@ void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTria
     payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
     payload.rayT = RayTCurrent();
     payload.normalWS = DDGITraceGeometricNormalWS();
+    payload.baseColor = DDGITraceBaseColor();
 }
 
 [shader("raygeneration")]
@@ -89,6 +131,7 @@ void RayGenDDGIProbeTrace()
     payload.hitKind = 0;
     payload.rayT = -1.0;
     payload.normalWS = float3(0.0, 1.0, 0.0);
+    payload.baseColor = float3(0.8, 0.8, 0.8);
 
     uint3 rayDataTexel = DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount);
     _DDGIProbeRayData[rayDataTexel] = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeTracePending(_DDGIProbeMaxRayDistance));
@@ -105,7 +148,8 @@ void RayGenDDGIProbeTrace()
     float4 encoded = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeMiss(_DDGIProbeMaxRayDistance));
     if (payload.hitKind == 1)
     {
-        float3 radiance = DDGITraceDirectDiffuseRadiance(payload.normalWS);
+        float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
+        float3 radiance        = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.baseColor);
         encoded = float4(radiance, DDGIProbeRayDataEncodeFrontface(payload.rayT));
     }
     else if (payload.hitKind == 2)

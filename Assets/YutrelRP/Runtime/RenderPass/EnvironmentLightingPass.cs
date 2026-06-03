@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -10,7 +9,6 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("Environment Lighting Pass");
         private static Material material;
         private static MaterialPropertyBlock property_block;
-        private static readonly HashSet<string> warned_invalid_environment = new();
 
         private static readonly int[] ibl_sh_IDs =
         {
@@ -28,8 +26,6 @@ namespace YutrelRP
         public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources,
             DDGIResources ddgi_resources, YutrelRPSettings.DDGISettings ddgi_settings)
         {
-            if (!ValidateEnvironmentResources(light_resources)) return;
-
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/EnvironmentLightingPass"));
             if (property_block == null) property_block = new MaterialPropertyBlock();
 
@@ -57,6 +53,8 @@ namespace YutrelRP
             pass.ddgi_volume_min_ws_ID = DDGIResources.volume_min_ws_ID;
             pass.ddgi_volume_max_ws_ID = DDGIResources.volume_max_ws_ID;
             pass.ddgi_probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
+            pass.ddgi_probe_normal_bias_ID = DDGIResources.probe_normal_bias_ID;
+            pass.ddgi_probe_view_bias_ID = DDGIResources.probe_view_bias_ID;
             pass.ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
             pass.ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
 
@@ -67,8 +65,10 @@ namespace YutrelRP
             pass.screen_space_ao = textures.screen_space_ao.IsValid()
                 ? textures.screen_space_ao
                 : graph.defaultResources.whiteTexture;
-            pass.DFG_LUT = light_resources.DFG_LUT;
-            pass.environment_reflection_cube = light_resources.environment_reflection_cube;
+            pass.DFG_LUT = light_resources.has_DFG_LUT ? light_resources.DFG_LUT : graph.defaultResources.whiteTexture;
+            pass.environment_reflection_cube = light_resources.has_environment_reflection
+                ? light_resources.environment_reflection_cube
+                : TextureHandle.nullHandle;
             pass.environment_reflection_cube_hdr = light_resources.environment_reflection_cube_hdr;
             pass.environment_intensity = light_resources.environment_intensity;
             pass.environment_diffuse_multiplier = light_resources.environment_diffuse_multiplier;
@@ -103,6 +103,8 @@ namespace YutrelRP
             pass.ddgi_volume_min_ws = pass.has_DDGI_gather ? ddgi_resources.volume_min_ws : Vector3.zero;
             pass.ddgi_volume_max_ws = pass.has_DDGI_gather ? ddgi_resources.volume_max_ws : Vector3.zero;
             pass.ddgi_probe_spacing_ws = pass.has_DDGI_gather ? ddgi_resources.probe_spacing_ws : Vector3.zero;
+            pass.ddgi_probe_normal_bias = pass.has_DDGI_gather ? ddgi_resources.probe_normal_bias : 0.0f;
+            pass.ddgi_probe_view_bias = pass.has_DDGI_gather ? ddgi_resources.probe_view_bias : 0.0f;
             pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
 
             builder.UseTexture(pass.GBuffer_A);
@@ -111,7 +113,10 @@ namespace YutrelRP
             builder.UseTexture(pass.scene_depth);
             builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.DFG_LUT);
-            builder.UseTexture(pass.environment_reflection_cube);
+            if (pass.environment_reflection_cube.IsValid())
+            {
+                builder.UseTexture(pass.environment_reflection_cube);
+            }
             if (pass.has_DDGI_gather)
             {
                 builder.UseTexture(pass.ddgi_probe_irradiance);
@@ -144,6 +149,8 @@ namespace YutrelRP
             ddgi_volume_min_ws_ID,
             ddgi_volume_max_ws_ID,
             ddgi_probe_spacing_ws_ID,
+            ddgi_probe_normal_bias_ID,
+            ddgi_probe_view_bias_ID,
             ddgi_gather_valid_ID,
             ddgi_diffuse_intensity_ID;
 
@@ -172,6 +179,8 @@ namespace YutrelRP
         private Vector3 ddgi_volume_min_ws;
         private Vector3 ddgi_volume_max_ws;
         private Vector3 ddgi_probe_spacing_ws;
+        private float ddgi_probe_normal_bias;
+        private float ddgi_probe_view_bias;
         private float ddgi_diffuse_intensity;
 
         private void Render(RasterGraphContext context)
@@ -183,7 +192,10 @@ namespace YutrelRP
             property_block.SetTexture(scene_depth_ID, scene_depth);
             property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
             property_block.SetTexture(dfg_lut_ID, DFG_LUT);
-            property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
+            if (environment_reflection_cube.IsValid())
+            {
+                property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
+            }
             if (has_DDGI_gather)
             {
                 property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
@@ -202,6 +214,8 @@ namespace YutrelRP
             property_block.SetVector(ddgi_volume_min_ws_ID, ddgi_volume_min_ws);
             property_block.SetVector(ddgi_volume_max_ws_ID, ddgi_volume_max_ws);
             property_block.SetVector(ddgi_probe_spacing_ws_ID, ddgi_probe_spacing_ws);
+            property_block.SetFloat(ddgi_probe_normal_bias_ID, ddgi_probe_normal_bias);
+            property_block.SetFloat(ddgi_probe_view_bias_ID, ddgi_probe_view_bias);
             property_block.SetFloat(ddgi_gather_valid_ID, has_DDGI_gather ? 1.0f : 0.0f);
             property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
             SetIblShShaderConstants(property_block, ambient_probe);
@@ -214,32 +228,6 @@ namespace YutrelRP
             CoreUtils.Destroy(material);
             material = null;
             property_block = null;
-        }
-
-        private static bool ValidateEnvironmentResources(LightResources light_resources)
-        {
-            if (light_resources.has_DFG_LUT && light_resources.has_environment_reflection)
-            {
-                return true;
-            }
-
-            LogInvalidEnvironmentOnce(light_resources);
-            return false;
-        }
-
-        private static void LogInvalidEnvironmentOnce(LightResources light_resources)
-        {
-            var missing_resources = string.Empty;
-            if (!light_resources.has_DFG_LUT) missing_resources += " DFG_LUT";
-            if (!light_resources.has_environment_reflection) missing_resources += " EnvironmentReflection";
-
-            var resource_error = string.IsNullOrEmpty(light_resources.environment_resource_error)
-                ? string.Empty
-                : $" {light_resources.environment_resource_error}";
-            var warning_key = missing_resources + resource_error;
-            if (!warned_invalid_environment.Add(warning_key)) return;
-
-            Debug.LogError($"YutrelRP: EnvironmentLightingPass skipped because IBL resources are incomplete. Missing:{missing_resources}.{resource_error}");
         }
 
         private static void SetIblShShaderConstants(MaterialPropertyBlock properties, SphericalHarmonicsL2 sh)

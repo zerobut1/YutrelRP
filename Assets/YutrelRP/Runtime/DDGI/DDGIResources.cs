@@ -24,6 +24,8 @@ namespace YutrelRP
             volume_min_ws_ID = Shader.PropertyToID("_DDGIVolumeMinWS"),
             volume_max_ws_ID = Shader.PropertyToID("_DDGIVolumeMaxWS"),
             probe_spacing_ws_ID = Shader.PropertyToID("_DDGIProbeSpacingWS"),
+            probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias"),
+            probe_view_bias_ID = Shader.PropertyToID("_DDGIProbeViewBias"),
             gather_valid_ID = Shader.PropertyToID("_DDGIGatherValid"),
             diffuse_intensity_ID = Shader.PropertyToID("_DDGIDiffuseIntensity");
 
@@ -39,6 +41,8 @@ namespace YutrelRP
         public Vector3 volume_min_ws;
         public Vector3 volume_max_ws;
         public Vector3 probe_spacing_ws;
+        public float probe_normal_bias;
+        public float probe_view_bias;
         public bool has_gather_data;
         public bool has_persistent_atlas;
         public string diagnostic;
@@ -62,6 +66,8 @@ namespace YutrelRP
             volume_min_ws = Vector3.zero;
             volume_max_ws = Vector3.zero;
             probe_spacing_ws = Vector3.zero;
+            probe_normal_bias = 0.0f;
+            probe_view_bias = 0.0f;
             has_gather_data = false;
             has_persistent_atlas = false;
             diagnostic = null;
@@ -78,6 +84,8 @@ namespace YutrelRP
             volume_min_ws = bounds.min;
             volume_max_ws = bounds.max;
             probe_spacing_ws = volume.GetWorldProbeSpacing();
+            probe_normal_bias = volume.ProbeNormalBias;
+            probe_view_bias = volume.ProbeViewBias;
         }
 
         internal Vector4 ProbeRayDataDimensions => new(
@@ -108,7 +116,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int IrradianceDirectionSemanticVersion = 2;
+            private const int IrradianceDirectionSemanticVersion = 3;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;

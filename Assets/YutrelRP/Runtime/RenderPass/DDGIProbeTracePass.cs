@@ -26,11 +26,22 @@ namespace YutrelRP
         private static readonly int directionalLightColorIlluminanceID = Shader.PropertyToID("_DDGIDirectionalLightColorIlluminance");
         private static readonly int directionalLightDirectionWSID = Shader.PropertyToID("_DDGIDirectionalLightDirectionWS");
         private static readonly int traceInstanceTriangleRangesID = Shader.PropertyToID("_DDGITraceInstanceTriangleRanges");
+        private static readonly int traceInstanceBaseColorsID = Shader.PropertyToID("_DDGITraceInstanceBaseColors");
         private static readonly int traceTriangleNormalsID = Shader.PropertyToID("_DDGITraceTriangleNormals");
+
+        private static readonly Color DefaultTraceBaseColor = new(0.8f, 0.8f, 0.8f, 1.0f);
+        private static readonly int[] BaseColorPropertyIDs =
+        {
+            Shader.PropertyToID("_BaseColor"),
+            Shader.PropertyToID("_Color"),
+            Shader.PropertyToID("_BaseColorFactor"),
+            Shader.PropertyToID("_DiffuseColor")
+        };
 
         private static RayTracingShader shader;
         private static RayTracingAccelerationStructure accelerationStructure;
         private static GraphicsBuffer traceInstanceTriangleRangesBuffer;
+        private static GraphicsBuffer traceInstanceBaseColorsBuffer;
         private static GraphicsBuffer traceTriangleNormalsBuffer;
         private static RTHandle probeIrradianceRT;
         private static RTHandle probeDistanceRT;
@@ -131,6 +142,7 @@ namespace YutrelRP
                 pass.planeProbeCount = planeProbeCount;
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
                 pass.traceInstanceTriangleRanges = traceInstanceTriangleRangesBuffer;
+                pass.traceInstanceBaseColors = traceInstanceBaseColorsBuffer;
                 pass.traceTriangleNormals = traceTriangleNormalsBuffer;
                 pass.SetDirectionalLight(lightResources);
 
@@ -153,6 +165,7 @@ namespace YutrelRP
         private int planeProbeCount;
         private float probeMaxRayDistance;
         private GraphicsBuffer traceInstanceTriangleRanges;
+        private GraphicsBuffer traceInstanceBaseColors;
         private GraphicsBuffer traceTriangleNormals;
         private Vector4 directionalLightColorIlluminance;
         private Vector4 directionalLightDirectionWS;
@@ -170,6 +183,7 @@ namespace YutrelRP
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeMaxRayDistanceID, probeMaxRayDistance);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
+            cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceBaseColorsID, traceInstanceBaseColors);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightColorIlluminanceID,
                 directionalLightColorIlluminance);
@@ -393,6 +407,7 @@ namespace YutrelRP
             var renderers = Object.FindObjectsByType<MeshRenderer>();
             var instanceCount = 0;
             var instanceRanges = new List<UInt2>();
+            var instanceBaseColors = new List<Vector4>();
             var triangleNormals = new List<Vector4>();
 
             foreach (var renderer in renderers)
@@ -447,6 +462,7 @@ namespace YutrelRP
                         }
 
                         instanceRanges.Add(traceSubMesh.triangleRange);
+                        instanceBaseColors.Add(GetTraceBaseColor(renderer, traceSubMesh.subMeshIndex));
                         instanceCount++;
                     }
                 }
@@ -461,7 +477,7 @@ namespace YutrelRP
                 return ProbeTraceIssue.NoContributors;
             }
 
-            if (!EnsureTraceGeometryBuffers(instanceRanges, triangleNormals))
+            if (!EnsureTraceGeometryBuffers(instanceRanges, instanceBaseColors, triangleNormals))
             {
                 ReleaseTraceGeometryBuffers();
                 return ProbeTraceIssue.ResourceAllocationFailed;
@@ -562,18 +578,58 @@ namespace YutrelRP
             }
         }
 
-        private static bool EnsureTraceGeometryBuffers(List<UInt2> instanceRanges, List<Vector4> triangleNormals)
+        private static Vector4 GetTraceBaseColor(Renderer renderer, int subMeshIndex)
         {
-            if (instanceRanges.Count == 0 || triangleNormals.Count == 0)
+            var color = DefaultTraceBaseColor;
+            var materials = renderer.sharedMaterials;
+            if (materials != null && materials.Length > 0)
+            {
+                var materialIndex = Mathf.Clamp(subMeshIndex, 0, materials.Length - 1);
+                var material = materials[materialIndex];
+                if (material != null && TryGetMaterialBaseColor(material, out var materialColor))
+                {
+                    color = materialColor;
+                }
+            }
+
+            return new Vector4(
+                Mathf.Max(0.0f, color.r),
+                Mathf.Max(0.0f, color.g),
+                Mathf.Max(0.0f, color.b),
+                Mathf.Clamp01(color.a));
+        }
+
+        private static bool TryGetMaterialBaseColor(Material material, out Color color)
+        {
+            foreach (var propertyID in BaseColorPropertyIDs)
+            {
+                if (material.HasColor(propertyID))
+                {
+                    color = material.GetColor(propertyID);
+                    return true;
+                }
+            }
+
+            color = DefaultTraceBaseColor;
+            return false;
+        }
+
+        private static bool EnsureTraceGeometryBuffers(List<UInt2> instanceRanges, List<Vector4> instanceBaseColors,
+            List<Vector4> triangleNormals)
+        {
+            if (instanceRanges.Count == 0 || instanceBaseColors.Count != instanceRanges.Count || triangleNormals.Count == 0)
             {
                 return false;
             }
 
             traceInstanceTriangleRangesBuffer = AllocStructuredBuffer(instanceRanges.Count, Marshal.SizeOf<UInt2>(),
                 "DDGI Trace Instance Triangle Ranges");
+            traceInstanceBaseColorsBuffer = AllocStructuredBuffer(instanceBaseColors.Count, Marshal.SizeOf<Vector4>(),
+                "DDGI Trace Instance Base Colors");
             traceTriangleNormalsBuffer = AllocStructuredBuffer(triangleNormals.Count, Marshal.SizeOf<Vector4>(),
                 "DDGI Trace Triangle Normals");
             traceInstanceTriangleRangesBuffer.SetData(instanceRanges);
+            traceInstanceBaseColorsBuffer.SetData(instanceBaseColors);
             traceTriangleNormalsBuffer.SetData(triangleNormals);
             return true;
         }
@@ -590,8 +646,10 @@ namespace YutrelRP
         private static void ReleaseTraceGeometryBuffers()
         {
             traceInstanceTriangleRangesBuffer?.Dispose();
+            traceInstanceBaseColorsBuffer?.Dispose();
             traceTriangleNormalsBuffer?.Dispose();
             traceInstanceTriangleRangesBuffer = null;
+            traceInstanceBaseColorsBuffer = null;
             traceTriangleNormalsBuffer = null;
         }
 

@@ -284,13 +284,11 @@ float DDGIMinProbeSpacing(float3 probe_spacing_WS)
     return min(probe_spacing_WS.x, min(probe_spacing_WS.y, probe_spacing_WS.z));
 }
 
-float3 DDGIBiasedSurfacePosition(float3 position_WS, float3 normal_WS, float3 view_direction_WS, float3 probe_spacing_WS)
+float3 DDGIBiasedSurfacePosition(float3 position_WS, float3 normal_WS, float3 view_direction_WS,
+                                 float probe_normal_bias, float probe_view_bias)
 {
-    float bias_scale  = max(DDGIMinProbeSpacing(probe_spacing_WS), 0.001f);
-    float normal_bias = bias_scale * 0.05f;
-    float view_bias   = bias_scale * 0.02f;
-    return position_WS + DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)) * normal_bias +
-           DDGISafeNormalize(view_direction_WS, float3(0.0f, 0.0f, 1.0f)) * view_bias;
+    return position_WS + DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)) * max(probe_normal_bias, 0.0f) +
+           DDGISafeNormalize(view_direction_WS, float3(0.0f, 0.0f, 1.0f)) * max(probe_view_bias, 0.0f);
 }
 
 float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float max_ray_distance, float tolerance)
@@ -338,7 +336,8 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
                                            float3 volume_min_WS, float3 volume_max_WS, float3 probe_spacing_WS,
                                            uint3 probe_count, uint irradiance_interior_texels,
                                            uint distance_interior_texels, float4 irradiance_dimensions,
-                                           float4 distance_dimensions, float max_ray_distance)
+                                           float4 distance_dimensions, float max_ray_distance,
+                                           float probe_normal_bias, float probe_view_bias)
 {
     DDGIGatherSample result;
     result.irradiance = 0.0f.xxx;
@@ -351,7 +350,7 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
     uint3 base_coord       = uint3(floor(clamped_coord));
     uint3 next_coord       = min(base_coord + 1u, probe_count - 1u);
     float3 weight          = saturate(clamped_coord - float3(base_coord));
-    float3 biased_position = DDGIBiasedSurfacePosition(position_WS, normal_WS, view_direction_WS, probe_spacing_WS);
+    float3 biased_position = DDGIBiasedSurfacePosition(position_WS, normal_WS, view_direction_WS, probe_normal_bias, probe_view_bias);
     float weight_sum       = 0.0f;
 
     [unroll] for (uint z = 0u; z < 2u; z++)
