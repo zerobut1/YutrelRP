@@ -52,6 +52,12 @@ float3 DDGITraceGeometricNormalWS()
     return normal_WS.w > 0.5f ? DDGISafeNormalize(normal_WS.xyz, DDGITraceFallbackNormalWS()) : DDGITraceFallbackNormalWS();
 }
 
+float3 DDGITraceRayFacingNormalWS(float3 normalWS)
+{
+    float3 normal = DDGISafeNormalize(normalWS, DDGITraceFallbackNormalWS());
+    return dot(normal, WorldRayDirection()) > 0.0f ? -normal : normal;
+}
+
 float3 DDGITraceBaseColor()
 {
     return max(_DDGITraceInstanceBaseColors[InstanceID()].rgb, 0.0f);
@@ -131,7 +137,7 @@ void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTria
 {
     payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
     payload.rayT = RayTCurrent();
-    payload.normalWS = DDGITraceGeometricNormalWS();
+    payload.normalWS = DDGITraceRayFacingNormalWS(DDGITraceGeometricNormalWS());
     payload.baseColor = DDGITraceBaseColor();
 }
 
@@ -173,15 +179,14 @@ void RayGenDDGIProbeTrace()
              payload);
 
     float4 encoded = float4(DDGITraceEnvironmentRadiance(ray.Direction), DDGIProbeRayDataEncodeMiss(_DDGIProbeMaxRayDistance));
-    if (payload.hitKind == 1)
+    if (payload.hitKind != 0)
     {
         float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
         float3 radiance        = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.baseColor);
-        encoded = float4(radiance, DDGIProbeRayDataEncodeFrontface(payload.rayT));
-    }
-    else if (payload.hitKind == 2)
-    {
-        encoded = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeBackface(payload.rayT));
+        encoded = float4(radiance,
+                         payload.hitKind == 1
+                             ? DDGIProbeRayDataEncodeFrontface(payload.rayT)
+                             : DDGIProbeRayDataEncodeBackface(payload.rayT));
     }
 
     _DDGIProbeRayData[rayDataTexel] = encoded;
