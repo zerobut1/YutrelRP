@@ -96,6 +96,11 @@ uint DDGITraceMaterialAlbedoStatus(bool uvValid)
 
 uint DDGITraceMaterialPassAlbedoStatus(bool uvValid)
 {
+    if (!DDGITraceInstanceHasBaseColorTexture())
+    {
+        return DDGI_TRACE_ALBEDO_STATUS_FALLBACK;
+    }
+
     return (!DDGITraceInstanceHasUV0() || !uvValid)
                ? DDGI_TRACE_ALBEDO_STATUS_INVALID_UV
                : DDGI_TRACE_ALBEDO_STATUS_SAMPLED;

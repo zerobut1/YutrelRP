@@ -753,22 +753,20 @@ namespace YutrelRP
             bool logDiagnostics)
         {
             uint flags = 0u;
+            var usesBaseColorTexture = MaterialUsesBaseColorTexture(material);
+
             if (meshHasUV0)
             {
                 flags |= TraceMaterialHasUV0;
             }
-            else if (logDiagnostics)
+            else if (usesBaseColorTexture && logDiagnostics)
             {
-                Debug.LogWarning($"YutrelRP DDGI ProbeTrace fallback albedo for submesh {subMeshIndex} on renderer '{renderer.name}': mesh has no valid UV0.");
+                Debug.LogWarning($"YutrelRP DDGI ProbeTrace constant albedo for submesh {subMeshIndex} on renderer '{renderer.name}': _BaseColorTex is enabled but mesh has no valid UV0.");
             }
 
-            if (MaterialUsesBaseColorTexture(material))
+            if (usesBaseColorTexture)
             {
                 flags |= TraceMaterialHasBaseColorTexture;
-            }
-            else if (logDiagnostics)
-            {
-                Debug.LogWarning($"YutrelRP DDGI ProbeTrace fallback albedo for material '{material.name}' on renderer '{renderer.name}': _BaseColorTex is disabled or missing.");
             }
 
             return flags;
