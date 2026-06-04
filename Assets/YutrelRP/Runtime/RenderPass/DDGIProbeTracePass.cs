@@ -54,6 +54,7 @@ namespace YutrelRP
         private static readonly int screenTraceInvViewProjectionID = Shader.PropertyToID("_DDGIScreenTraceInvViewProjection");
         private static readonly int screenTraceCameraPositionWSID = Shader.PropertyToID("_DDGIScreenTraceCameraPositionWS");
         private static readonly int screenTraceReversedZID = Shader.PropertyToID("_DDGIScreenTraceReversedZ");
+        private static readonly int screenTraceProjectionFlipYID = Shader.PropertyToID("_DDGIScreenTraceProjectionFlipY");
 
         private static readonly Color DefaultTraceBaseColor = new(0.8f, 0.8f, 0.8f, 1.0f);
         private static readonly int BaseColorTexID = Shader.PropertyToID("_BaseColorTex");
@@ -231,6 +232,7 @@ namespace YutrelRP
                 pass.inverseViewProjection = GetInverseViewProjection(camera);
                 pass.cameraPositionWS = camera.transform.position;
                 pass.reversedZ = SystemInfo.usesReversedZBuffer ? 1 : 0;
+                pass.projectionFlipY = GetProjectionFlipY(camera);
                 pass.directionalLightVisibilityEnabled = settings.traceDirectionalVisibility ? 1.0f : 0.0f;
                 pass.directionalLightLambertEnabled = settings.traceDirectionalLambert ? 1.0f : 0.0f;
                 pass.SetDirectionalLight(lightResources);
@@ -290,6 +292,7 @@ namespace YutrelRP
         private Matrix4x4 inverseViewProjection;
         private Vector3 cameraPositionWS;
         private int reversedZ;
+        private int projectionFlipY;
         private int screenTraceWidth;
         private int screenTraceHeight;
         private Vector4 directionalLightColorIlluminance;
@@ -317,6 +320,7 @@ namespace YutrelRP
                 cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
                 cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
                 cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
+                cmd.SetRayTracingIntParam(rayTracingShader, screenTraceProjectionFlipYID, projectionFlipY);
             }
             cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
@@ -430,6 +434,12 @@ namespace YutrelRP
             var view = camera.worldToCameraMatrix;
             var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
             return (projection * view).inverse;
+        }
+
+        private static int GetProjectionFlipY(Camera camera)
+        {
+            var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
+            return projection.m11 < 0.0f ? 1 : 0;
         }
 
         private static YutrelDDGIVolume ResolveActiveVolume(out ProbeTraceIssue issue)

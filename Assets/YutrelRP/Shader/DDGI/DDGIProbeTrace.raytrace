@@ -41,6 +41,7 @@ float _DDGIEnvironmentValid;
 float4x4 _DDGIScreenTraceInvViewProjection;
 float3 _DDGIScreenTraceCameraPositionWS;
 int _DDGIScreenTraceReversedZ;
+int _DDGIScreenTraceProjectionFlipY;
 
 static const float DDGI_TRACE_FEEDBACK_GAIN             = 1.0f;
 static const float DDGI_TRACE_PROBE_RAY_DATA_STORE_MAX  = YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX;
@@ -253,7 +254,7 @@ float4 DDGIScreenTraceClipPosition(uint2 pixel, uint2 dimensions, float deviceDe
 #if UNITY_UV_STARTS_AT_TOP
     position_NDC.y = 1.0f - position_NDC.y;
 #endif
-    if (_ProjectionParams.x < 0.0f)
+    if (_DDGIScreenTraceProjectionFlipY != 0)
     {
         position_NDC.y = 1.0f - position_NDC.y;
     }
