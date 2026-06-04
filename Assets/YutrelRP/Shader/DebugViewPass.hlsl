@@ -307,11 +307,7 @@ float4 SampleDebugViewDDGIScreenTrace(float2 uv)
     }
 
     float3 albedo = saturate(data.rgb);
-    if (status == 2u)
-    {
-        albedo = lerp(albedo, float3(1.0f, 0.7f, 0.05f), 0.35f);
-    }
-    else if (status == 3u)
+    if (status == 3u)
     {
         albedo = lerp(albedo, float3(0.95f, 0.1f, 0.85f), 0.55f);
     }
