@@ -48,6 +48,17 @@ float4 SampleStandardDefaultLitBaseColor(float2 uv)
 #endif
 }
 
+float4 SampleStandardDefaultLitBaseColorLOD(float2 uv, float lod)
+{
+#if defined(_USE_BASECOLOR_TEX)
+    float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
+    float2 base_color_uv = TransformDefaultLitTextureUV(uv, base_color_ST);
+    return SAMPLE_TEXTURE2D_LOD(_BaseColorTex, sampler_BaseColorTex, base_color_uv, lod);
+#else
+    return UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+#endif
+}
+
 DefaultLitAlphaClipData BuildStandardDefaultLitAlphaClip(float alpha)
 {
     DefaultLitAlphaClipData alpha_clip;

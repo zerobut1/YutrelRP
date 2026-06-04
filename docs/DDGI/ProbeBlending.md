@@ -38,7 +38,7 @@ gather 采样 UV 使用 tile center 加 `octantCoordinates * interiorTexels * 0.
 
 ## Irradiance 语义
 
-`ProbeIrradiance` 当前存储的是 first-version direct diffuse radiance accumulation，不是包含 visibility、material albedo、shadow 或 multi-bounce 的最终 DDGI 质量实现。
+`ProbeIrradiance` 当前存储的是 probe ray radiance accumulation。自 history irradiance feedback 阶段起，hit ray radiance 包含 direct diffuse 与上一轮 `ProbeIrradiance/ProbeDistance` gather 反射回命中材质后的 diffuse feedback；miss ray 仍写入 environment / fallback skylight radiance。它仍不是包含 relocation、classification、完整材质模型或最终 RTXGI encoding 的质量实现。
 
 每个 atlas texel 先通过 `DDGIAtlasInteriorUV` 和 `DDGIOctahedralDecode` 得到 octahedral 方向，然后遍历当前 probe 的全部 ray：
 
@@ -50,8 +50,8 @@ ray contribution 直接来自 `ProbeRayData.rgb`：
 
 ```text
 miss           -> environment / fallback skylight radiance
-front-face hit -> ray-facing normal 的 directional direct diffuse radiance
-back-face hit  -> ray-facing normal 的 directional direct diffuse radiance，state 保留在 ProbeRayData.a
+front-face hit -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance
+back-face hit  -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance，state 保留在 ProbeRayData.a
 ```
 
 因此 irradiance atlas 能随当前帧方向光颜色、强度、方向和 skylight miss 输入变化。后续 gather 可以把它作为真实 radiance 数据流基线，但仍不能把它视为最终物理完整的 DDGI 结果。
@@ -60,9 +60,12 @@ back-face hit  -> ray-facing normal 的 directional direct diffuse radiance，st
 
 ```text
 ProbeRayData.rgb       = first-version diffuse radiance sample；hit 时已包含 trace material baseColor / PI、NoL、directional visibility；miss 时是 environment radiance
-ProbeIrradiance.rgb    = 对 ProbeRayData.rgb 做方向滤波后的 radiance-like 值，不包含 screen-space visibility、AO 或 final pre-exposure
+ProbeRayData.rgb       += history ProbeIrradiance gather * saturate(trace baseColor) / PI * coverage * visibility；feedback 使用固定 1.0 gain，并在写入前 clamp 到有限非负范围
+ProbeIrradiance.rgb    = 对 ProbeRayData.rgb 做方向滤波后的 radiance-like 值，不包含 screen-space AO 或 final pre-exposure
 EnvironmentLighting    = sample ProbeIrradiance 后乘 surface.diffuse_color、AO、DDGI diffuse intensity、coverage，并只在最终写 scene_color 时应用 pre-exposure
 ```
+
+history feedback 在 probe trace 阶段采样上一帧/上一轮 persistent atlas；本帧 trace 完成后，再由 blend pass 通过 `ProbeHysteresis` 写回同一 persistent atlas。atlas alpha 为 0 的初始化状态不会作为有效历史权重参与 blend，初始 history 为黑色，因此反馈会从 direct/miss 输入逐帧积累。反馈采样沿用 `DDGISampleTrilinearGather` 的 volume coverage、distance visibility、normal/view bias 与 atlas layout 语义，避免绕过已有 gather 约束。
 
 当前 trace 对 front/back hit 都按双面几何处理并使用 ray-facing normal 着色。这样可以避免导入资源 winding 或室内可见面被 RTAS 判定为 backface 时，把实际可见亮墙写成黑色。front/back 状态仍通过 `ProbeRayData.a` 保留给 distance/debug。
 

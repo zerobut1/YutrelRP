@@ -71,7 +71,7 @@
 				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
 				uint albedo_status = DDGITraceMaterialPassAlbedoStatus(uv_valid);
 				float3 base_color = uv_valid
-					? SampleSponzaDefaultLitBaseColor(uv).rgb
+					? SampleSponzaDefaultLitBaseColorLOD(uv, 0.0f).rgb
 					: DDGITraceFallbackBaseColor();
 				DDGITraceCommitClosestHit(payload, base_color, albedo_status);
 			}

@@ -31,6 +31,14 @@ float4 SampleSponzaDefaultLitBaseColor(float2 uv)
            UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
 }
 
+float4 SampleSponzaDefaultLitBaseColorLOD(float2 uv, float lod)
+{
+    float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
+    float2 base_color_uv = TransformDefaultLitTextureUV(uv, base_color_ST);
+    return SAMPLE_TEXTURE2D_LOD(_BaseColorTex, sampler_BaseColorTex, base_color_uv, lod) *
+           UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+}
+
 DefaultLitAlphaClipData BuildSponzaDefaultLitAlphaClip(float alpha)
 {
     DefaultLitAlphaClipData alpha_clip;

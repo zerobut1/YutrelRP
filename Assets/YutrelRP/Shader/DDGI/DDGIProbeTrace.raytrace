@@ -7,13 +7,22 @@
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RWTexture2DArray<float4> _DDGITraceAlbedo;
+Texture2DArray<float4> _DDGIProbeIrradiance;
+SamplerState sampler_DDGIProbeIrradiance;
+Texture2DArray<float4> _DDGIProbeDistance;
+SamplerState sampler_DDGIProbeDistance;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
 TextureCube<float4> _EnvironmentReflectionCube;
 SamplerState sampler_EnvironmentReflectionCube;
 
 float3 _DDGIVolumeMinWS;
+float3 _DDGIVolumeMaxWS;
 float3 _DDGIProbeSpacingWS;
+float _DDGIProbeNormalBias;
+float _DDGIProbeViewBias;
 float4 _DDGIProbeCount;
+float4 _DDGIProbeIrradianceDimensions;
+float4 _DDGIProbeDistanceDimensions;
 int _DDGIProbeRaysPerProbe;
 float _DDGIProbeMaxRayDistance;
 float4 _DDGIDirectionalLightColorIlluminance;
@@ -24,6 +33,53 @@ float _EnvironmentDiffuseMultiplier;
 float _DDGIEnvironmentValid;
 
 static const float3 DDGI_TRACE_FALLBACK_SKYLIGHT_RADIANCE = float3(0.015f, 0.018f, 0.022f);
+static const float DDGI_TRACE_FEEDBACK_GAIN               = 1.0f;
+static const float DDGI_TRACE_MAX_HIT_RADIANCE            = 64.0f;
+
+float3 DDGITraceSanitizeRadiance(float3 radiance, float maxRadiance)
+{
+    radiance = DDGIIsFinite3(radiance) ? radiance : 0.0f.xxx;
+    return min(max(radiance, 0.0f.xxx), max(maxRadiance, 0.0f).xxx);
+}
+
+float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float3 rayDirectionWS, float3 baseColor)
+{
+    float coverage = DDGIVolumeCoverage(positionWS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS);
+    if (coverage <= 0.0f)
+    {
+        return 0.0f.xxx;
+    }
+
+    uint3 probe_count      = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
+    uint irradiance_texels = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
+    uint distance_texels   = (uint)max(_DDGIProbeDistanceDimensions.w - 2.0f, 1.0f);
+    float3 normal          = DDGISafeNormalize(normalWS, -rayDirectionWS);
+    float3 view_direction  = DDGISafeNormalize(-rayDirectionWS, normal);
+
+    DDGIGatherSample gather = DDGISampleTrilinearGather(_DDGIProbeIrradiance,
+                                                        sampler_DDGIProbeIrradiance,
+                                                        _DDGIProbeDistance,
+                                                        sampler_DDGIProbeDistance,
+                                                        positionWS,
+                                                        normal,
+                                                        view_direction,
+                                                        _DDGIVolumeMinWS,
+                                                        _DDGIVolumeMaxWS,
+                                                        _DDGIProbeSpacingWS,
+                                                        probe_count,
+                                                        irradiance_texels,
+                                                        distance_texels,
+                                                        _DDGIProbeIrradianceDimensions,
+                                                        _DDGIProbeDistanceDimensions,
+                                                        _DDGIProbeMaxRayDistance,
+                                                        _DDGIProbeNormalBias,
+                                                        _DDGIProbeViewBias);
+    float3 irradiance = DDGITraceSanitizeRadiance(gather.irradiance, DDGI_TRACE_MAX_HIT_RADIANCE);
+    float visibility  = saturate(gather.coverage * gather.visibility);
+    float3 albedo     = saturate(baseColor);
+    return DDGITraceSanitizeRadiance(irradiance * albedo * 0.31830988618379067f * visibility * DDGI_TRACE_FEEDBACK_GAIN,
+                                     DDGI_TRACE_MAX_HIT_RADIANCE);
+}
 
 float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 lightDirection)
 {
@@ -145,7 +201,10 @@ void RayGenDDGIProbeTrace()
     if (payload.hitKind != 0)
     {
         float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
-        float3 radiance        = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.baseColor);
+        float3 direct_radiance = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.baseColor);
+        float3 feedback_radiance =
+            DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
+        float3 radiance = DDGITraceSanitizeRadiance(direct_radiance + feedback_radiance, DDGI_TRACE_MAX_HIT_RADIANCE);
         encoded = float4(radiance,
                          payload.hitKind == 1
                              ? DDGIProbeRayDataEncodeFrontface(payload.rayT)
