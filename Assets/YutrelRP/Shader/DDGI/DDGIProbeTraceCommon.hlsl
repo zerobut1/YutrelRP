@@ -94,6 +94,13 @@ uint DDGITraceMaterialAlbedoStatus(bool uvValid)
     return DDGI_TRACE_ALBEDO_STATUS_SAMPLED;
 }
 
+uint DDGITraceMaterialPassAlbedoStatus(bool uvValid)
+{
+    return (!DDGITraceInstanceHasUV0() || !uvValid)
+               ? DDGI_TRACE_ALBEDO_STATUS_INVALID_UV
+               : DDGI_TRACE_ALBEDO_STATUS_SAMPLED;
+}
+
 void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, uint albedoStatus)
 {
     payload.hitKind      = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1u : 2u;
