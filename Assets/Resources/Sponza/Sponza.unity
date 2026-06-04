@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 0.5
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 2100000, guid: c9f4a9b8e71f4e84990e76a6b7519e57, type: 2}
+  m_SkyboxMaterial: {fileID: 2100000, guid: d68ebe68558910e48a2848ea18b1840d, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -1218,7 +1218,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ad560d4f6bb44c2b25af8a8b79c8e32, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelEnvironmentLight
-  iblAsset: {fileID: 11400000, guid: dbfcad0bfdd3b684b83d28d33fbc0700, type: 2}
+  iblAsset: {fileID: 11400000, guid: 78091aa8c65fe8d4fb0f4a4998d856eb, type: 2}
   intensity: 20000
   diffuseMultiplier: 1
   specularMultiplier: 1
@@ -1286,6 +1286,15 @@ MonoBehaviour:
   probeCount: {x: 10, y: 11, z: 24}
   raysPerProbe: 64
   probeMaxRayDistance: 100
+  probeIrradianceInteriorTexels: 6
+  probeDistanceInteriorTexels: 14
+  probeHysteresis: 0.97
+  probeNormalBias: 0.2
+  probeViewBias: 0.1
+  irradianceEncodingGamma: 5
+  distanceExponent: 50
+  irradianceThreshold: 0.2
+  brightnessThreshold: 2
   probePreviewRadius: 0.075
 --- !u!1 &964583431
 GameObject:
