@@ -305,7 +305,10 @@ namespace YutrelRP
 
             environmentIntensity = Mathf.Max(0.0f, lightResources.environment_intensity);
             environmentDiffuseMultiplier = Mathf.Max(0.0f, lightResources.environment_diffuse_multiplier);
-            if (!lightResources.has_environment_reflection || !lightResources.environment_reflection_cube.IsValid())
+            if (!lightResources.has_environment_reflection ||
+                !lightResources.environment_reflection_cube.IsValid() ||
+                environmentIntensity <= 0.0f ||
+                environmentDiffuseMultiplier <= 0.0f)
             {
                 return;
             }
@@ -878,8 +881,16 @@ namespace YutrelRP
             }
 
 #if UNITY_EDITOR
-            var flags = GameObjectUtility.GetStaticEditorFlags(renderer.gameObject);
-            return (flags & StaticEditorFlags.ContributeGI) != 0;
+            for (var transform = renderer.transform; transform != null; transform = transform.parent)
+            {
+                var flags = GameObjectUtility.GetStaticEditorFlags(transform.gameObject);
+                if ((flags & StaticEditorFlags.ContributeGI) != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
 #else
             return false;
 #endif

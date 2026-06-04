@@ -32,9 +32,8 @@ float _EnvironmentIntensity;
 float _EnvironmentDiffuseMultiplier;
 float _DDGIEnvironmentValid;
 
-static const float3 DDGI_TRACE_FALLBACK_SKYLIGHT_RADIANCE = float3(0.015f, 0.018f, 0.022f);
-static const float DDGI_TRACE_FEEDBACK_GAIN               = 1.0f;
-static const float DDGI_TRACE_MAX_HIT_RADIANCE            = 64.0f;
+static const float DDGI_TRACE_FEEDBACK_GAIN    = 1.0f;
+static const float DDGI_TRACE_MAX_HIT_RADIANCE = 64.0f;
 
 float3 DDGITraceSanitizeRadiance(float3 radiance, float maxRadiance)
 {
@@ -131,7 +130,7 @@ float3 DDGITraceEnvironmentRadiance(float3 directionWS)
 {
     if (_DDGIEnvironmentValid <= 0.5f)
     {
-        return DDGI_TRACE_FALLBACK_SKYLIGHT_RADIANCE;
+        return 0.0f.xxx;
     }
 
     float3 direction = DDGISafeNormalize(directionWS, float3(0.0f, 1.0f, 0.0f));
