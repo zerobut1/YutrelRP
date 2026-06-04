@@ -484,8 +484,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 413176827}
   - {fileID: 597780413}
@@ -651,11 +651,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c31f8bb32da4ed190f66c4e5d5caa21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelDDGIVolume
-  center: {x: 0, y: 2, z: 0}
-  size: {x: 11, y: 11, z: 11}
-  probeCount: {x: 10, y: 10, z: 10}
-  raysPerProbe: 64
-  probeMaxRayDistance: 100
+  center: {x: 0.08076596, y: -0.1967864, z: -0.038999557}
+  size: {x: 5.973059, y: 5.6882396, z: 5.663908}
+  probeCount: {x: 12, y: 12, z: 12}
+  raysPerProbe: 128
+  probeMaxRayDistance: 10
   probeIrradianceInteriorTexels: 6
   probeDistanceInteriorTexels: 14
   probeHysteresis: 0.97
