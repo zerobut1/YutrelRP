@@ -626,7 +626,7 @@ namespace YutrelRP
                     var p0 = localToWorld.MultiplyPoint3x4(vertices[i0]);
                     var p1 = localToWorld.MultiplyPoint3x4(vertices[i1]);
                     var p2 = localToWorld.MultiplyPoint3x4(vertices[i2]);
-                    var normal = Vector3.Cross(p1 - p0, p2 - p0);
+                    var normal = Vector3.Cross(p2 - p0, p1 - p0);
                     if (normal.sqrMagnitude <= 1.0e-10f)
                     {
                         triangleNormals.Add(Vector4.zero);
