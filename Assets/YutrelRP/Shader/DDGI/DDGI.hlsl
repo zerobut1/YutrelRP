@@ -63,47 +63,33 @@ uint2 DDGIAtlasWrappedInteriorTexel(uint2 local_texel, uint interior_texels)
 {
     uint interior_texel_count = max(interior_texels, 1u);
     uint tile_texel_size      = DDGIAtlasTileTexelSize(interior_texel_count);
-    uint last_interior_texel  = interior_texel_count - 1u;
-    bool left                 = local_texel.x == 0u;
-    bool right                = local_texel.x >= tile_texel_size - 1u;
-    bool bottom               = local_texel.y == 0u;
-    bool top                  = local_texel.y >= tile_texel_size - 1u;
-    uint2 result              = min(local_texel - 1u, uint2(last_interior_texel, last_interior_texel));
-
-    if (left && bottom)
+    if (!DDGIAtlasLocalTexelIsBorder(local_texel, interior_texel_count))
     {
-        result = uint2(last_interior_texel, last_interior_texel);
-    }
-    else if (right && bottom)
-    {
-        result = uint2(0u, last_interior_texel);
-    }
-    else if (left && top)
-    {
-        result = uint2(last_interior_texel, 0u);
-    }
-    else if (right && top)
-    {
-        result = uint2(0u, 0u);
-    }
-    else if (left)
-    {
-        result = uint2(last_interior_texel, min(interior_texel_count - local_texel.y, last_interior_texel));
-    }
-    else if (right)
-    {
-        result = uint2(0u, min(interior_texel_count - local_texel.y, last_interior_texel));
-    }
-    else if (bottom)
-    {
-        result = uint2(min(interior_texel_count - local_texel.x, last_interior_texel), last_interior_texel);
-    }
-    else if (top)
-    {
-        result = uint2(min(interior_texel_count - local_texel.x, last_interior_texel), 0u);
+        return min(local_texel - 1u, uint2(interior_texel_count - 1u, interior_texel_count - 1u));
     }
 
-    return result;
+    bool corner_texel = (local_texel.x == 0u || local_texel.x >= tile_texel_size - 1u) &&
+                        (local_texel.y == 0u || local_texel.y >= tile_texel_size - 1u);
+    bool row_texel    = local_texel.x > 0u && local_texel.x < tile_texel_size - 1u;
+    uint2 copy_local_texel;
+
+    if (corner_texel)
+    {
+        copy_local_texel = uint2(local_texel.x > 0u ? 1u : interior_texel_count,
+                                 local_texel.y > 0u ? 1u : interior_texel_count);
+    }
+    else if (row_texel)
+    {
+        copy_local_texel = uint2((tile_texel_size - 1u) - local_texel.x,
+                                 local_texel.y + (local_texel.y > 0u ? 0xffffffffu : 1u));
+    }
+    else
+    {
+        copy_local_texel = uint2(local_texel.x + (local_texel.x > 0u ? 0xffffffffu : 1u),
+                                 (tile_texel_size - 1u) - local_texel.y);
+    }
+
+    return min(copy_local_texel - 1u, uint2(interior_texel_count - 1u, interior_texel_count - 1u));
 }
 
 float2 DDGIAtlasInteriorUV(uint2 local_texel, uint interior_texels)
@@ -130,6 +116,21 @@ float3 DDGISafeNormalize(float3 value, float3 fallback)
 {
     float length_sq = dot(value, value);
     return length_sq > 1.0e-10f ? value * rsqrt(length_sq) : fallback;
+}
+
+bool DDGIIsFinite(float value)
+{
+    return value == value && abs(value) < 1.0e20f;
+}
+
+bool DDGIIsFinite3(float3 value)
+{
+    return all(value == value) && all(abs(value) < 1.0e20f.xxx);
+}
+
+bool DDGIIsFinite4(float4 value)
+{
+    return all(value == value) && all(abs(value) < 1.0e20f.xxxx);
 }
 
 float DDGIProbeRayDataEncodeMiss(float max_distance)
@@ -224,10 +225,12 @@ float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume
 
 float2 DDGIProbeAtlasUV(uint3 probe_coord, float3 sample_direction, uint interior_texels, float2 atlas_dimensions)
 {
-    float2 encoded_direction = DDGIOctahedralEncode(sample_direction);
-    float2 tile_base         = float2(DDGIProbeAtlasInteriorBaseTexel(probe_coord, interior_texels));
-    float2 atlas_texel       = tile_base + encoded_direction * max(float(interior_texels) - 1.0f, 0.0f);
-    return (atlas_texel + 0.5f) / max(atlas_dimensions, float2(1.0f, 1.0f));
+    float interior_texel_count = max(float(interior_texels), 1.0f);
+    float tile_texel_size      = interior_texel_count + 2.0f;
+    float2 octant_coordinates  = DDGIOctahedralEncode(sample_direction) * 2.0f - 1.0f;
+    float2 tile_base           = float2(DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels));
+    float2 atlas_texel         = tile_base + tile_texel_size * 0.5f + octant_coordinates * (interior_texel_count * 0.5f);
+    return atlas_texel / max(atlas_dimensions, float2(1.0f, 1.0f));
 }
 
 float3 DDGISampleProbeIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
@@ -293,12 +296,18 @@ float3 DDGIBiasedSurfacePosition(float3 position_WS, float3 normal_WS, float3 vi
 
 float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float max_ray_distance, float tolerance)
 {
+    distance_moments   = DDGIIsFinite3(distance_moments) ? max(distance_moments, 0.0f.xxx) : float3(1.0f, 1.0f, 0.0f);
     float ray_distance = max(max_ray_distance, 0.001f);
     float mean         = saturate(distance_moments.r) * ray_distance;
-    float mean_sq      = saturate(distance_moments.g) * ray_distance * ray_distance;
+    float mean_sq      = max(saturate(distance_moments.g) * ray_distance * ray_distance, mean * mean);
     float hit_ratio    = saturate(distance_moments.b);
     float variance     = max(mean_sq - mean * mean, ray_distance * ray_distance * 0.0001f);
     float delta        = surface_distance - mean - max(tolerance, 0.0f);
+
+    if (hit_ratio <= 0.001f || !DDGIIsFinite(surface_distance))
+    {
+        return 1.0f;
+    }
 
     if (delta <= 0.0f)
     {
@@ -306,13 +315,14 @@ float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float
     }
 
     float chebyshev = variance / (variance + delta * delta);
-    return lerp(1.0f, saturate(chebyshev), hit_ratio);
+    return lerp(1.0f, max(saturate(chebyshev), 0.05f), hit_ratio);
 }
 
 float DDGIProbeSurfaceWeight(float3 position_WS, float3 normal_WS, float3 probe_position_WS)
 {
     float3 surface_to_probe = DDGISafeNormalize(probe_position_WS - position_WS, normal_WS);
-    return smoothstep(-0.2f, 0.2f, dot(DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)), surface_to_probe));
+    float wrap_shading      = (dot(DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)), surface_to_probe) + 1.0f) * 0.5f;
+    return saturate(wrap_shading * wrap_shading + 0.2f);
 }
 
 float DDGISampleProbeVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler, uint3 probe_coord,

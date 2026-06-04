@@ -26,7 +26,15 @@ probeZ        = atlasY / tileTexelSize
 probeY        = slice
 ```
 
-每个 tile 的 1 texel border 使用 `DDGIAtlasWrappedInteriorTexel` 映射到 octahedral 对边/对角 interior texel 后重新计算当前帧值。第一版不做独立 border copy pass，但 border texel 保证被写入定义值。
+每个 tile 的 1 texel border 使用 `DDGIAtlasWrappedInteriorTexel` 映射到 octahedral 对边/对角 interior texel 后重新计算当前帧值。映射方向与 RTXGI border copy 约定一致：
+
+```text
+corner border -> opposite corner interior
+top/bottom row border -> mirrored x, nearest interior row
+left/right column border -> nearest interior column, mirrored y
+```
+
+gather 采样 UV 使用 tile center 加 `octantCoordinates * interiorTexels * 0.5`，让 bilinear footprint 可以跨入 border texel。这样 seam 方向不再依赖黑色或过期 border 数据。
 
 ## Irradiance 语义
 
@@ -41,12 +49,20 @@ weight = pow(saturate(dot(atlasDirection, rayDirection)), 24) + 0.0001
 ray contribution 直接来自 `ProbeRayData.rgb`：
 
 ```text
-miss           -> black radiance
+miss           -> environment / fallback skylight radiance
 front-face hit -> no-shadow directional direct diffuse radiance
 back-face hit  -> black radiance, state 保留在 ProbeRayData.a
 ```
 
-因此 irradiance atlas 能随当前帧方向光颜色、强度和方向变化；关闭方向光后会向黑色收敛。后续 gather 可以把它作为真实 direct radiance 数据流基线，但仍不能把它视为最终物理完整的 DDGI 结果。
+因此 irradiance atlas 能随当前帧方向光颜色、强度、方向和 skylight miss 输入变化。后续 gather 可以把它作为真实 radiance 数据流基线，但仍不能把它视为最终物理完整的 DDGI 结果。
+
+当前能量约定：
+
+```text
+ProbeRayData.rgb       = first-version diffuse radiance sample；hit 时已包含 trace material baseColor / PI、NoL、directional visibility；miss 时是 environment radiance
+ProbeIrradiance.rgb    = 对 ProbeRayData.rgb 做方向滤波后的 radiance-like 值，不包含 screen-space visibility、AO 或 final pre-exposure
+EnvironmentLighting    = sample ProbeIrradiance 后乘 surface.diffuse_color、AO、DDGI diffuse intensity、coverage，并只在最终写 scene_color 时应用 pre-exposure
+```
 
 ## Distance 语义
 
@@ -59,7 +75,7 @@ B = weighted hit ratio
 A = 1 when initialized by blending
 ```
 
-miss 使用 `distance01 = 1`、`hit ratio = 0`。front-face hit 使用 `hit ratio = 1`。back-face hit 使用 `hit ratio = 0.5`，用于在 debug/future visibility 中保留“命中了但命中类型较差”的区别。
+distance blend 的方向权重使用 `YutrelDDGIVolume.DistanceExponent`。miss 使用 `distance01 = 1`、`hit ratio = 0`，因此不会被当作近距离遮挡。front-face hit 使用 `hit ratio = 1`。back-face hit 使用 `hit ratio = 0.15`，用于在 debug/future visibility 中保留“命中了但命中类型较差”的区别，同时避免背面命中造成大面积过度遮蔽。
 
 该数据适合作为下一阶段基础 visibility/gather 的输入原型；最终漏光控制、bias、relocation/classification 语义仍需要后续阶段补全。
 
@@ -71,4 +87,4 @@ blending 使用 active `YutrelDDGIVolume.ProbeHysteresis`：
 newAtlas = lerp(currentFrameValue, historyValue, probeHysteresis)
 ```
 
-atlas 初始清空或重建后 alpha 为 0，第一帧 blending 会忽略历史并直接写入当前帧值。persistent atlas identity 仍由 volume key、probe count、irradiance interior texels、distance interior texels 决定；这些参数变化会释放并重建 atlas，避免跨不兼容 layout 混合历史。
+atlas 初始清空或重建后 alpha 为 0，第一帧 blending 会忽略历史并直接写入当前帧值。persistent atlas identity 由 volume key、probe count、irradiance interior texels、distance interior texels 和 atlas semantic version 决定；这些参数或语义版本变化会释放并重建 atlas，避免跨不兼容 layout / border / distance convention 混合历史。

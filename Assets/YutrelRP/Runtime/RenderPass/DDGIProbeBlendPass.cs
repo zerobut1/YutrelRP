@@ -21,6 +21,7 @@ namespace YutrelRP
         private static readonly int probeDistanceDimensionsID = DDGIResources.probe_distance_dimensions_ID;
         private static readonly int probeRayDataMaxDistanceID = DDGIResources.probe_ray_data_max_distance_ID;
         private static readonly int probeHysteresisID = Shader.PropertyToID("_DDGIProbeHysteresis");
+        private static readonly int probeDistanceExponentID = Shader.PropertyToID("_DDGIProbeDistanceExponent");
 
         private static ComputeShader shader;
         private static int irradianceKernel = -1;
@@ -57,6 +58,7 @@ namespace YutrelRP
             pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
             pass.probeMaxRayDistance = Mathf.Max(0.001f, resources.probe_max_ray_distance);
             pass.probeHysteresis = Mathf.Clamp01(volume.ProbeHysteresis);
+            pass.probeDistanceExponent = Mathf.Max(0.01f, resources.probe_distance_exponent);
 
             builder.UseTexture(pass.probeRayData, AccessFlags.Read);
             builder.UseTexture(pass.probeIrradiance, AccessFlags.ReadWrite);
@@ -75,6 +77,7 @@ namespace YutrelRP
         private Vector4 probeDistanceDimensions;
         private float probeMaxRayDistance;
         private float probeHysteresis;
+        private float probeDistanceExponent;
 
         private void Render(ComputeGraphContext context)
         {
@@ -105,6 +108,7 @@ namespace YutrelRP
             cmd.SetComputeVectorParam(computeShader, probeDistanceDimensionsID, probeDistanceDimensions);
             cmd.SetComputeFloatParam(computeShader, probeRayDataMaxDistanceID, probeMaxRayDistance);
             cmd.SetComputeFloatParam(computeShader, probeHysteresisID, probeHysteresis);
+            cmd.SetComputeFloatParam(computeShader, probeDistanceExponentID, probeDistanceExponent);
         }
 
         private static ProbeBlendIssue Validate(DDGIResources resources, YutrelDDGIVolume volume)

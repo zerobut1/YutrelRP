@@ -19,11 +19,13 @@ volume 外侧超过对应轴 probe spacing: coverage = 0
 Gather 对 visibility 使用一个 biased surface position：
 
 ```text
-biasedPosition = position + normal * minProbeSpacing * 0.05
-               + viewDirection * minProbeSpacing * 0.02
+biasedPosition = position + normal * ProbeNormalBias
+               + viewDirection * ProbeViewBias
 ```
 
 coverage 仍使用原始 surface position 计算，避免 bias 把边界表面错误推出覆盖范围。bias 只参与 probe-to-surface distance visibility，用于减少贴表面采样带来的自遮挡黑斑和数值不稳定。
+
+实际 bias 距离来自 `YutrelDDGIVolume.ProbeNormalBias` 与 `YutrelDDGIVolume.ProbeViewBias`，不是硬编码比例。`viewDirection` 约定为 surface 指向 camera 的 world-space 方向。
 
 ## Visibility
 
@@ -40,7 +42,9 @@ B = hit ratio
 1. 如果 surface distance 没有超过 stored mean distance 加 tolerance，则认为该 probe 可见。
 2. 如果 surface distance 明显更远，则用 moments 的 Chebyshev-style 权重降低贡献。
 3. miss-heavy 方向不会强行遮挡，`hit ratio` 越高，distance moments 对 visibility 的影响越强。
-4. 额外使用 surface normal 与 surface-to-probe 方向关系压低背面 probe，减少穿墙漏光。
+4. backface ray 只提供低置信度 distance 信息，避免把 probe 内部或背面命中解释成大面积黑洞。
+5. 额外使用 surface normal 与 surface-to-probe 方向关系压低背面 probe，但保留 wrap-shading floor，避免所有邻近 probe 因 normal 权重同时归零。
+6. invalid / NaN / Inf moments 会按“无可靠遮挡信息”处理，不参与强遮蔽。
 
 最终 diffuse gather 对 8 个邻近 probe 做 trilinear accumulate：
 
@@ -51,6 +55,8 @@ finalDiffuse = irradiance * coverage
 ```
 
 这不是最终 RTXGI 质量实现，也不包含 relocation/classification/multi-bounce，但已经把 distance atlas 纳入了 per-pixel gather 的质量调节闭环。
+
+当前 stored irradiance 已经是 probe ray radiance 的低频方向滤波结果；screen-space gather 不再除以 PI。最终写入 `scene_color` 前，只在 `EnvironmentLightingPass` 中应用材质 diffuse color、AO、DDGI diffuse intensity、coverage 和 pre-exposure。
 
 ## Debug View
 

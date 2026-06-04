@@ -43,6 +43,7 @@ namespace YutrelRP
         public Vector3 probe_spacing_ws;
         public float probe_normal_bias;
         public float probe_view_bias;
+        public float probe_distance_exponent;
         public bool has_gather_data;
         public bool has_persistent_atlas;
         public string diagnostic;
@@ -68,6 +69,7 @@ namespace YutrelRP
             probe_spacing_ws = Vector3.zero;
             probe_normal_bias = 0.0f;
             probe_view_bias = 0.0f;
+            probe_distance_exponent = 0.0f;
             has_gather_data = false;
             has_persistent_atlas = false;
             diagnostic = null;
@@ -86,6 +88,7 @@ namespace YutrelRP
             probe_spacing_ws = volume.GetWorldProbeSpacing();
             probe_normal_bias = volume.ProbeNormalBias;
             probe_view_bias = volume.ProbeViewBias;
+            probe_distance_exponent = volume.DistanceExponent;
         }
 
         internal Vector4 ProbeRayDataDimensions => new(
@@ -116,7 +119,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int IrradianceDirectionSemanticVersion = 4;
+            private const int AtlasSemanticVersion = 5;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
@@ -130,7 +133,7 @@ namespace YutrelRP
                 probeCount = volume != null ? volume.ProbeCount : Vector3Int.zero;
                 irradianceInteriorTexels = volume != null ? volume.ProbeIrradianceInteriorTexels : 0;
                 distanceInteriorTexels = volume != null ? volume.ProbeDistanceInteriorTexels : 0;
-                semanticVersion = IrradianceDirectionSemanticVersion;
+                semanticVersion = AtlasSemanticVersion;
             }
 
             public override bool Equals(object obj)

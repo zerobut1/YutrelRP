@@ -271,25 +271,23 @@ float4 SampleDebugViewDDGIAtlas(Texture2DArray atlas, float4 dimensions, int deb
     DDGIAtlasTexel atlas_texel = DDGIProbeAtlasTexel(probe_coord, local_texel, interior_texels);
     float4 data                = atlas.Load(uint4(texel, slice, 0));
 
-    if (atlas_texel.is_border)
-    {
-        float3 index_color = DebugViewDDGIIndexColor(probe_coord, probe_count);
-        return float4(saturate(float3(1.0f, 0.78f, 0.18f) * (0.65f + index_color * 0.35f)), 1.0f);
-    }
-
+    float border_overlay = atlas_texel.is_border ? 0.18f : 0.0f;
     if (radiance_atlas)
     {
-        return float4(DebugViewToneMapDDGIRadiance(data.rgb), 1.0f);
+        float3 radiance_color = DebugViewToneMapDDGIRadiance(data.rgb);
+        return float4(saturate(radiance_color + border_overlay * float3(1.0f, 0.78f, 0.18f)), 1.0f);
     }
 
-    float2 interior_uv     = (float2(local_texel - 1u) + 0.5f) / max(float(interior_texels), 1.0f);
-    float3 direction       = DDGIOctahedralDecode(interior_uv);
-    float3 direction_color = direction * 0.5f + 0.5f;
-    float3 index_tint      = DebugViewDDGIIndexColor(probe_coord, probe_count) * 0.25f;
-    float3 stored_color    = saturate(data.rgb);
-    float stored_weight    = saturate(max(max(stored_color.r, stored_color.g), stored_color.b));
-    float3 debug_color     = saturate(direction_color * 0.75f + index_tint);
-    return float4(lerp(debug_color, stored_color, stored_weight * 0.55f), 1.0f);
+    uint2 debug_interior_texel = atlas_texel.is_border ? DDGIAtlasWrappedInteriorTexel(local_texel, interior_texels) : local_texel - 1u;
+    float2 interior_uv         = (float2(debug_interior_texel) + 0.5f) / max(float(interior_texels), 1.0f);
+    float3 direction           = DDGIOctahedralDecode(interior_uv);
+    float3 direction_color     = direction * 0.5f + 0.5f;
+    float3 index_tint          = DebugViewDDGIIndexColor(probe_coord, probe_count) * 0.25f;
+    float3 stored_color        = saturate(data.rgb);
+    float stored_weight        = saturate(max(max(stored_color.r, stored_color.g), stored_color.b));
+    float3 debug_color         = saturate(direction_color * 0.75f + index_tint);
+    debug_color                = lerp(debug_color, stored_color, stored_weight * 0.55f);
+    return float4(saturate(debug_color + border_overlay * float3(1.0f, 0.78f, 0.18f)), 1.0f);
 }
 
 float4 SampleDebugViewDDGIProbeData(float2 uv)
