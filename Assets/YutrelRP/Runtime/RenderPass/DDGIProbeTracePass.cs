@@ -100,6 +100,13 @@ namespace YutrelRP
                 LogStatus(ProbeTraceIssue.FrameDebuggerActive, null);
                 return;
             }
+
+            if (IsRenderDocLoaded())
+            {
+                ReleasePersistentAtlases();
+                LogStatus(ProbeTraceIssue.RenderDocLoaded, null);
+                return;
+            }
 #endif
 
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game)
@@ -1084,6 +1091,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.ResourceAllocationFailed:
                     return "resource/allocation";
                 case ProbeTraceIssue.FrameDebuggerActive:
+                case ProbeTraceIssue.RenderDocLoaded:
                     return "editor/debugger";
                 default:
                     return "dispatch/output";
@@ -1119,6 +1127,8 @@ namespace YutrelRP
                     return "persistent DDGI atlas allocation or import failed";
                 case ProbeTraceIssue.FrameDebuggerActive:
                     return "Unity Frame Debugger is active; DDGI ProbeTrace uses D3D12 ray tracing commands that are skipped to avoid editor device-loss crashes";
+                case ProbeTraceIssue.RenderDocLoaded:
+                    return "RenderDoc is loaded; DDGI ProbeTrace uses D3D12 ray tracing commands that currently crash in Unity/RenderDoc descriptor table setup";
                 default:
                     return "unknown failure";
             }
@@ -1147,6 +1157,41 @@ namespace YutrelRP
                 System.Reflection.BindingFlags.NonPublic,
                 null, System.Type.EmptyTypes, null);
             return isLocalEnabledMethod != null && (bool)isLocalEnabledMethod.Invoke(null, null);
+        }
+
+        private static bool IsRenderDocLoaded()
+        {
+            try
+            {
+                var renderDocType = typeof(EditorApplication).Assembly.GetType("UnityEditorInternal.RenderDoc");
+                if (renderDocType != null)
+                {
+                    var isLoadedMethod = renderDocType.GetMethod("IsLoaded",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic,
+                        null, System.Type.EmptyTypes, null);
+                    if (isLoadedMethod != null &&
+                        isLoadedMethod.ReturnType == typeof(bool) &&
+                        (bool)isLoadedMethod.Invoke(null, null))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (System.Exception)
+            {
+                // Fall back to the launch argument check below.
+            }
+
+            foreach (var arg in System.Environment.GetCommandLineArgs())
+            {
+                if (string.Equals(arg, "-loadrenderdoc", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 #endif
 
@@ -1180,7 +1225,8 @@ namespace YutrelRP
             EmptyAccelerationStructure = 7,
             ResourceTooLarge = 8,
             FrameDebuggerActive = 9,
-            ResourceAllocationFailed = 10
+            ResourceAllocationFailed = 10,
+            RenderDocLoaded = 11
         }
 
         [StructLayout(LayoutKind.Sequential)]
