@@ -325,10 +325,10 @@ float DDGIProbeSurfaceWeight(float3 position_WS, float3 normal_WS, float3 probe_
     return saturate(wrap_shading * wrap_shading + 0.2f);
 }
 
-float DDGISampleProbeVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler, uint3 probe_coord,
-                                float3 position_WS, float3 biased_position_WS, float3 normal_WS,
-                                float3 volume_min_WS, float3 probe_spacing_WS, uint distance_interior_texels,
-                                float4 distance_dimensions, float max_ray_distance)
+float DDGISampleProbeDistanceVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler, uint3 probe_coord,
+                                        float3 biased_position_WS, float3 normal_WS,
+                                        float3 volume_min_WS, float3 probe_spacing_WS, uint distance_interior_texels,
+                                        float4 distance_dimensions, float max_ray_distance)
 {
     float3 probe_position_WS = DDGIProbeWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord);
     float3 probe_to_surface  = biased_position_WS - probe_position_WS;
@@ -336,8 +336,7 @@ float DDGISampleProbeVisibility(Texture2DArray distance_atlas, SamplerState dist
     float3 sample_direction  = DDGISafeNormalize(probe_to_surface, normal_WS);
     float3 distance_moments  = DDGISampleProbeDistance(distance_atlas, distance_sampler, probe_coord, sample_direction, distance_interior_texels, distance_dimensions);
     float tolerance          = max(DDGIMinProbeSpacing(probe_spacing_WS) * 0.15f, max(max_ray_distance, 0.001f) * 0.01f);
-    float visibility         = DDGIProbeVisibility(distance_moments, surface_distance, max_ray_distance, tolerance);
-    return visibility * DDGIProbeSurfaceWeight(position_WS, normal_WS, probe_position_WS);
+    return DDGIProbeVisibility(distance_moments, surface_distance, max_ray_distance, tolerance);
 }
 
 DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, SamplerState irradiance_sampler,
@@ -362,6 +361,7 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
     float3 weight          = saturate(clamped_coord - float3(base_coord));
     float3 biased_position = DDGIBiasedSurfacePosition(position_WS, normal_WS, view_direction_WS, probe_normal_bias, probe_view_bias);
     float weight_sum       = 0.0f;
+    float contribution_sum = 0.0f;
 
     [unroll] for (uint z = 0u; z < 2u; z++)
     {
@@ -376,16 +376,20 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
                                                 y == 0u ? 1.0f - weight.y : weight.y,
                                                 z == 0u ? 1.0f - weight.z : weight.z);
                 float trilinear_weight = axis_weight.x * axis_weight.y * axis_weight.z;
-                float visibility       = DDGISampleProbeVisibility(distance_atlas, distance_sampler, probe_coord, position_WS, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
+                float visibility       = DDGISampleProbeDistanceVisibility(distance_atlas, distance_sampler, probe_coord, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
+                float surface_weight   = DDGIProbeSurfaceWeight(position_WS, normal_WS, DDGIProbeWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord));
+                float contribution     = trilinear_weight * visibility * surface_weight;
                 float3 irradiance      = DDGISampleProbeIrradiance(irradiance_atlas, irradiance_sampler, probe_coord, normal_WS, irradiance_interior_texels, irradiance_dimensions);
 
-                result.irradiance += max(irradiance, 0.0f) * trilinear_weight * visibility;
+                result.irradiance += max(irradiance, 0.0f) * contribution;
                 result.visibility += trilinear_weight * visibility;
+                contribution_sum += contribution;
                 weight_sum += trilinear_weight;
             }
         }
     }
 
+    result.irradiance = contribution_sum > 0.0001f ? result.irradiance / contribution_sum : 0.0f.xxx;
     result.visibility = weight_sum > 0.0f ? saturate(result.visibility / weight_sum) : 0.0f;
     return result;
 }
