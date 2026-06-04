@@ -37,6 +37,7 @@ namespace YutrelRP
         private static readonly int probeSpacingWSID = Shader.PropertyToID("_DDGIProbeSpacingWS");
         private static readonly int probeNormalBiasID = DDGIResources.probe_normal_bias_ID;
         private static readonly int probeViewBiasID = DDGIResources.probe_view_bias_ID;
+        private static readonly int probeIrradianceEncodingGammaID = DDGIResources.probe_irradiance_encoding_gamma_ID;
         private static readonly int probeCountID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int raysPerProbeID = Shader.PropertyToID("_DDGIProbeRaysPerProbe");
         private static readonly int probeMaxRayDistanceID = Shader.PropertyToID("_DDGIProbeMaxRayDistance");
@@ -233,6 +234,7 @@ namespace YutrelRP
                 pass.probeSpacingWS = volume.GetWorldProbeSpacing();
                 pass.probeNormalBias = volume.ProbeNormalBias;
                 pass.probeViewBias = volume.ProbeViewBias;
+                pass.probeIrradianceEncodingGamma = volume.IrradianceEncodingGamma;
                 pass.probeCount = probeCount;
                 pass.raysPerProbe = raysPerProbe;
                 pass.planeProbeCount = planeProbeCount;
@@ -294,6 +296,7 @@ namespace YutrelRP
         private Vector3 probeSpacingWS;
         private float probeNormalBias;
         private float probeViewBias;
+        private float probeIrradianceEncodingGamma;
         private Vector3Int probeCount;
         private int raysPerProbe;
         private int planeProbeCount;
@@ -353,6 +356,7 @@ namespace YutrelRP
             cmd.SetRayTracingVectorParam(rayTracingShader, probeSpacingWSID, probeSpacingWS);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeNormalBiasID, probeNormalBias);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeViewBiasID, probeViewBias);
+            cmd.SetRayTracingFloatParam(rayTracingShader, probeIrradianceEncodingGammaID, probeIrradianceEncodingGamma);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);

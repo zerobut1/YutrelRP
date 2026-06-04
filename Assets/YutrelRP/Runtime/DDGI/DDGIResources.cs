@@ -33,6 +33,7 @@ namespace YutrelRP
             probe_spacing_ws_ID = Shader.PropertyToID("_DDGIProbeSpacingWS"),
             probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias"),
             probe_view_bias_ID = Shader.PropertyToID("_DDGIProbeViewBias"),
+            probe_irradiance_encoding_gamma_ID = Shader.PropertyToID("_DDGIProbeIrradianceEncodingGamma"),
             gather_valid_ID = Shader.PropertyToID("_DDGIGatherValid"),
             diffuse_intensity_ID = Shader.PropertyToID("_DDGIDiffuseIntensity");
 
@@ -52,6 +53,7 @@ namespace YutrelRP
         public Vector3 probe_spacing_ws;
         public float probe_normal_bias;
         public float probe_view_bias;
+        public float probe_irradiance_encoding_gamma;
         public float probe_distance_exponent;
         public bool has_gather_data;
         public bool has_persistent_atlas;
@@ -81,6 +83,7 @@ namespace YutrelRP
             probe_spacing_ws = Vector3.zero;
             probe_normal_bias = 0.0f;
             probe_view_bias = 0.0f;
+            probe_irradiance_encoding_gamma = 0.0f;
             probe_distance_exponent = 0.0f;
             has_gather_data = false;
             has_persistent_atlas = false;
@@ -101,6 +104,7 @@ namespace YutrelRP
             probe_spacing_ws = volume.GetWorldProbeSpacing();
             probe_normal_bias = volume.ProbeNormalBias;
             probe_view_bias = volume.ProbeViewBias;
+            probe_irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
             probe_distance_exponent = volume.DistanceExponent;
         }
 
@@ -132,13 +136,14 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 10;
+            private const int AtlasSemanticVersion = 11;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
             public readonly Vector3 probeSpacingWS;
             public readonly int irradianceInteriorTexels;
             public readonly int distanceInteriorTexels;
+            public readonly float irradianceEncodingGamma;
             public readonly int semanticVersion;
 
             public Identity(YutrelDDGIVolume volume)
@@ -148,6 +153,7 @@ namespace YutrelRP
                 probeSpacingWS = volume != null ? volume.GetWorldProbeSpacing() : Vector3.zero;
                 irradianceInteriorTexels = volume != null ? volume.ProbeIrradianceInteriorTexels : 0;
                 distanceInteriorTexels = volume != null ? volume.ProbeDistanceInteriorTexels : 0;
+                irradianceEncodingGamma = volume != null ? volume.IrradianceEncodingGamma : 0.0f;
                 semanticVersion = AtlasSemanticVersion;
             }
 
@@ -159,6 +165,7 @@ namespace YutrelRP
                        probeSpacingWS == other.probeSpacingWS &&
                        irradianceInteriorTexels == other.irradianceInteriorTexels &&
                        distanceInteriorTexels == other.distanceInteriorTexels &&
+                       irradianceEncodingGamma.Equals(other.irradianceEncodingGamma) &&
                        semanticVersion == other.semanticVersion;
             }
 
@@ -171,6 +178,7 @@ namespace YutrelRP
                     hash = (hash * 397) ^ probeSpacingWS.GetHashCode();
                     hash = (hash * 397) ^ irradianceInteriorTexels;
                     hash = (hash * 397) ^ distanceInteriorTexels;
+                    hash = (hash * 397) ^ irradianceEncodingGamma.GetHashCode();
                     hash = (hash * 397) ^ semanticVersion;
                     return hash;
                 }
@@ -178,7 +186,7 @@ namespace YutrelRP
 
             public override string ToString()
             {
-                return $"volume={volumeKey}, probes={probeCount}, spacing={probeSpacingWS}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, semantic={semanticVersion}";
+                return $"volume={volumeKey}, probes={probeCount}, spacing={probeSpacingWS}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, irradianceGamma={irradianceEncodingGamma:0.###}, semantic={semanticVersion}";
             }
         }
     }

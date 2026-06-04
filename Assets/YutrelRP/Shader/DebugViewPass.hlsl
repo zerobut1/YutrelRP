@@ -340,7 +340,8 @@ float4 SampleDebugViewDDGIAtlas(Texture2DArray atlas, float4 dimensions, int deb
     float border_overlay = atlas_texel.is_border ? 0.18f : 0.0f;
     if (radiance_atlas)
     {
-        float3 radiance_color = DebugViewToneMapDDGIRadiance(data.rgb);
+        float3 decoded_irradiance = DDGIDecodeProbeIrradiance(data.rgb);
+        float3 radiance_color     = DebugViewToneMapDDGIRadiance(decoded_irradiance);
         return float4(saturate(radiance_color + border_overlay * float3(1.0f, 0.78f, 0.18f)), 1.0f);
     }
 

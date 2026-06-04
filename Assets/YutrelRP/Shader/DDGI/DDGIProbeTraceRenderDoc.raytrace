@@ -16,7 +16,7 @@ float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
 float _DDGIDirectionalLightLambertEnabled;
 
-static const float DDGI_TRACE_RENDERDOC_MAX_HIT_RADIANCE = 64.0f;
+static const float DDGI_TRACE_RENDERDOC_MAX_HIT_RADIANCE = 65504.0f;
 static const uint DDGI_TRACE_RENDERDOC_ALBEDO_STATUS_MISS = 0u;
 static const uint DDGI_TRACE_RENDERDOC_ALBEDO_STATUS_FALLBACK = 2u;
 

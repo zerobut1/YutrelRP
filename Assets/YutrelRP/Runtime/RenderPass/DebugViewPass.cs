@@ -36,6 +36,8 @@ namespace YutrelRP
         private static readonly int ddgi_probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
         private static readonly int ddgi_probe_normal_bias_ID = DDGIResources.probe_normal_bias_ID;
         private static readonly int ddgi_probe_view_bias_ID = DDGIResources.probe_view_bias_ID;
+        private static readonly int ddgi_probe_irradiance_encoding_gamma_ID =
+            DDGIResources.probe_irradiance_encoding_gamma_ID;
         private static readonly int ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
         private static readonly int ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
         private static readonly int directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
@@ -174,6 +176,8 @@ namespace YutrelRP
             {
                 pass.ddgi_probe_irradiance = ddgi_resources.probe_irradiance;
                 pass.ddgi_probe_irradiance_dimensions = ddgi_resources.ProbeIrradianceDimensions;
+                pass.ddgi_probe_irradiance_encoding_gamma =
+                    Mathf.Max(0.01f, ddgi_resources.probe_irradiance_encoding_gamma);
                 pass.ddgi_probe_irradiance_debug_slice = Mathf.Clamp(
                     ddgi_settings != null ? ddgi_settings.debugProbeIrradianceAtlasSlice : 0,
                     0,
@@ -226,6 +230,8 @@ namespace YutrelRP
                 pass.ddgi_probe_spacing_ws = ddgi_resources.probe_spacing_ws;
                 pass.ddgi_probe_normal_bias = ddgi_resources.probe_normal_bias;
                 pass.ddgi_probe_view_bias = ddgi_resources.probe_view_bias;
+                pass.ddgi_probe_irradiance_encoding_gamma =
+                    Mathf.Max(0.01f, ddgi_resources.probe_irradiance_encoding_gamma);
                 pass.ddgi_probe_relocation_enabled = ddgi_resources.probe_relocation_enabled ? 1.0f : 0.0f;
                 pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
 
@@ -482,6 +488,7 @@ namespace YutrelRP
         private Vector3 ddgi_probe_spacing_ws;
         private float ddgi_probe_normal_bias;
         private float ddgi_probe_view_bias;
+        private float ddgi_probe_irradiance_encoding_gamma = 1.0f;
         private float ddgi_diffuse_intensity;
 
         private void Render(RasterGraphContext context)
@@ -507,6 +514,7 @@ namespace YutrelRP
             property_block.SetVector(ddgi_probe_spacing_ws_ID, ddgi_probe_spacing_ws);
             property_block.SetFloat(ddgi_probe_normal_bias_ID, ddgi_probe_normal_bias);
             property_block.SetFloat(ddgi_probe_view_bias_ID, ddgi_probe_view_bias);
+            property_block.SetFloat(ddgi_probe_irradiance_encoding_gamma_ID, ddgi_probe_irradiance_encoding_gamma);
             property_block.SetFloat(ddgi_gather_valid_ID, reads_DDGI_gather ? 1.0f : 0.0f);
             property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
             property_block.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);

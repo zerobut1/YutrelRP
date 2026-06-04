@@ -43,7 +43,7 @@ float3 _DDGIScreenTraceCameraPositionWS;
 int _DDGIScreenTraceReversedZ;
 
 static const float DDGI_TRACE_FEEDBACK_GAIN    = 1.0f;
-static const float DDGI_TRACE_MAX_HIT_RADIANCE = 64.0f;
+static const float DDGI_TRACE_MAX_HIT_RADIANCE = 65504.0f;
 static const uint DDGI_SCREEN_TRACE_STATUS_MISS = 0u;
 static const uint DDGI_SCREEN_TRACE_STATUS_BACKFACE = 4u;
 static const uint DDGI_SCREEN_TRACE_STATUS_NOT_PARTICIPATING = 5u;

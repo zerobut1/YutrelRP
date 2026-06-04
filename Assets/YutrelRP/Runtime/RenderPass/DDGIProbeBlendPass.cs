@@ -21,6 +21,9 @@ namespace YutrelRP
         private static readonly int probeDistanceDimensionsID = DDGIResources.probe_distance_dimensions_ID;
         private static readonly int probeRayDataMaxDistanceID = DDGIResources.probe_ray_data_max_distance_ID;
         private static readonly int probeHysteresisID = Shader.PropertyToID("_DDGIProbeHysteresis");
+        private static readonly int probeIrradianceEncodingGammaID = DDGIResources.probe_irradiance_encoding_gamma_ID;
+        private static readonly int probeIrradianceThresholdID = Shader.PropertyToID("_DDGIProbeIrradianceThreshold");
+        private static readonly int probeBrightnessThresholdID = Shader.PropertyToID("_DDGIProbeBrightnessThreshold");
         private static readonly int probeDistanceExponentID = Shader.PropertyToID("_DDGIProbeDistanceExponent");
         private static readonly int probeFixedRayBackfaceThresholdID =
             DDGIResources.probe_fixed_ray_backface_threshold_ID;
@@ -60,6 +63,9 @@ namespace YutrelRP
             pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
             pass.probeMaxRayDistance = Mathf.Max(0.001f, resources.probe_max_ray_distance);
             pass.probeHysteresis = Mathf.Clamp01(volume.ProbeHysteresis);
+            pass.probeIrradianceEncodingGamma = Mathf.Max(0.01f, volume.IrradianceEncodingGamma);
+            pass.probeIrradianceThreshold = Mathf.Max(0.0f, volume.IrradianceThreshold);
+            pass.probeBrightnessThreshold = Mathf.Max(0.0f, volume.BrightnessThreshold);
             pass.probeDistanceExponent = Mathf.Max(0.01f, resources.probe_distance_exponent);
             pass.probeFixedRayBackfaceThreshold = Mathf.Clamp01(settings.probeFixedRayBackfaceThreshold);
 
@@ -80,6 +86,9 @@ namespace YutrelRP
         private Vector4 probeDistanceDimensions;
         private float probeMaxRayDistance;
         private float probeHysteresis;
+        private float probeIrradianceEncodingGamma;
+        private float probeIrradianceThreshold;
+        private float probeBrightnessThreshold;
         private float probeDistanceExponent;
         private float probeFixedRayBackfaceThreshold;
 
@@ -112,6 +121,9 @@ namespace YutrelRP
             cmd.SetComputeVectorParam(computeShader, probeDistanceDimensionsID, probeDistanceDimensions);
             cmd.SetComputeFloatParam(computeShader, probeRayDataMaxDistanceID, probeMaxRayDistance);
             cmd.SetComputeFloatParam(computeShader, probeHysteresisID, probeHysteresis);
+            cmd.SetComputeFloatParam(computeShader, probeIrradianceEncodingGammaID, probeIrradianceEncodingGamma);
+            cmd.SetComputeFloatParam(computeShader, probeIrradianceThresholdID, probeIrradianceThreshold);
+            cmd.SetComputeFloatParam(computeShader, probeBrightnessThresholdID, probeBrightnessThreshold);
             cmd.SetComputeFloatParam(computeShader, probeDistanceExponentID, probeDistanceExponent);
             cmd.SetComputeFloatParam(computeShader, probeFixedRayBackfaceThresholdID, probeFixedRayBackfaceThreshold);
         }

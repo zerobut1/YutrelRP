@@ -3,6 +3,10 @@
 
 static const float YUTREL_DDGI_GOLDEN_ANGLE                   = 2.39996322972865332f;
 static const float YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET = 1.0f;
+static const float YUTREL_DDGI_TWO_PI                         = 6.28318530717958648f;
+static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA  = 0.01f;
+
+float _DDGIProbeIrradianceEncodingGamma;
 
 struct DDGIAtlasTexel
 {
@@ -148,6 +152,30 @@ bool DDGIIsFinite4(float4 value)
     return all(value == value) && all(abs(value) < 1.0e20f.xxxx);
 }
 
+float DDGIProbeIrradianceEncodingGamma()
+{
+    return max(_DDGIProbeIrradianceEncodingGamma, YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA);
+}
+
+float3 DDGISanitizeIrradiance(float3 irradiance)
+{
+    return DDGIIsFinite3(irradiance) ? min(max(irradiance, 0.0f.xxx), 65504.0f.xxx) : 0.0f.xxx;
+}
+
+float3 DDGIEncodeProbeIrradiance(float3 linear_irradiance)
+{
+    float inverse_gamma = rcp(DDGIProbeIrradianceEncodingGamma());
+    return pow(DDGISanitizeIrradiance(linear_irradiance), inverse_gamma.xxx);
+}
+
+float3 DDGIDecodeProbeIrradiance(float3 encoded_irradiance)
+{
+    float gamma        = DDGIProbeIrradianceEncodingGamma();
+    float3 irradiance  = DDGISanitizeIrradiance(encoded_irradiance);
+    float3 sqrt_energy = pow(irradiance, (gamma * 0.5f).xxx);
+    return DDGISanitizeIrradiance(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI);
+}
+
 float DDGIProbeRayDataEncodeMiss(float max_distance)
 {
     return -(max(max_distance, 0.001f) + YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET);
@@ -251,8 +279,9 @@ float2 DDGIProbeAtlasUV(uint3 probe_coord, float3 sample_direction, uint interio
 float3 DDGISampleProbeIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
                                  float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
 {
-    float2 uv = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
-    return atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
+    float2 uv                 = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
+    float3 encoded_irradiance = atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
+    return DDGIDecodeProbeIrradiance(encoded_irradiance);
 }
 
 float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,

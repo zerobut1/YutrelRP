@@ -57,6 +57,7 @@ namespace YutrelRP
             pass.ddgi_probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
             pass.ddgi_probe_normal_bias_ID = DDGIResources.probe_normal_bias_ID;
             pass.ddgi_probe_view_bias_ID = DDGIResources.probe_view_bias_ID;
+            pass.ddgi_probe_irradiance_encoding_gamma_ID = DDGIResources.probe_irradiance_encoding_gamma_ID;
             pass.ddgi_probe_relocation_enabled_ID = DDGIResources.probe_relocation_enabled_ID;
             pass.ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
             pass.ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
@@ -115,6 +116,8 @@ namespace YutrelRP
             pass.ddgi_probe_spacing_ws = pass.has_DDGI_gather ? ddgi_resources.probe_spacing_ws : Vector3.zero;
             pass.ddgi_probe_normal_bias = pass.has_DDGI_gather ? ddgi_resources.probe_normal_bias : 0.0f;
             pass.ddgi_probe_view_bias = pass.has_DDGI_gather ? ddgi_resources.probe_view_bias : 0.0f;
+            pass.ddgi_probe_irradiance_encoding_gamma =
+                pass.has_DDGI_gather ? Mathf.Max(0.01f, ddgi_resources.probe_irradiance_encoding_gamma) : 1.0f;
             pass.ddgi_probe_relocation_enabled =
                 pass.has_DDGI_gather && ddgi_resources.probe_relocation_enabled ? 1.0f : 0.0f;
             pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
@@ -166,6 +169,7 @@ namespace YutrelRP
             ddgi_probe_spacing_ws_ID,
             ddgi_probe_normal_bias_ID,
             ddgi_probe_view_bias_ID,
+            ddgi_probe_irradiance_encoding_gamma_ID,
             ddgi_probe_relocation_enabled_ID,
             ddgi_gather_valid_ID,
             ddgi_diffuse_intensity_ID;
@@ -199,6 +203,7 @@ namespace YutrelRP
         private Vector3 ddgi_probe_spacing_ws;
         private float ddgi_probe_normal_bias;
         private float ddgi_probe_view_bias;
+        private float ddgi_probe_irradiance_encoding_gamma;
         private float ddgi_probe_relocation_enabled;
         private float ddgi_diffuse_intensity;
 
@@ -237,6 +242,7 @@ namespace YutrelRP
             property_block.SetVector(ddgi_probe_spacing_ws_ID, ddgi_probe_spacing_ws);
             property_block.SetFloat(ddgi_probe_normal_bias_ID, ddgi_probe_normal_bias);
             property_block.SetFloat(ddgi_probe_view_bias_ID, ddgi_probe_view_bias);
+            property_block.SetFloat(ddgi_probe_irradiance_encoding_gamma_ID, ddgi_probe_irradiance_encoding_gamma);
             property_block.SetFloat(ddgi_probe_relocation_enabled_ID, ddgi_probe_relocation_enabled);
             property_block.SetFloat(ddgi_gather_valid_ID, has_DDGI_gather ? 1.0f : 0.0f);
             property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);

@@ -20,6 +20,8 @@ namespace YutrelRP
         private static readonly int probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
         private static readonly int probe_irradiance_ID = DDGIResources.probe_irradiance_ID;
         private static readonly int probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
+        private static readonly int probe_irradiance_encoding_gamma_ID =
+            DDGIResources.probe_irradiance_encoding_gamma_ID;
         private static readonly int probe_distance_ID = DDGIResources.probe_distance_ID;
         private static readonly int probe_distance_dimensions_ID = DDGIResources.probe_distance_dimensions_ID;
         private static readonly int probe_data_ID = DDGIResources.probe_data_ID;
@@ -56,6 +58,8 @@ namespace YutrelRP
                 : 0.001f;
             pass.probe_ray_data_dimensions = ddgi_resources != null ? ddgi_resources.ProbeRayDataDimensions : Vector4.zero;
             pass.probe_irradiance_dimensions = ddgi_resources != null ? ddgi_resources.ProbeIrradianceDimensions : Vector4.zero;
+            pass.probe_irradiance_encoding_gamma =
+                ddgi_resources != null ? Mathf.Max(0.01f, ddgi_resources.probe_irradiance_encoding_gamma) : 1.0f;
             pass.probe_distance_dimensions = ddgi_resources != null ? ddgi_resources.ProbeDistanceDimensions : Vector4.zero;
             pass.probe_data_dimensions = ddgi_resources != null ? ddgi_resources.ProbeDataDimensions : Vector4.zero;
             pass.volume_min_ws = ddgi_resources != null ? ddgi_resources.volume_min_ws : Vector3.zero;
@@ -195,6 +199,7 @@ namespace YutrelRP
         private float probe_ray_data_max_distance;
         private Vector4 probe_ray_data_dimensions;
         private Vector4 probe_irradiance_dimensions;
+        private float probe_irradiance_encoding_gamma;
         private Vector4 probe_distance_dimensions;
         private Vector4 probe_data_dimensions;
         private Vector3 volume_min_ws;
@@ -213,6 +218,7 @@ namespace YutrelRP
             property_block.SetFloat(probe_ray_data_max_distance_ID, probe_ray_data_max_distance);
             property_block.SetVector(probe_ray_data_dimensions_ID, probe_ray_data_dimensions);
             property_block.SetVector(probe_irradiance_dimensions_ID, probe_irradiance_dimensions);
+            property_block.SetFloat(probe_irradiance_encoding_gamma_ID, probe_irradiance_encoding_gamma);
             property_block.SetVector(probe_distance_dimensions_ID, probe_distance_dimensions);
             property_block.SetVector(probe_data_dimensions_ID, probe_data_dimensions);
             property_block.SetVector(volume_min_ws_ID, volume_min_ws);
