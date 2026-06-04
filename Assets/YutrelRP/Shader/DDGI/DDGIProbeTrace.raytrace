@@ -45,6 +45,7 @@ int _DDGIScreenTraceReversedZ;
 static const float DDGI_TRACE_FEEDBACK_GAIN             = 1.0f;
 static const float DDGI_TRACE_PROBE_RAY_DATA_STORE_MAX  = YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX;
 static const uint DDGI_SCREEN_TRACE_STATUS_MISS = 0u;
+static const uint DDGI_SCREEN_TRACE_STATUS_INVALID_DEPTH = 6u;
 static const uint DDGI_SCREEN_TRACE_STATUS_BACKFACE = 4u;
 static const uint DDGI_SCREEN_TRACE_STATUS_NOT_PARTICIPATING = 5u;
 
@@ -247,9 +248,17 @@ bool DDGIScreenTraceDepthIsValid(float rawDepth)
 
 float4 DDGIScreenTraceClipPosition(uint2 pixel, uint2 dimensions, float deviceDepth)
 {
-    float2 uv     = (float2(pixel) + 0.5f) / max(float2(dimensions), 1.0f.xx);
-    float2 clipXY = uv * 2.0f - 1.0f;
-    clipXY.y      = -clipXY.y;
+    float2 uv           = (float2(pixel) + 0.5f) / max(float2(dimensions), 1.0f.xx);
+    float2 position_NDC = uv;
+#if UNITY_UV_STARTS_AT_TOP
+    position_NDC.y = 1.0f - position_NDC.y;
+#endif
+    if (_ProjectionParams.x < 0.0f)
+    {
+        position_NDC.y = 1.0f - position_NDC.y;
+    }
+
+    float2 clipXY = position_NDC * 2.0f - 1.0f;
     return float4(clipXY, deviceDepth, 1.0f);
 }
 
@@ -296,7 +305,7 @@ void RayGenDDGIScreenTrace()
 
     if (!DDGIScreenTraceDepthIsValid(rawDepth))
     {
-        _DDGIScreenTraceDebug[pixel] = float4(0.0f, 0.0f, 0.0f, (float)DDGI_SCREEN_TRACE_STATUS_MISS);
+        _DDGIScreenTraceDebug[pixel] = float4(rawDepth.xxx, (float)DDGI_SCREEN_TRACE_STATUS_INVALID_DEPTH);
         return;
     }
 

@@ -307,6 +307,11 @@ float4 SampleDebugViewDDGIScreenTrace(float2 uv)
         return float4(0.05f, 0.38f, 1.0f, 1.0f);
     }
 
+    if (status == 6u)
+    {
+        return float4(0.85f, 0.05f, 0.02f, 1.0f);
+    }
+
     float3 albedo = saturate(data.rgb);
     if (status == 3u)
     {
