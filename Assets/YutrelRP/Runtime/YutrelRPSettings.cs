@@ -73,6 +73,7 @@ namespace YutrelRP
             DDGIProbeRayDataQualityScene = 20,
             DDGIProbeDistanceScene = 21,
             DDGITraceAlbedo = 22,
+            DDGIScreenTrace = 23,
         }
 #endif
     }

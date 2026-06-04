@@ -10,6 +10,7 @@ namespace YutrelRP
         public static readonly int
             probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData"),
             trace_albedo_ID = Shader.PropertyToID("_DDGITraceAlbedo"),
+            screen_trace_debug_ID = Shader.PropertyToID("_DDGIScreenTraceDebug"),
             probe_ray_data_dimensions_ID = Shader.PropertyToID("_DDGIProbeRayDataDimensions"),
             probe_ray_data_debug_slice_ID = Shader.PropertyToID("_DDGIProbeRayDataDebugSlice"),
             probe_ray_data_max_distance_ID = Shader.PropertyToID("_DDGIProbeRayDataMaxDistance"),
@@ -32,6 +33,7 @@ namespace YutrelRP
 
         public TextureHandle probe_ray_data;
         public TextureHandle trace_albedo;
+        public TextureHandle screen_trace_debug;
         public TextureHandle probe_irradiance;
         public TextureHandle probe_distance;
         public TextureHandle probe_data;
@@ -59,6 +61,7 @@ namespace YutrelRP
         {
             probe_ray_data = TextureHandle.nullHandle;
             trace_albedo = TextureHandle.nullHandle;
+            screen_trace_debug = TextureHandle.nullHandle;
             probe_irradiance = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
             probe_data = TextureHandle.nullHandle;

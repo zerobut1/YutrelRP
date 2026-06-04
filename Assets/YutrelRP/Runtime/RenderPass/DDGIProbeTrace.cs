@@ -11,7 +11,8 @@ namespace YutrelRP
         }
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings settings,
-            LightResources lightResources, ref DDGIResources resources)
+            LightResources lightResources, RenderTargets textures, Vector2Int attachmentSize,
+            ref DDGIResources resources)
         {
             if (!IsEnabled(settings))
             {
@@ -20,7 +21,14 @@ namespace YutrelRP
                 return;
             }
 
-            DDGIProbeTracePass.Record(renderGraph, camera, settings.ddgiSettings, lightResources, ref resources);
+#if UNITY_EDITOR
+            var screenTraceDebug = settings.debugViewMode == YutrelRPSettings.DebugViewMode.DDGIScreenTrace;
+#else
+            const bool screenTraceDebug = false;
+#endif
+            var sceneDepth = textures != null ? textures.scene_depth : TextureHandle.nullHandle;
+            DDGIProbeTracePass.Record(renderGraph, camera, settings.ddgiSettings, lightResources, screenTraceDebug,
+                sceneDepth, attachmentSize, ref resources);
         }
 
         internal static void Cleanup()

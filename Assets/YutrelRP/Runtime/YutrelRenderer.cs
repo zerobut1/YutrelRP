@@ -100,7 +100,8 @@ namespace YutrelRP
                     ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
                         attachment_size);
 
-                    DDGIProbeTrace.Record(render_graph, camera, settings, light_resources, ref ddgi_resources);
+                    DDGIProbeTrace.Record(render_graph, camera, settings, light_resources, textures, attachment_size,
+                        ref ddgi_resources);
 
                     EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources,
                         settings.ddgiSettings);

@@ -13,6 +13,8 @@ TEXTURE2D_ARRAY(_DDGIProbeRayData);
 SAMPLER(sampler_DDGIProbeRayData);
 TEXTURE2D_ARRAY(_DDGITraceAlbedo);
 SAMPLER(sampler_DDGITraceAlbedo);
+TEXTURE2D(_DDGIScreenTraceDebug);
+SAMPLER(sampler_DDGIScreenTraceDebug);
 TEXTURE2D_ARRAY(_DDGIProbeIrradiance);
 SAMPLER(sampler_DDGIProbeIrradiance);
 TEXTURE2D_ARRAY(_DDGIProbeDistance);
@@ -284,6 +286,39 @@ float4 SampleDebugViewDDGITraceAlbedo(float2 uv)
     return float4(saturate(albedo + row_line * 0.18f), 1.0f);
 }
 
+float4 SampleDebugViewDDGIScreenTrace(float2 uv)
+{
+    float4 data = SAMPLE_TEXTURE2D(_DDGIScreenTraceDebug, sampler_DDGIScreenTraceDebug, uv);
+    uint status = (uint)round(data.a);
+
+    if (status == 0u)
+    {
+        return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
+    if (status == 4u)
+    {
+        return float4(0.95f, 0.18f, 0.85f, 1.0f);
+    }
+
+    if (status == 5u)
+    {
+        return float4(0.05f, 0.38f, 1.0f, 1.0f);
+    }
+
+    float3 albedo = saturate(data.rgb);
+    if (status == 2u)
+    {
+        albedo = lerp(albedo, float3(1.0f, 0.7f, 0.05f), 0.35f);
+    }
+    else if (status == 3u)
+    {
+        albedo = lerp(albedo, float3(0.95f, 0.1f, 0.85f), 0.55f);
+    }
+
+    return float4(albedo, 1.0f);
+}
+
 float3 DebugViewDDGIIndexColor(uint3 probe_coord, uint3 probe_count)
 {
     float3 denom = max(float3(probe_count) - 1.0f, 1.0f.xxx);
@@ -465,6 +500,9 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 
     case 22:
         return SampleDebugViewDDGITraceAlbedo(input.uv);
+
+    case 23:
+        return SampleDebugViewDDGIScreenTrace(input.uv);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

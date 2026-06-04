@@ -13,6 +13,7 @@ namespace YutrelRP
     internal sealed class DDGIProbeTracePass
     {
         private const string RayGenName = "RayGenDDGIProbeTrace";
+        private const string ScreenTraceRayGenName = "RayGenDDGIScreenTrace";
         private const string ShaderPassName = "DDGIRayTracing";
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
 
@@ -42,6 +43,11 @@ namespace YutrelRP
         private static readonly int traceTriangleNormalsID = Shader.PropertyToID("_DDGITraceTriangleNormals");
         private static readonly int traceInstanceMaterialFlagsID = Shader.PropertyToID("_DDGITraceInstanceMaterialFlags");
         private static readonly int traceAlbedoID = DDGIResources.trace_albedo_ID;
+        private static readonly int screenTraceDebugID = DDGIResources.screen_trace_debug_ID;
+        private static readonly int sceneDepthID = RenderTargets.scene_depth_ID;
+        private static readonly int screenTraceInvViewProjectionID = Shader.PropertyToID("_DDGIScreenTraceInvViewProjection");
+        private static readonly int screenTraceCameraPositionWSID = Shader.PropertyToID("_DDGIScreenTraceCameraPositionWS");
+        private static readonly int screenTraceReversedZID = Shader.PropertyToID("_DDGIScreenTraceReversedZ");
 
         private static readonly Color DefaultTraceBaseColor = new(0.8f, 0.8f, 0.8f, 1.0f);
         private static readonly int BaseColorTexID = Shader.PropertyToID("_BaseColorTex");
@@ -71,7 +77,8 @@ namespace YutrelRP
         private static string lastStatusKey;
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings.DDGISettings settings,
-            LightResources lightResources, ref DDGIResources resources)
+            LightResources lightResources, bool screenTraceDebug, TextureHandle sceneDepth,
+            Vector2Int attachmentSize, ref DDGIResources resources)
         {
             resources.Reset();
 
@@ -155,10 +162,34 @@ namespace YutrelRP
             resources.trace_albedo = traceAlbedo;
             resources.SetVolumeMetadata(volume);
 
+            TextureHandle screenTraceDebugOutput = TextureHandle.nullHandle;
+            var writesScreenTraceDebug = screenTraceDebug && sceneDepth.IsValid() &&
+                                         attachmentSize.x > 0 && attachmentSize.y > 0;
+            if (writesScreenTraceDebug)
+            {
+                var screenTraceDesc = new TextureDesc(attachmentSize.x, attachmentSize.y)
+                {
+                    colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                    enableRandomWrite = true,
+                    filterMode = FilterMode.Point,
+                    wrapMode = TextureWrapMode.Clamp,
+                    clearBuffer = true,
+                    clearColor = Color.black,
+                    name = "DDGI Screen Trace Debug"
+                };
+                screenTraceDebugOutput = renderGraph.CreateTexture(screenTraceDesc);
+                resources.screen_trace_debug = screenTraceDebugOutput;
+            }
+
             using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
             {
                 pass.probeRayData = probeRayData;
                 pass.traceAlbedo = traceAlbedo;
+                pass.screenTraceDebug = screenTraceDebugOutput;
+                pass.sceneDepth = sceneDepth;
+                pass.writesScreenTraceDebug = writesScreenTraceDebug;
+                pass.screenTraceWidth = attachmentSize.x;
+                pass.screenTraceHeight = attachmentSize.y;
                 pass.rayTracingShader = shader;
                 pass.rayTracingAccelerationStructure = accelerationStructure;
                 pass.probeIrradiance = resources.probe_irradiance;
@@ -178,6 +209,9 @@ namespace YutrelRP
                 pass.traceInstanceBaseColors = traceInstanceBaseColorsBuffer;
                 pass.traceTriangleNormals = traceTriangleNormalsBuffer;
                 pass.traceInstanceMaterialFlags = traceInstanceMaterialFlagsBuffer;
+                pass.inverseViewProjection = GetInverseViewProjection(camera);
+                pass.cameraPositionWS = camera.transform.position;
+                pass.reversedZ = SystemInfo.usesReversedZBuffer ? 1 : 0;
                 pass.SetDirectionalLight(lightResources);
                 pass.SetEnvironment(lightResources);
                 if (!pass.hasEnvironmentReflectionCube)
@@ -187,6 +221,11 @@ namespace YutrelRP
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.UseTexture(traceAlbedo, AccessFlags.Write);
+                if (pass.writesScreenTraceDebug)
+                {
+                    builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
+                    builder.UseTexture(sceneDepth, AccessFlags.Read);
+                }
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
                 if (pass.environmentReflectionCube.IsValid())
@@ -203,6 +242,8 @@ namespace YutrelRP
 
         private TextureHandle probeRayData;
         private TextureHandle traceAlbedo;
+        private TextureHandle screenTraceDebug;
+        private TextureHandle sceneDepth;
         private TextureHandle probeIrradiance;
         private TextureHandle probeDistance;
         private RayTracingShader rayTracingShader;
@@ -222,6 +263,11 @@ namespace YutrelRP
         private GraphicsBuffer traceInstanceBaseColors;
         private GraphicsBuffer traceTriangleNormals;
         private GraphicsBuffer traceInstanceMaterialFlags;
+        private Matrix4x4 inverseViewProjection;
+        private Vector3 cameraPositionWS;
+        private int reversedZ;
+        private int screenTraceWidth;
+        private int screenTraceHeight;
         private Vector4 directionalLightColorIlluminance;
         private Vector4 directionalLightDirectionWS;
         private TextureHandle environmentReflectionCube;
@@ -230,6 +276,7 @@ namespace YutrelRP
         private float environmentDiffuseMultiplier;
         private float environmentValid;
         private bool hasEnvironmentReflectionCube;
+        private bool writesScreenTraceDebug;
 
         private void Render(ComputeGraphContext context)
         {
@@ -237,6 +284,14 @@ namespace YutrelRP
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
+            if (writesScreenTraceDebug)
+            {
+                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
+                cmd.SetRayTracingTextureParam(rayTracingShader, sceneDepthID, sceneDepth);
+                cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
+                cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
+                cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
+            }
             cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
@@ -272,6 +327,11 @@ namespace YutrelRP
             cmd.SetRayTracingFloatParam(rayTracingShader, environmentValidID, environmentValid);
             cmd.DispatchRays(rayTracingShader, RayGenName, (uint)raysPerProbe, (uint)planeProbeCount,
                 (uint)probeCount.y, null);
+            if (writesScreenTraceDebug)
+            {
+                cmd.DispatchRays(rayTracingShader, ScreenTraceRayGenName,
+                    (uint)Mathf.Max(screenTraceWidth, 1), (uint)Mathf.Max(screenTraceHeight, 1), 1, null);
+            }
         }
 
         private void SetDirectionalLight(LightResources lightResources)
@@ -333,6 +393,13 @@ namespace YutrelRP
             }
 
             return ProbeTraceIssue.None;
+        }
+
+        private static Matrix4x4 GetInverseViewProjection(Camera camera)
+        {
+            var view = camera.worldToCameraMatrix;
+            var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
+            return (projection * view).inverse;
         }
 
         private static YutrelDDGIVolume ResolveActiveVolume(out ProbeTraceIssue issue)

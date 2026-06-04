@@ -17,6 +17,7 @@ namespace YutrelRP
         private static readonly int ddgi_probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int ddgi_probe_ray_data_ID = DDGIResources.probe_ray_data_ID;
         private static readonly int ddgi_trace_albedo_ID = DDGIResources.trace_albedo_ID;
+        private static readonly int ddgi_screen_trace_debug_ID = DDGIResources.screen_trace_debug_ID;
         private static readonly int ddgi_probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int ddgi_probe_ray_data_debug_slice_ID = DDGIResources.probe_ray_data_debug_slice_ID;
         private static readonly int ddgi_probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
@@ -83,6 +84,7 @@ namespace YutrelRP
             pass.reads_CSM = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.CSMCascadeLevels;
             pass.reads_DDGI_probe_ray_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayData;
             pass.reads_DDGI_trace_albedo = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGITraceAlbedo;
+            pass.reads_DDGI_screen_trace_debug = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIScreenTrace;
             pass.reads_DDGI_probe_irradiance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceAtlas;
             pass.reads_DDGI_probe_distance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceAtlas;
             pass.reads_DDGI_probe_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeData;
@@ -159,6 +161,12 @@ namespace YutrelRP
                     0,
                     Mathf.Max(0, ddgi_resources.probe_count.y - 1));
                 builder.UseTexture(pass.ddgi_trace_albedo);
+            }
+
+            if (pass.reads_DDGI_screen_trace_debug)
+            {
+                pass.ddgi_screen_trace_debug = ddgi_resources.screen_trace_debug;
+                builder.UseTexture(pass.ddgi_screen_trace_debug);
             }
 
             if (pass.reads_DDGI_probe_irradiance)
@@ -321,6 +329,13 @@ namespace YutrelRP
                     }
 
                     break;
+                case YutrelRPSettings.DebugViewMode.DDGIScreenTrace:
+                    if (ddgi_resources == null || !ddgi_resources.screen_trace_debug.IsValid())
+                    {
+                        issue = Issue.MissingDDGIScreenTrace;
+                    }
+
+                    break;
                 case YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceAtlas:
                     if (ddgi_resources == null || !ddgi_resources.probe_irradiance.IsValid())
                     {
@@ -398,6 +413,8 @@ namespace YutrelRP
                     return "DDGI ProbeData atlas is missing; enable DDGI and use a valid active DDGI Volume";
                 case Issue.MissingDDGITraceAlbedo:
                     return "DDGI TraceAlbedo is missing; enable DDGI and build a valid DDGI probe trace";
+                case Issue.MissingDDGIScreenTrace:
+                    return "DDGI ScreenTrace is missing; enable DDGI, use Direct3D12 ray tracing, and make sure scene depth is available";
                 case Issue.MissingShadowMask:
                     return "the shadow mask source is missing";
                 case Issue.UnsupportedCSMSource:
@@ -417,6 +434,7 @@ namespace YutrelRP
         private TextureHandle shadow_mask;
         private TextureHandle ddgi_probe_ray_data;
         private TextureHandle ddgi_trace_albedo;
+        private TextureHandle ddgi_screen_trace_debug;
         private TextureHandle ddgi_probe_irradiance;
         private TextureHandle ddgi_probe_distance;
         private TextureHandle ddgi_probe_data;
@@ -431,6 +449,7 @@ namespace YutrelRP
         private bool reads_CSM;
         private bool reads_DDGI_probe_ray_data;
         private bool reads_DDGI_trace_albedo;
+        private bool reads_DDGI_screen_trace_debug;
         private bool reads_DDGI_probe_irradiance;
         private bool reads_DDGI_probe_distance;
         private bool reads_DDGI_probe_data;
@@ -520,6 +539,11 @@ namespace YutrelRP
                 property_block.SetTexture(ddgi_trace_albedo_ID, ddgi_trace_albedo);
             }
 
+            if (reads_DDGI_screen_trace_debug)
+            {
+                property_block.SetTexture(ddgi_screen_trace_debug_ID, ddgi_screen_trace_debug);
+            }
+
             if (reads_DDGI_probe_irradiance)
             {
                 property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
@@ -570,7 +594,8 @@ namespace YutrelRP
             MissingDDGIProbeIrradiance = 8,
             MissingDDGIProbeDistance = 9,
             MissingDDGIProbeData = 10,
-            MissingDDGITraceAlbedo = 11
+            MissingDDGITraceAlbedo = 11,
+            MissingDDGIScreenTrace = 12
         }
     }
 }
