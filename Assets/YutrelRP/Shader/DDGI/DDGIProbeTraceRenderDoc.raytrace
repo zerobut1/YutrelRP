@@ -16,7 +16,7 @@ float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
 float _DDGIDirectionalLightLambertEnabled;
 
-static const float DDGI_TRACE_RENDERDOC_MAX_HIT_RADIANCE = 65504.0f;
+static const float DDGI_TRACE_RENDERDOC_PROBE_RAY_DATA_STORE_MAX = YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX;
 static const uint DDGI_TRACE_RENDERDOC_ALBEDO_STATUS_MISS = 0u;
 static const uint DDGI_TRACE_RENDERDOC_ALBEDO_STATUS_FALLBACK = 2u;
 
@@ -31,8 +31,7 @@ struct DDGIProbeTraceRenderDocPayload
 
 float3 DDGITraceRenderDocSanitizeRadiance(float3 radiance)
 {
-    radiance = DDGIIsFinite3(radiance) ? radiance : 0.0f.xxx;
-    return min(max(radiance, 0.0f.xxx), DDGI_TRACE_RENDERDOC_MAX_HIT_RADIANCE.xxx);
+    return min(DDGISanitizeLinearEnergy(radiance), DDGI_TRACE_RENDERDOC_PROBE_RAY_DATA_STORE_MAX.xxx);
 }
 
 float3 DDGITraceRenderDocDirectDiffuseRadiance(float3 normalWS, float3 baseColor)

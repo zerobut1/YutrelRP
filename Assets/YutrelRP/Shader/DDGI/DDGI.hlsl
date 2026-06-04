@@ -5,6 +5,8 @@ static const float YUTREL_DDGI_GOLDEN_ANGLE                   = 2.39996322972865
 static const float YUTREL_DDGI_PROBE_RAY_MISS_SENTINEL_OFFSET = 1.0f;
 static const float YUTREL_DDGI_TWO_PI                         = 6.28318530717958648f;
 static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA  = 0.01f;
+static const float YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX        = 65504.0f;
+static const float YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX        = 1.0e30f;
 
 float _DDGIProbeIrradianceEncodingGamma;
 
@@ -157,23 +159,29 @@ float DDGIProbeIrradianceEncodingGamma()
     return max(_DDGIProbeIrradianceEncodingGamma, YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA);
 }
 
-float3 DDGISanitizeIrradiance(float3 irradiance)
+float3 DDGISanitizeLinearEnergy(float3 value)
 {
-    return DDGIIsFinite3(irradiance) ? min(max(irradiance, 0.0f.xxx), 65504.0f.xxx) : 0.0f.xxx;
+    return all(value == value) ? min(max(value, 0.0f.xxx), YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX.xxx) : 0.0f.xxx;
+}
+
+float3 DDGIClampTextureStoreValue(float3 value)
+{
+    return min(DDGISanitizeLinearEnergy(value), YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX.xxx);
 }
 
 float3 DDGIEncodeProbeIrradiance(float3 linear_irradiance)
 {
     float inverse_gamma = rcp(DDGIProbeIrradianceEncodingGamma());
-    return pow(DDGISanitizeIrradiance(linear_irradiance), inverse_gamma.xxx);
+    float3 encoded      = pow(DDGISanitizeLinearEnergy(linear_irradiance), inverse_gamma.xxx);
+    return DDGIClampTextureStoreValue(encoded);
 }
 
 float3 DDGIDecodeProbeIrradiance(float3 encoded_irradiance)
 {
     float gamma        = DDGIProbeIrradianceEncodingGamma();
-    float3 irradiance  = DDGISanitizeIrradiance(encoded_irradiance);
+    float3 irradiance  = DDGIClampTextureStoreValue(encoded_irradiance);
     float3 sqrt_energy = pow(irradiance, (gamma * 0.5f).xxx);
-    return DDGISanitizeIrradiance(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI);
+    return DDGISanitizeLinearEnergy(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI);
 }
 
 float DDGIProbeRayDataEncodeMiss(float max_distance)

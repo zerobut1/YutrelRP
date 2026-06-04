@@ -65,8 +65,8 @@ float DDGIProbeBlendMaxComponent(float3 value)
 
 float4 DDGIProbeBlendIrradianceHistory(float4 history, float4 current_value)
 {
-    float3 history_irradiance = DDGISanitizeIrradiance(history.rgb);
-    float3 current_irradiance = DDGISanitizeIrradiance(current_value.rgb);
+    float3 history_irradiance = DDGIClampTextureStoreValue(history.rgb);
+    float3 current_irradiance = DDGIClampTextureStoreValue(current_value.rgb);
     float history_weight      = history.a > 0.0f && dot(history_irradiance, history_irradiance) > 0.0f
                                     ? saturate(_DDGIProbeHysteresis)
                                     : 0.0f;
@@ -89,7 +89,7 @@ float4 DDGIProbeBlendIrradianceHistory(float4 history, float4 current_value)
         lerp_delta = min(max(c_threshold.xxx, abs(lerp_delta)), abs(delta)) * sign(lerp_delta);
     }
 
-    return float4(DDGISanitizeIrradiance(history_irradiance + lerp_delta), 1.0f);
+    return float4(DDGIClampTextureStoreValue(history_irradiance + lerp_delta), 1.0f);
 }
 
 float4 DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)
@@ -100,7 +100,7 @@ float4 DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_
         return float4(0.0f, 0.0f, 0.0f, DDGIProbeRayDataEncodeMiss(_DDGIProbeRayDataMaxDistance));
     }
 
-    return float4(min(max(ray_data.rgb, 0.0f), 65504.0f), ray_data.a);
+    return float4(DDGIClampTextureStoreValue(ray_data.rgb), ray_data.a);
 }
 
 float DDGIProbeBlendIrradianceDirectionWeight(float3 atlas_direction, float3 ray_direction)

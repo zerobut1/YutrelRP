@@ -42,16 +42,20 @@ float4x4 _DDGIScreenTraceInvViewProjection;
 float3 _DDGIScreenTraceCameraPositionWS;
 int _DDGIScreenTraceReversedZ;
 
-static const float DDGI_TRACE_FEEDBACK_GAIN    = 1.0f;
-static const float DDGI_TRACE_MAX_HIT_RADIANCE = 65504.0f;
+static const float DDGI_TRACE_FEEDBACK_GAIN             = 1.0f;
+static const float DDGI_TRACE_PROBE_RAY_DATA_STORE_MAX  = YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX;
 static const uint DDGI_SCREEN_TRACE_STATUS_MISS = 0u;
 static const uint DDGI_SCREEN_TRACE_STATUS_BACKFACE = 4u;
 static const uint DDGI_SCREEN_TRACE_STATUS_NOT_PARTICIPATING = 5u;
 
-float3 DDGITraceSanitizeRadiance(float3 radiance, float maxRadiance)
+float3 DDGITraceSanitizeRadiance(float3 radiance)
 {
-    radiance = DDGIIsFinite3(radiance) ? radiance : 0.0f.xxx;
-    return min(max(radiance, 0.0f.xxx), max(maxRadiance, 0.0f).xxx);
+    return DDGISanitizeLinearEnergy(radiance);
+}
+
+float3 DDGITraceClampProbeRayDataStore(float3 radiance)
+{
+    return min(DDGITraceSanitizeRadiance(radiance), DDGI_TRACE_PROBE_RAY_DATA_STORE_MAX.xxx);
 }
 
 float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float3 rayDirectionWS, float3 baseColor)
@@ -88,11 +92,10 @@ float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float
                                                         _DDGIProbeMaxRayDistance,
                                                         _DDGIProbeNormalBias,
                                                         _DDGIProbeViewBias);
-    float3 irradiance = DDGITraceSanitizeRadiance(gather.irradiance, DDGI_TRACE_MAX_HIT_RADIANCE);
+    float3 irradiance = DDGITraceSanitizeRadiance(gather.irradiance);
     float visibility  = saturate(gather.coverage * gather.visibility);
     float3 albedo     = saturate(baseColor);
-    return DDGITraceSanitizeRadiance(irradiance * albedo * 0.31830988618379067f * visibility * DDGI_TRACE_FEEDBACK_GAIN,
-                                     DDGI_TRACE_MAX_HIT_RADIANCE);
+    return DDGITraceSanitizeRadiance(irradiance * albedo * 0.31830988618379067f * visibility * DDGI_TRACE_FEEDBACK_GAIN);
 }
 
 float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 lightDirection)
@@ -162,7 +165,7 @@ float3 DDGITraceEnvironmentRadiance(float3 directionWS)
     radiance = float3(IsFinite(radiance.r) ? radiance.r : 0.0f,
                       IsFinite(radiance.g) ? radiance.g : 0.0f,
                       IsFinite(radiance.b) ? radiance.b : 0.0f);
-    return min(max(radiance, 0.0f), 65504.0f);
+    return DDGITraceClampProbeRayDataStore(radiance);
 }
 
 [shader("miss")]
@@ -226,7 +229,7 @@ void RayGenDDGIProbeTrace()
         float3 direct_radiance = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.geometricNormalWS, payload.baseColor);
         float3 feedback_radiance =
             DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
-        float3 radiance = DDGITraceSanitizeRadiance(direct_radiance + feedback_radiance, DDGI_TRACE_MAX_HIT_RADIANCE);
+        float3 radiance = DDGITraceClampProbeRayDataStore(direct_radiance + feedback_radiance);
         encoded = float4(radiance,
                          payload.hitKind == 1
                              ? DDGIProbeRayDataEncodeFrontface(payload.rayT)
