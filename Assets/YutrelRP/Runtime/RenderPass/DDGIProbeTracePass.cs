@@ -100,13 +100,6 @@ namespace YutrelRP
                 LogStatus(ProbeTraceIssue.FrameDebuggerActive, null);
                 return;
             }
-
-            if (IsRenderDocLoaded())
-            {
-                ReleasePersistentAtlases();
-                LogStatus(ProbeTraceIssue.RenderDocLoaded, null);
-                return;
-            }
 #endif
 
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game)
@@ -196,6 +189,11 @@ namespace YutrelRP
                 screenTraceDebugOutput = renderGraph.CreateTexture(screenTraceDesc);
                 resources.screen_trace_debug = screenTraceDebugOutput;
             }
+            else
+            {
+                screenTraceDebugOutput = CreateFallbackScreenTraceDebug(renderGraph);
+                screenTraceDepth = CreateFallbackScreenTraceDepth(renderGraph);
+            }
 
             using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
             {
@@ -242,11 +240,8 @@ namespace YutrelRP
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.UseTexture(traceAlbedo, AccessFlags.Write);
-                if (pass.writesScreenTraceDebug)
-                {
-                    builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
-                    builder.UseTexture(screenTraceDepth, AccessFlags.Read);
-                }
+                builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
+                builder.UseTexture(screenTraceDepth, AccessFlags.Read);
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
                 builder.UseTexture(pass.probeData, AccessFlags.Read);
@@ -312,10 +307,10 @@ namespace YutrelRP
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
+            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
+            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
             if (writesScreenTraceDebug)
             {
-                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
-                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
                 cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
                 cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
                 cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
@@ -613,6 +608,36 @@ namespace YutrelRP
             }
 
             return renderGraph.ImportTexture(fallbackEnvironmentReflectionRT);
+        }
+
+        private static TextureHandle CreateFallbackScreenTraceDebug(RenderGraph renderGraph)
+        {
+            var desc = new TextureDesc(1, 1)
+            {
+                colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                enableRandomWrite = true,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                clearBuffer = true,
+                clearColor = Color.black,
+                name = "DDGI Screen Trace Debug Fallback"
+            };
+            return renderGraph.CreateTexture(desc);
+        }
+
+        private static TextureHandle CreateFallbackScreenTraceDepth(RenderGraph renderGraph)
+        {
+            var desc = new TextureDesc(1, 1)
+            {
+                colorFormat = GraphicsFormat.R32_SFloat,
+                enableRandomWrite = false,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                clearBuffer = true,
+                clearColor = Color.clear,
+                name = "DDGI Screen Trace Depth Fallback"
+            };
+            return renderGraph.CreateTexture(desc);
         }
 
         private static void ReleaseFallbackEnvironmentReflection()
@@ -1091,7 +1116,6 @@ namespace YutrelRP
                 case ProbeTraceIssue.ResourceAllocationFailed:
                     return "resource/allocation";
                 case ProbeTraceIssue.FrameDebuggerActive:
-                case ProbeTraceIssue.RenderDocLoaded:
                     return "editor/debugger";
                 default:
                     return "dispatch/output";
@@ -1127,8 +1151,6 @@ namespace YutrelRP
                     return "persistent DDGI atlas allocation or import failed";
                 case ProbeTraceIssue.FrameDebuggerActive:
                     return "Unity Frame Debugger is active; DDGI ProbeTrace uses D3D12 ray tracing commands that are skipped to avoid editor device-loss crashes";
-                case ProbeTraceIssue.RenderDocLoaded:
-                    return "RenderDoc is loaded; DDGI ProbeTrace uses D3D12 ray tracing commands that currently crash in Unity/RenderDoc descriptor table setup";
                 default:
                     return "unknown failure";
             }
@@ -1159,40 +1181,6 @@ namespace YutrelRP
             return isLocalEnabledMethod != null && (bool)isLocalEnabledMethod.Invoke(null, null);
         }
 
-        private static bool IsRenderDocLoaded()
-        {
-            try
-            {
-                var renderDocType = typeof(EditorApplication).Assembly.GetType("UnityEditorInternal.RenderDoc");
-                if (renderDocType != null)
-                {
-                    var isLoadedMethod = renderDocType.GetMethod("IsLoaded",
-                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic,
-                        null, System.Type.EmptyTypes, null);
-                    if (isLoadedMethod != null &&
-                        isLoadedMethod.ReturnType == typeof(bool) &&
-                        (bool)isLoadedMethod.Invoke(null, null))
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch (System.Exception)
-            {
-                // Fall back to the launch argument check below.
-            }
-
-            foreach (var arg in System.Environment.GetCommandLineArgs())
-            {
-                if (string.Equals(arg, "-loadrenderdoc", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
 #endif
 
         internal static void ReleasePersistentAtlasesForDisabled()
@@ -1225,8 +1213,7 @@ namespace YutrelRP
             EmptyAccelerationStructure = 7,
             ResourceTooLarge = 8,
             FrameDebuggerActive = 9,
-            ResourceAllocationFailed = 10,
-            RenderDocLoaded = 11
+            ResourceAllocationFailed = 10
         }
 
         [StructLayout(LayoutKind.Sequential)]
