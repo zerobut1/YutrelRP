@@ -30,6 +30,7 @@ float _DDGIProbeMaxRayDistance;
 float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
 float _DDGIDirectionalLightVisibilityEnabled;
+float _DDGIDirectionalLightLambertEnabled;
 float4 _EnvironmentReflectionCube_HDR;
 float _EnvironmentIntensity;
 float _EnvironmentDiffuseMultiplier;
@@ -114,6 +115,7 @@ float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 
     shadow_payload.hitKind   = 0u;
     shadow_payload.rayT      = -1.0f;
     shadow_payload.normalWS  = normalized_normal;
+    shadow_payload.geometricNormalWS = normalized_normal;
     shadow_payload.baseColor = 0.0f.xxx;
     shadow_payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
@@ -133,7 +135,8 @@ float3 DDGITraceDirectDiffuseRadiance(float3 positionWS, float3 normalWS, float3
 {
     float has_directional_light = _DDGIDirectionalLightDirectionWS.w;
     float3 light_direction      = DDGISafeNormalize(_DDGIDirectionalLightDirectionWS.xyz, float3(0.0, 1.0, 0.0));
-    float no_l                  = saturate(dot(DDGISafeNormalize(normalWS, float3(0.0, 1.0, 0.0)), light_direction));
+    float raw_no_l              = saturate(dot(DDGISafeNormalize(normalWS, float3(0.0, 1.0, 0.0)), light_direction));
+    float no_l                  = _DDGIDirectionalLightLambertEnabled > 0.5f ? raw_no_l : 1.0f;
     float illuminance           = max(_DDGIDirectionalLightColorIlluminance.w, 0.0);
     float3 light_radiance       = max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0) * illuminance;
     float visibility            = no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, normalWS, light_direction) : 0.0f;
@@ -194,6 +197,7 @@ void RayGenDDGIProbeTrace()
     payload.hitKind = 0;
     payload.rayT = -1.0;
     payload.normalWS = float3(0.0, 1.0, 0.0);
+    payload.geometricNormalWS = float3(0.0, 1.0, 0.0);
     payload.baseColor = float3(0.8, 0.8, 0.8);
     payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
@@ -214,7 +218,7 @@ void RayGenDDGIProbeTrace()
     if (payload.hitKind != 0)
     {
         float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
-        float3 direct_radiance = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.baseColor);
+        float3 direct_radiance = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.geometricNormalWS, payload.baseColor);
         float3 feedback_radiance =
             DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
         float3 radiance = DDGITraceSanitizeRadiance(direct_radiance + feedback_radiance, DDGI_TRACE_MAX_HIT_RADIANCE);
@@ -306,6 +310,7 @@ void RayGenDDGIScreenTrace()
     payload.hitKind      = 0u;
     payload.rayT         = -1.0f;
     payload.normalWS     = float3(0.0f, 1.0f, 0.0f);
+    payload.geometricNormalWS = float3(0.0f, 1.0f, 0.0f);
     payload.baseColor    = float3(0.8f, 0.8f, 0.8f);
     payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 

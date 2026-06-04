@@ -22,6 +22,7 @@ namespace YutrelRP
             public RayTracingShader probeTraceShader;
             public ComputeShader probeBlendShader;
             public bool traceDirectionalVisibility = false;
+            public bool traceDirectionalLambert = true;
             [Min(0)] public int debugProbeRayDataSlice = 0;
             [Min(0)] public int debugProbeIrradianceAtlasSlice = 0;
             [Min(0)] public int debugProbeDistanceAtlasSlice = 0;

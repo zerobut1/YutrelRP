@@ -21,6 +21,7 @@ struct DDGIProbeTracePayload
     uint hitKind;
     float rayT;
     float3 normalWS;
+    float3 geometricNormalWS;
     float3 baseColor;
     uint albedoStatus;
 };
@@ -108,11 +109,13 @@ uint DDGITraceMaterialPassAlbedoStatus(bool uvValid)
 
 void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, uint albedoStatus)
 {
-    payload.hitKind      = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1u : 2u;
-    payload.rayT         = RayTCurrent();
-    payload.normalWS     = DDGITraceRayFacingNormalWS(DDGITraceGeometricNormalWS());
-    payload.baseColor    = DDGITraceSanitizeBaseColor(baseColor);
-    payload.albedoStatus = albedoStatus;
+    float3 geometric_normal_WS = DDGITraceGeometricNormalWS();
+    payload.hitKind            = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1u : 2u;
+    payload.rayT               = RayTCurrent();
+    payload.normalWS           = DDGITraceRayFacingNormalWS(geometric_normal_WS);
+    payload.geometricNormalWS  = DDGISafeNormalize(geometric_normal_WS, payload.normalWS);
+    payload.baseColor          = DDGITraceSanitizeBaseColor(baseColor);
+    payload.albedoStatus       = albedoStatus;
 }
 
 #endif
