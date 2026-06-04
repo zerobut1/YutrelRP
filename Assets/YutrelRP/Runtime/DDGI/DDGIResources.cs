@@ -23,6 +23,11 @@ namespace YutrelRP
             probe_data_ID = Shader.PropertyToID("_DDGIProbeData"),
             probe_data_dimensions_ID = Shader.PropertyToID("_DDGIProbeDataDimensions"),
             probe_data_debug_slice_ID = Shader.PropertyToID("_DDGIProbeDataDebugSlice"),
+            probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled"),
+            probe_fixed_ray_backface_threshold_ID = Shader.PropertyToID("_DDGIProbeFixedRayBackfaceThreshold"),
+            probe_random_ray_backface_threshold_ID = Shader.PropertyToID("_DDGIProbeRandomRayBackfaceThreshold"),
+            probe_min_frontface_distance_ID = Shader.PropertyToID("_DDGIProbeMinFrontfaceDistance"),
+            probe_max_relocation_offset_ID = Shader.PropertyToID("_DDGIProbeMaxRelocationOffset"),
             volume_min_ws_ID = Shader.PropertyToID("_DDGIVolumeMinWS"),
             volume_max_ws_ID = Shader.PropertyToID("_DDGIVolumeMaxWS"),
             probe_spacing_ws_ID = Shader.PropertyToID("_DDGIProbeSpacingWS"),
@@ -50,6 +55,7 @@ namespace YutrelRP
         public float probe_distance_exponent;
         public bool has_gather_data;
         public bool has_persistent_atlas;
+        public bool probe_relocation_enabled;
         public string diagnostic;
 
         // DDGI atlas 布局约定：
@@ -78,6 +84,7 @@ namespace YutrelRP
             probe_distance_exponent = 0.0f;
             has_gather_data = false;
             has_persistent_atlas = false;
+            probe_relocation_enabled = false;
             diagnostic = null;
         }
 
@@ -125,10 +132,11 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 9;
+            private const int AtlasSemanticVersion = 10;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
+            public readonly Vector3 probeSpacingWS;
             public readonly int irradianceInteriorTexels;
             public readonly int distanceInteriorTexels;
             public readonly int semanticVersion;
@@ -137,6 +145,7 @@ namespace YutrelRP
             {
                 volumeKey = volume != null ? volume.GetEntityId().GetHashCode() : 0;
                 probeCount = volume != null ? volume.ProbeCount : Vector3Int.zero;
+                probeSpacingWS = volume != null ? volume.GetWorldProbeSpacing() : Vector3.zero;
                 irradianceInteriorTexels = volume != null ? volume.ProbeIrradianceInteriorTexels : 0;
                 distanceInteriorTexels = volume != null ? volume.ProbeDistanceInteriorTexels : 0;
                 semanticVersion = AtlasSemanticVersion;
@@ -147,6 +156,7 @@ namespace YutrelRP
                 return obj is Identity other &&
                        volumeKey == other.volumeKey &&
                        probeCount == other.probeCount &&
+                       probeSpacingWS == other.probeSpacingWS &&
                        irradianceInteriorTexels == other.irradianceInteriorTexels &&
                        distanceInteriorTexels == other.distanceInteriorTexels &&
                        semanticVersion == other.semanticVersion;
@@ -158,6 +168,7 @@ namespace YutrelRP
                 {
                     var hash = volumeKey;
                     hash = (hash * 397) ^ probeCount.GetHashCode();
+                    hash = (hash * 397) ^ probeSpacingWS.GetHashCode();
                     hash = (hash * 397) ^ irradianceInteriorTexels;
                     hash = (hash * 397) ^ distanceInteriorTexels;
                     hash = (hash * 397) ^ semanticVersion;
@@ -167,7 +178,7 @@ namespace YutrelRP
 
             public override string ToString()
             {
-                return $"volume={volumeKey}, probes={probeCount}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, semantic={semanticVersion}";
+                return $"volume={volumeKey}, probes={probeCount}, spacing={probeSpacingWS}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, semantic={semanticVersion}";
             }
         }
     }

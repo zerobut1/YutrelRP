@@ -15,6 +15,7 @@ float4 _DDGIProbeDistanceDimensions;
 float _DDGIProbeRayDataMaxDistance;
 float _DDGIProbeHysteresis;
 float _DDGIProbeDistanceExponent;
+float _DDGIProbeFixedRayBackfaceThreshold;
 
 static const uint DDGI_BLEND_THREAD_GROUP_SIZE_X = 8u;
 static const uint DDGI_BLEND_THREAD_GROUP_SIZE_Y = 8u;
@@ -92,6 +93,7 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
     float3 direction    = DDGIOctahedralDecode(interior_uv);
     float3 sum          = float3(0.0f, 0.0f, 0.0f);
     float weight_sum    = 0.0f;
+    uint backface_count = 0u;
 
     [loop]
     for (uint ray_index = 0u; ray_index < rays_per_probe; ray_index++)
@@ -99,8 +101,18 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
         float3 ray_direction = DDGIBuildProbeRayDirection(ray_index, rays_per_probe);
         float weight         = DDGIProbeBlendIrradianceDirectionWeight(direction, ray_direction);
         float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
+        if (DDGIProbeRayDataIsBackface(ray_data.a, _DDGIProbeRayDataMaxDistance))
+        {
+            backface_count++;
+            continue;
+        }
         sum += ray_data.rgb * weight;
         weight_sum += weight;
+    }
+
+    if ((float)backface_count / max((float)rays_per_probe, 1.0f) > saturate(_DDGIProbeFixedRayBackfaceThreshold))
+    {
+        return 0.0f.xxx;
     }
 
     return sum / max(weight_sum, 0.0001f);

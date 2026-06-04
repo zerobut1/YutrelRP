@@ -13,6 +13,8 @@ TEXTURE2D_ARRAY(_DDGIProbeIrradiance);
 SAMPLER(sampler_DDGIProbeIrradiance);
 TEXTURE2D_ARRAY(_DDGIProbeDistance);
 SAMPLER(sampler_DDGIProbeDistance);
+TEXTURE2D_ARRAY(_DDGIProbeData);
+SAMPLER(sampler_DDGIProbeData);
 
 float4 _EnvironmentReflectionCube_HDR;
 float _EnvironmentIntensity;
@@ -22,12 +24,14 @@ float _IblRoughnessOneLevel;
 float4 _DDGIProbeCount;
 float4 _DDGIProbeIrradianceDimensions;
 float4 _DDGIProbeDistanceDimensions;
+float4 _DDGIProbeDataDimensions;
 float _DDGIProbeRayDataMaxDistance;
 float3 _DDGIVolumeMinWS;
 float3 _DDGIVolumeMaxWS;
 float3 _DDGIProbeSpacingWS;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
+float _DDGIProbeRelocationEnabled;
 float _DDGIGatherValid;
 float _DDGIDiffuseIntensity;
 
@@ -77,7 +81,7 @@ DDGIGatherSample EvaluateDDGIGather(float3 position_WS, float3 normal_WS, float3
     uint3 probe_count       = GetDDGIProbeCount();
     uint irradiance_texels  = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
     uint distance_texels    = (uint)max(_DDGIProbeDistanceDimensions.w - 2.0f, 1.0f);
-    DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance, _DDGIProbeNormalBias, _DDGIProbeViewBias);
+    DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, _DDGIProbeData, _DDGIProbeRelocationEnabled > 0.5f, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance, _DDGIProbeNormalBias, _DDGIProbeViewBias);
     sample.irradiance *= _DDGIDiffuseIntensity;
     sample.coverage *= _DDGIGatherValid > 0.5f ? 1.0f : 0.0f;
     return sample;

@@ -31,6 +31,16 @@ float3 DDGIProbeWorldPosition(float3 volume_min_ws, float3 probe_spacing_ws, uin
     return volume_min_ws + float3(probe_coord) * probe_spacing_ws;
 }
 
+uint3 DDGIProbeDataTexel(uint3 probe_coord)
+{
+    return uint3(probe_coord.x, probe_coord.z, probe_coord.y);
+}
+
+float3 DDGIProbeDataOffset(float4 probe_data)
+{
+    return all(probe_data == probe_data) && all(abs(probe_data) < 1.0e20f.xxxx) ? probe_data.xyz : 0.0f.xxx;
+}
+
 uint3 DDGIProbeRayDataTexel(uint ray_index, uint3 probe_coord, uint3 probe_count)
 {
     return uint3(ray_index, DDGIProbePlaneIndex(probe_coord, probe_count), probe_coord.y);
@@ -252,6 +262,24 @@ float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler,
     return atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
 }
 
+float3 DDGILoadProbeDataOffset(Texture2DArray probe_data, uint3 probe_coord, bool relocation_enabled)
+{
+    if (!relocation_enabled)
+    {
+        return 0.0f.xxx;
+    }
+
+    float4 data = probe_data.Load(uint4(DDGIProbeDataTexel(probe_coord), 0u));
+    return DDGIProbeDataOffset(data);
+}
+
+float3 DDGIProbeRelocatedWorldPosition(float3 volume_min_ws, float3 probe_spacing_ws, uint3 probe_coord,
+                                       Texture2DArray probe_data, bool relocation_enabled)
+{
+    return DDGIProbeWorldPosition(volume_min_ws, probe_spacing_ws, probe_coord) +
+           DDGILoadProbeDataOffset(probe_data, probe_coord, relocation_enabled);
+}
+
 float3 DDGISampleTrilinearIrradiance(Texture2DArray atlas, SamplerState atlas_sampler, float3 grid_coord,
                                      float3 sample_direction, uint3 probe_count, uint interior_texels,
                                      float4 atlas_dimensions)
@@ -330,12 +358,13 @@ float DDGIProbeSurfaceWeight(float3 position_WS, float3 normal_WS, float3 probe_
     return saturate(wrap_shading * wrap_shading + 0.2f);
 }
 
-float DDGISampleProbeDistanceVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler, uint3 probe_coord,
+float DDGISampleProbeDistanceVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler,
+                                        Texture2DArray probe_data, bool relocation_enabled, uint3 probe_coord,
                                         float3 biased_position_WS, float3 normal_WS,
                                         float3 volume_min_WS, float3 probe_spacing_WS, uint distance_interior_texels,
                                         float4 distance_dimensions, float max_ray_distance)
 {
-    float3 probe_position_WS = DDGIProbeWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord);
+    float3 probe_position_WS = DDGIProbeRelocatedWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord, probe_data, relocation_enabled);
     float3 probe_to_surface  = biased_position_WS - probe_position_WS;
     float surface_distance   = length(probe_to_surface);
     float3 sample_direction  = DDGISafeNormalize(probe_to_surface, normal_WS);
@@ -346,6 +375,7 @@ float DDGISampleProbeDistanceVisibility(Texture2DArray distance_atlas, SamplerSt
 
 DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, SamplerState irradiance_sampler,
                                            Texture2DArray distance_atlas, SamplerState distance_sampler,
+                                           Texture2DArray probe_data, bool relocation_enabled,
                                            float3 position_WS, float3 normal_WS, float3 view_direction_WS,
                                            float3 volume_min_WS, float3 volume_max_WS, float3 probe_spacing_WS,
                                            uint3 probe_count, uint irradiance_interior_texels,
@@ -381,8 +411,9 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
                                                 y == 0u ? 1.0f - weight.y : weight.y,
                                                 z == 0u ? 1.0f - weight.z : weight.z);
                 float trilinear_weight = axis_weight.x * axis_weight.y * axis_weight.z;
-                float visibility       = DDGISampleProbeDistanceVisibility(distance_atlas, distance_sampler, probe_coord, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
-                float surface_weight   = DDGIProbeSurfaceWeight(position_WS, normal_WS, DDGIProbeWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord));
+                float3 probe_position  = DDGIProbeRelocatedWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord, probe_data, relocation_enabled);
+                float visibility       = DDGISampleProbeDistanceVisibility(distance_atlas, distance_sampler, probe_data, relocation_enabled, probe_coord, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
+                float surface_weight   = DDGIProbeSurfaceWeight(position_WS, normal_WS, probe_position);
                 float contribution     = trilinear_weight * visibility * surface_weight;
                 float3 irradiance      = DDGISampleProbeIrradiance(irradiance_atlas, irradiance_sampler, probe_coord, normal_WS, irradiance_interior_texels, irradiance_dimensions);
 

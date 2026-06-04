@@ -127,7 +127,8 @@ namespace YutrelRP
                         settings.shadowSettings, ddgi_resources, settings.debugViewMode,
                         settings.ddgiSettings, attachment_size);
 
-                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, settings.debugViewMode);
+                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, settings.debugViewMode,
+                        settings.ddgiSettings);
 
                     GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,
                         GizmoSubset.PostImageEffects);

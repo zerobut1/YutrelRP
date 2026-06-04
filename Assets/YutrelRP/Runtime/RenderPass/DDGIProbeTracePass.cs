@@ -24,6 +24,9 @@ namespace YutrelRP
         private static readonly int probeIrradianceDimensionsID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int probeDistanceID = DDGIResources.probe_distance_ID;
         private static readonly int probeDistanceDimensionsID = DDGIResources.probe_distance_dimensions_ID;
+        private static readonly int probeDataID = DDGIResources.probe_data_ID;
+        private static readonly int probeDataDimensionsID = DDGIResources.probe_data_dimensions_ID;
+        private static readonly int probeRelocationEnabledID = DDGIResources.probe_relocation_enabled_ID;
         private static readonly int volumeMinWSID = Shader.PropertyToID("_DDGIVolumeMinWS");
         private static readonly int volumeMaxWSID = Shader.PropertyToID("_DDGIVolumeMaxWS");
         private static readonly int probeSpacingWSID = Shader.PropertyToID("_DDGIProbeSpacingWS");
@@ -163,6 +166,7 @@ namespace YutrelRP
             var traceAlbedo = renderGraph.CreateTexture(desc);
             resources.trace_albedo = traceAlbedo;
             resources.SetVolumeMetadata(volume);
+            resources.probe_relocation_enabled = settings.probeRelocationEnabled;
 
             TextureHandle screenTraceDebugOutput = TextureHandle.nullHandle;
             TextureHandle screenTraceDepth = TextureHandle.nullHandle;
@@ -199,6 +203,7 @@ namespace YutrelRP
                 pass.rayTracingAccelerationStructure = accelerationStructure;
                 pass.probeIrradiance = resources.probe_irradiance;
                 pass.probeDistance = resources.probe_distance;
+                pass.probeData = resources.probe_data;
                 pass.volumeMinWS = volume.WorldBounds.min;
                 pass.volumeMaxWS = volume.WorldBounds.max;
                 pass.probeSpacingWS = volume.GetWorldProbeSpacing();
@@ -210,6 +215,8 @@ namespace YutrelRP
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
                 pass.probeIrradianceDimensions = resources.ProbeIrradianceDimensions;
                 pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
+                pass.probeDataDimensions = resources.ProbeDataDimensions;
+                pass.probeRelocationEnabled = settings.probeRelocationEnabled ? 1.0f : 0.0f;
                 pass.traceInstanceTriangleRanges = traceInstanceTriangleRangesBuffer;
                 pass.traceInstanceBaseColors = traceInstanceBaseColorsBuffer;
                 pass.traceTriangleNormals = traceTriangleNormalsBuffer;
@@ -235,6 +242,7 @@ namespace YutrelRP
                 }
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
+                builder.UseTexture(pass.probeData, AccessFlags.Read);
                 if (pass.environmentReflectionCube.IsValid())
                 {
                     builder.UseTexture(pass.environmentReflectionCube);
@@ -244,6 +252,7 @@ namespace YutrelRP
                 builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
             }
 
+            DDGIProbeRelocationPass.Record(renderGraph, volume, settings, ref resources);
             DDGIProbeBlendPass.Record(renderGraph, volume, settings, ref resources);
         }
 
@@ -253,6 +262,7 @@ namespace YutrelRP
         private TextureHandle screenTraceDepth;
         private TextureHandle probeIrradiance;
         private TextureHandle probeDistance;
+        private TextureHandle probeData;
         private RayTracingShader rayTracingShader;
         private RayTracingAccelerationStructure rayTracingAccelerationStructure;
         private Vector3 volumeMinWS;
@@ -266,6 +276,8 @@ namespace YutrelRP
         private float probeMaxRayDistance;
         private Vector4 probeIrradianceDimensions;
         private Vector4 probeDistanceDimensions;
+        private Vector4 probeDataDimensions;
+        private float probeRelocationEnabled;
         private GraphicsBuffer traceInstanceTriangleRanges;
         private GraphicsBuffer traceInstanceBaseColors;
         private GraphicsBuffer traceTriangleNormals;
@@ -303,6 +315,7 @@ namespace YutrelRP
             }
             cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
+            cmd.SetRayTracingTextureParam(rayTracingShader, probeDataID, probeData);
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMinWSID, volumeMinWS);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMaxWSID, volumeMaxWS);
@@ -315,6 +328,8 @@ namespace YutrelRP
             cmd.SetRayTracingFloatParam(rayTracingShader, probeMaxRayDistanceID, probeMaxRayDistance);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeIrradianceDimensionsID, probeIrradianceDimensions);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDistanceDimensionsID, probeDistanceDimensions);
+            cmd.SetRayTracingVectorParam(rayTracingShader, probeDataDimensionsID, probeDataDimensions);
+            cmd.SetRayTracingFloatParam(rayTracingShader, probeRelocationEnabledID, probeRelocationEnabled);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceBaseColorsID, traceInstanceBaseColors);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
@@ -1147,6 +1162,7 @@ namespace YutrelRP
             ReleaseTraceGeometryBuffers();
             ReleasePersistentAtlases();
             ReleaseFallbackEnvironmentReflection();
+            DDGIProbeRelocationPass.Cleanup();
             DDGIProbeBlendPass.Cleanup();
             shader = null;
             lastStatusKey = null;

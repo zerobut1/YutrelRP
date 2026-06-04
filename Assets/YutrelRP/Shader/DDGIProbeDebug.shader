@@ -18,6 +18,8 @@ Shader "YutrelRP/DDGIProbeDebug"
 		SAMPLER(sampler_DDGIProbeIrradiance);
 		TEXTURE2D_ARRAY(_DDGIProbeDistance);
 		SAMPLER(sampler_DDGIProbeDistance);
+		TEXTURE2D_ARRAY(_DDGIProbeData);
+		SAMPLER(sampler_DDGIProbeData);
 
 		int _DDGIProbeDebugMode;
 		int _DDGIProbeDebugIssue;
@@ -27,8 +29,10 @@ Shader "YutrelRP/DDGIProbeDebug"
 		float _DDGIProbeRayDataMaxDistance;
 		float4 _DDGIProbeIrradianceDimensions;
 		float4 _DDGIProbeDistanceDimensions;
+		float4 _DDGIProbeDataDimensions;
 		float3 _DDGIVolumeMinWS;
 		float3 _DDGIProbeSpacingWS;
+		float _DDGIProbeRelocationEnabled;
 
 		struct Attributes
 		{
@@ -186,7 +190,7 @@ Shader "YutrelRP/DDGIProbeDebug"
 		{
 			Varyings output;
 			uint3 probe_coord = DDGIProbeDebugCoord(input.instance_id);
-			float3 probe_position_WS = DDGIProbeWorldPosition(_DDGIVolumeMinWS, _DDGIProbeSpacingWS, probe_coord);
+			float3 probe_position_WS = DDGIProbeRelocatedWorldPosition(_DDGIVolumeMinWS, _DDGIProbeSpacingWS, probe_coord, _DDGIProbeData, _DDGIProbeRelocationEnabled > 0.5f);
 			float3 normal_WS = normalize(input.normal_OS);
 			float3 position_WS = probe_position_WS + input.position_OS * max(_DDGIProbeDebugRadius, 0.001f);
 

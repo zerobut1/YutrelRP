@@ -39,6 +39,7 @@ float3 _DDGIVolumeMaxWS;
 float3 _DDGIProbeSpacingWS;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
+float _DDGIProbeRelocationEnabled;
 float _DDGIGatherValid;
 float _DDGIDiffuseIntensity;
 
@@ -361,16 +362,22 @@ float4 SampleDebugViewDDGIProbeData(float2 uv)
     uint height = (uint)max(_DDGIProbeDataDimensions.y, 1.0f);
     uint slice  = (uint)clamp(_DDGIProbeDataDebugSlice, 0, max((int)_DDGIProbeDataDimensions.z - 1, 0));
 
-    uint2 texel         = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
-    uint3 probe_count   = uint3(width, (uint)max(_DDGIProbeDataDimensions.z, 1.0f), height);
-    uint3 probe_coord   = uint3(texel.x, slice, texel.y);
-    float4 data         = LOAD_TEXTURE2D_ARRAY(_DDGIProbeData, texel, slice);
-    float active        = saturate(data.w);
-    float3 index_color  = DebugViewDDGIIndexColor(probe_coord, probe_count);
-    float cell_line     = (frac(uv.x * width) < 0.08f || frac((1.0f - uv.y) * height) < 0.08f) ? 1.0f : 0.0f;
-    float3 offset_color = saturate(abs(data.xyz));
-    float3 active_color = active.xxx * float3(0.05f, 0.35f, 0.05f);
-    return float4(saturate(index_color * 0.35f + active_color + offset_color + cell_line * 0.25f), 1.0f);
+    uint2 texel            = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    uint3 probe_count      = uint3(width, (uint)max(_DDGIProbeDataDimensions.z, 1.0f), height);
+    uint3 probe_coord      = uint3(texel.x, slice, texel.y);
+    float4 data            = LOAD_TEXTURE2D_ARRAY(_DDGIProbeData, texel, slice);
+    float active           = saturate(data.w);
+    float3 index_color     = DebugViewDDGIIndexColor(probe_coord, probe_count);
+    float cell_line        = (frac(uv.x * width) < 0.08f || frac((1.0f - uv.y) * height) < 0.08f) ? 1.0f : 0.0f;
+    float min_spacing      = DDGIMinProbeSpacing(_DDGIProbeSpacingWS);
+    float offset_ratio     = saturate(length(data.xyz) / max(min_spacing * 0.45f, 0.001f));
+    float3 zero_color      = active.xxx * float3(0.05f, 0.35f, 0.05f);
+    float3 direction_color = DDGISafeNormalize(abs(data.xyz), 0.0f.xxx);
+    float3 relocated_color = lerp(float3(0.1f, 0.45f, 0.95f), saturate(direction_color + 0.15f.xxx), offset_ratio);
+    float3 enabled_color   = lerp(zero_color, relocated_color, offset_ratio);
+    float3 disabled_color  = float3(0.55f, 0.42f, 0.12f);
+    float3 color           = _DDGIProbeRelocationEnabled > 0.5f ? enabled_color : disabled_color;
+    return float4(saturate(index_color * 0.15f + color + cell_line * 0.25f), 1.0f);
 }
 
 float DebugViewEvaluateDDGICoverage(float3 position_WS)
@@ -383,7 +390,7 @@ DDGIGatherSample DebugViewEvaluateDDGIGather(float3 position_WS, float3 normal_W
     uint3 probe_count       = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
     uint irradiance_texels  = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
     uint distance_texels    = (uint)max(_DDGIProbeDistanceDimensions.w - 2.0f, 1.0f);
-    DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance, _DDGIProbeNormalBias, _DDGIProbeViewBias);
+    DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, _DDGIProbeData, _DDGIProbeRelocationEnabled > 0.5f, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance, _DDGIProbeNormalBias, _DDGIProbeViewBias);
     sample.irradiance *= _DDGIDiffuseIntensity;
     sample.coverage *= _DDGIGatherValid > 0.5f ? 1.0f : 0.0f;
     return sample;

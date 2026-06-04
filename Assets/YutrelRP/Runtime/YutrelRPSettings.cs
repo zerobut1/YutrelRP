@@ -20,7 +20,13 @@ namespace YutrelRP
             public bool enabled = false;
             public bool logDiagnostics = true;
             public RayTracingShader probeTraceShader;
+            public ComputeShader probeRelocationShader;
             public ComputeShader probeBlendShader;
+            public bool probeRelocationEnabled = true;
+            [Range(0.0f, 1.0f)] public float probeFixedRayBackfaceThreshold = 0.25f;
+            [Range(0.0f, 1.0f)] public float probeRandomRayBackfaceThreshold = 0.1f;
+            [Min(0.0f)] public float probeMinFrontfaceDistance = 1.0f;
+            [Range(0.0f, 0.49f)] public float probeMaxRelocationOffset = 0.45f;
             public bool traceDirectionalVisibility = false;
             public bool traceDirectionalLambert = true;
             [Min(0)] public int debugProbeRayDataSlice = 0;

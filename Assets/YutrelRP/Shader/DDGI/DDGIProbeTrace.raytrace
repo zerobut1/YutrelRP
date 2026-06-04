@@ -13,6 +13,7 @@ Texture2DArray<float4> _DDGIProbeIrradiance;
 SamplerState sampler_DDGIProbeIrradiance;
 Texture2DArray<float4> _DDGIProbeDistance;
 SamplerState sampler_DDGIProbeDistance;
+Texture2DArray<float4> _DDGIProbeData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
 TextureCube<float4> _EnvironmentReflectionCube;
 SamplerState sampler_EnvironmentReflectionCube;
@@ -25,6 +26,8 @@ float _DDGIProbeViewBias;
 float4 _DDGIProbeCount;
 float4 _DDGIProbeIrradianceDimensions;
 float4 _DDGIProbeDistanceDimensions;
+float4 _DDGIProbeDataDimensions;
+float _DDGIProbeRelocationEnabled;
 int _DDGIProbeRaysPerProbe;
 float _DDGIProbeMaxRayDistance;
 float4 _DDGIDirectionalLightColorIlluminance;
@@ -69,6 +72,8 @@ float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float
                                                         sampler_DDGIProbeIrradiance,
                                                         _DDGIProbeDistance,
                                                         sampler_DDGIProbeDistance,
+                                                        _DDGIProbeData,
+                                                        _DDGIProbeRelocationEnabled > 0.5f,
                                                         positionWS,
                                                         normal,
                                                         view_direction,
@@ -185,7 +190,7 @@ void RayGenDDGIProbeTrace()
     uint3 probeCount = uint3((uint)_DDGIProbeCount.x, (uint)_DDGIProbeCount.y, (uint)_DDGIProbeCount.z);
     uint3 probeCoord = DDGIProbeCoordFromPlaneIndex(planeProbeIndex, probeY, probeCount);
 
-    float3 probePositionWS = DDGIProbeWorldPosition(_DDGIVolumeMinWS, _DDGIProbeSpacingWS, probeCoord);
+    float3 probePositionWS = DDGIProbeRelocatedWorldPosition(_DDGIVolumeMinWS, _DDGIProbeSpacingWS, probeCoord, _DDGIProbeData, _DDGIProbeRelocationEnabled > 0.5f);
 
     RayDesc ray;
     ray.Origin = probePositionWS;

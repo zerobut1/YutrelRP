@@ -22,8 +22,11 @@ namespace YutrelRP
         private static readonly int probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int probe_distance_ID = DDGIResources.probe_distance_ID;
         private static readonly int probe_distance_dimensions_ID = DDGIResources.probe_distance_dimensions_ID;
+        private static readonly int probe_data_ID = DDGIResources.probe_data_ID;
+        private static readonly int probe_data_dimensions_ID = DDGIResources.probe_data_dimensions_ID;
         private static readonly int volume_min_ws_ID = DDGIResources.volume_min_ws_ID;
         private static readonly int probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
+        private static readonly int probe_relocation_enabled_ID = DDGIResources.probe_relocation_enabled_ID;
 
         private static Material material;
         private static Mesh sphere_mesh;
@@ -31,7 +34,8 @@ namespace YutrelRP
         private static readonly HashSet<string> warned_issues = new();
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
-            DDGIResources ddgi_resources, YutrelRPSettings.DebugViewMode mode)
+            DDGIResources ddgi_resources, YutrelRPSettings.DebugViewMode mode,
+            YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (!IsProbeSceneMode(mode)) return;
             if (camera.cameraType != CameraType.SceneView) return;
@@ -53,12 +57,25 @@ namespace YutrelRP
             pass.probe_ray_data_dimensions = ddgi_resources != null ? ddgi_resources.ProbeRayDataDimensions : Vector4.zero;
             pass.probe_irradiance_dimensions = ddgi_resources != null ? ddgi_resources.ProbeIrradianceDimensions : Vector4.zero;
             pass.probe_distance_dimensions = ddgi_resources != null ? ddgi_resources.ProbeDistanceDimensions : Vector4.zero;
+            pass.probe_data_dimensions = ddgi_resources != null ? ddgi_resources.ProbeDataDimensions : Vector4.zero;
             pass.volume_min_ws = ddgi_resources != null ? ddgi_resources.volume_min_ws : Vector3.zero;
             pass.probe_spacing_ws = ddgi_resources != null ? ddgi_resources.probe_spacing_ws : Vector3.zero;
+            pass.probe_relocation_enabled =
+                ddgi_resources != null && ddgi_resources.probe_relocation_enabled &&
+                ddgi_settings != null && ddgi_settings.probeRelocationEnabled
+                    ? 1.0f
+                    : 0.0f;
             pass.instance_count = pass.probe_count.x * pass.probe_count.y * pass.probe_count.z;
             pass.reads_probe_ray_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene;
             pass.reads_probe_irradiance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene;
             pass.reads_probe_distance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene;
+            pass.reads_probe_data = pass.issue == Issue.None;
+
+            if (pass.reads_probe_data)
+            {
+                pass.probe_data = ddgi_resources.probe_data;
+                builder.UseTexture(pass.probe_data);
+            }
 
             if (pass.reads_probe_ray_data)
             {
@@ -116,6 +133,10 @@ namespace YutrelRP
             {
                 issue = Issue.MissingRayData;
             }
+            else if (!ddgi_resources.probe_data.IsValid())
+            {
+                issue = Issue.MissingProbeData;
+            }
 
             WarnOnce(mode, issue);
             return issue;
@@ -151,6 +172,8 @@ namespace YutrelRP
                     return "DDGI ProbeDistance atlas is missing";
                 case Issue.MissingRayData:
                     return "DDGI ProbeRayData is missing";
+                case Issue.MissingProbeData:
+                    return "DDGI ProbeData atlas is missing";
                 default:
                     return "the selected source is unavailable";
             }
@@ -159,11 +182,13 @@ namespace YutrelRP
         private TextureHandle probe_ray_data;
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
+        private TextureHandle probe_data;
         private YutrelRPSettings.DebugViewMode mode;
         private Issue issue;
         private bool reads_probe_ray_data;
         private bool reads_probe_irradiance;
         private bool reads_probe_distance;
+        private bool reads_probe_data;
         private int instance_count;
         private Vector3Int probe_count;
         private float probe_radius;
@@ -171,8 +196,10 @@ namespace YutrelRP
         private Vector4 probe_ray_data_dimensions;
         private Vector4 probe_irradiance_dimensions;
         private Vector4 probe_distance_dimensions;
+        private Vector4 probe_data_dimensions;
         private Vector3 volume_min_ws;
         private Vector3 probe_spacing_ws;
+        private float probe_relocation_enabled;
 
         private void Render(RasterGraphContext context)
         {
@@ -187,8 +214,10 @@ namespace YutrelRP
             property_block.SetVector(probe_ray_data_dimensions_ID, probe_ray_data_dimensions);
             property_block.SetVector(probe_irradiance_dimensions_ID, probe_irradiance_dimensions);
             property_block.SetVector(probe_distance_dimensions_ID, probe_distance_dimensions);
+            property_block.SetVector(probe_data_dimensions_ID, probe_data_dimensions);
             property_block.SetVector(volume_min_ws_ID, volume_min_ws);
             property_block.SetVector(probe_spacing_ws_ID, probe_spacing_ws);
+            property_block.SetFloat(probe_relocation_enabled_ID, probe_relocation_enabled);
 
             if (reads_probe_ray_data)
             {
@@ -203,6 +232,11 @@ namespace YutrelRP
             if (reads_probe_distance)
             {
                 property_block.SetTexture(probe_distance_ID, probe_distance);
+            }
+
+            if (reads_probe_data)
+            {
+                property_block.SetTexture(probe_data_ID, probe_data);
             }
 
             if (issue != Issue.None)
@@ -306,7 +340,8 @@ namespace YutrelRP
             MissingVolume = 1,
             MissingIrradiance = 2,
             MissingDistance = 3,
-            MissingRayData = 4
+            MissingRayData = 4,
+            MissingProbeData = 5
         }
     }
 }

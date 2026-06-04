@@ -52,7 +52,13 @@ MonoBehaviour:
       enabled: 1
       logDiagnostics: 1
       probeTraceShader: {fileID: 4807578003741378534, guid: 65f12d8fcb90437eb5415e6d220ecb3e, type: 3}
+      probeRelocationShader: {fileID: 7200000, guid: 75c7ef8a3c5d4ec19fd293af840c0204, type: 3}
       probeBlendShader: {fileID: 7200000, guid: e44a695187074910b946399458275444, type: 3}
+      probeRelocationEnabled: 1
+      probeFixedRayBackfaceThreshold: 0.25
+      probeRandomRayBackfaceThreshold: 0.1
+      probeMinFrontfaceDistance: 1
+      probeMaxRelocationOffset: 0.45
       debugProbeRayDataSlice: 0
       debugProbeIrradianceAtlasSlice: 0
       debugProbeDistanceAtlasSlice: 0

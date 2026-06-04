@@ -30,6 +30,7 @@ namespace YutrelRP
         private static readonly int ddgi_probe_data_ID = DDGIResources.probe_data_ID;
         private static readonly int ddgi_probe_data_dimensions_ID = DDGIResources.probe_data_dimensions_ID;
         private static readonly int ddgi_probe_data_debug_slice_ID = DDGIResources.probe_data_debug_slice_ID;
+        private static readonly int ddgi_probe_relocation_enabled_ID = DDGIResources.probe_relocation_enabled_ID;
         private static readonly int ddgi_volume_min_ws_ID = DDGIResources.volume_min_ws_ID;
         private static readonly int ddgi_volume_max_ws_ID = DDGIResources.volume_max_ws_ID;
         private static readonly int ddgi_probe_spacing_ws_ID = DDGIResources.probe_spacing_ws_ID;
@@ -199,6 +200,7 @@ namespace YutrelRP
                     ddgi_settings != null ? ddgi_settings.debugProbeDataSlice : 0,
                     0,
                     Mathf.Max(0, ddgi_resources.probe_count.y - 1));
+                pass.ddgi_probe_relocation_enabled = ddgi_resources.probe_relocation_enabled ? 1.0f : 0.0f;
                 builder.UseTexture(pass.ddgi_probe_data);
             }
 
@@ -213,15 +215,18 @@ namespace YutrelRP
                     : render_graph.defaultResources.whiteTexture;
                 pass.ddgi_probe_irradiance = ddgi_resources.probe_irradiance;
                 pass.ddgi_probe_distance = ddgi_resources.probe_distance;
+                pass.ddgi_probe_data = ddgi_resources.probe_data;
                 pass.ddgi_probe_count = ddgi_resources.probe_count;
                 pass.ddgi_probe_irradiance_dimensions = ddgi_resources.ProbeIrradianceDimensions;
                 pass.ddgi_probe_distance_dimensions = ddgi_resources.ProbeDistanceDimensions;
+                pass.ddgi_probe_data_dimensions = ddgi_resources.ProbeDataDimensions;
                 pass.ddgi_probe_ray_data_max_distance = Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance);
                 pass.ddgi_volume_min_ws = ddgi_resources.volume_min_ws;
                 pass.ddgi_volume_max_ws = ddgi_resources.volume_max_ws;
                 pass.ddgi_probe_spacing_ws = ddgi_resources.probe_spacing_ws;
                 pass.ddgi_probe_normal_bias = ddgi_resources.probe_normal_bias;
                 pass.ddgi_probe_view_bias = ddgi_resources.probe_view_bias;
+                pass.ddgi_probe_relocation_enabled = ddgi_resources.probe_relocation_enabled ? 1.0f : 0.0f;
                 pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
 
                 builder.UseTexture(pass.GBuffer_A);
@@ -231,6 +236,7 @@ namespace YutrelRP
                 builder.UseTexture(pass.screen_space_ao);
                 builder.UseTexture(pass.ddgi_probe_irradiance);
                 builder.UseTexture(pass.ddgi_probe_distance);
+                builder.UseTexture(pass.ddgi_probe_data);
             }
 
             builder.SetRenderAttachment(debug_color, 0);
@@ -374,6 +380,10 @@ namespace YutrelRP
                     {
                         issue = Issue.MissingDDGIProbeDistance;
                     }
+                    else if (!ddgi_resources.probe_data.IsValid())
+                    {
+                        issue = Issue.MissingDDGIProbeData;
+                    }
 
                     break;
                 default:
@@ -466,6 +476,7 @@ namespace YutrelRP
         private int ddgi_probe_irradiance_debug_slice;
         private int ddgi_probe_distance_debug_slice;
         private int ddgi_probe_data_debug_slice;
+        private float ddgi_probe_relocation_enabled;
         private Vector3 ddgi_volume_min_ws;
         private Vector3 ddgi_volume_max_ws;
         private Vector3 ddgi_probe_spacing_ws;
@@ -490,6 +501,7 @@ namespace YutrelRP
             property_block.SetInteger(ddgi_probe_distance_debug_slice_ID, ddgi_probe_distance_debug_slice);
             property_block.SetVector(ddgi_probe_data_dimensions_ID, ddgi_probe_data_dimensions);
             property_block.SetInteger(ddgi_probe_data_debug_slice_ID, ddgi_probe_data_debug_slice);
+            property_block.SetFloat(ddgi_probe_relocation_enabled_ID, ddgi_probe_relocation_enabled);
             property_block.SetVector(ddgi_volume_min_ws_ID, ddgi_volume_min_ws);
             property_block.SetVector(ddgi_volume_max_ws_ID, ddgi_volume_max_ws);
             property_block.SetVector(ddgi_probe_spacing_ws_ID, ddgi_probe_spacing_ws);
@@ -568,6 +580,7 @@ namespace YutrelRP
                 property_block.SetTexture(RenderTargets.screen_space_ao_ID, screen_space_ao);
                 property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
                 property_block.SetTexture(ddgi_probe_distance_ID, ddgi_probe_distance);
+                property_block.SetTexture(ddgi_probe_data_ID, ddgi_probe_data);
             }
 
             CoreUtils.DrawFullScreen(cmd, material, property_block);
