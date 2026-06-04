@@ -8,7 +8,7 @@
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RWTexture2DArray<float4> _DDGITraceAlbedo;
 RWTexture2D<float4> _DDGIScreenTraceDebug;
-Texture2D<float> _SceneDepth;
+Texture2D<float> _DDGIScreenTraceDepth;
 Texture2DArray<float4> _DDGIProbeIrradiance;
 SamplerState sampler_DDGIProbeIrradiance;
 Texture2DArray<float4> _DDGIProbeDistance;
@@ -274,7 +274,7 @@ void RayGenDDGIScreenTrace()
     uint3 launchDimensions = DispatchRaysDimensions();
     uint2 pixel            = launchIndex.xy;
     uint2 dimensions       = launchDimensions.xy;
-    float rawDepth         = _SceneDepth.Load(int3(pixel, 0));
+    float rawDepth         = _DDGIScreenTraceDepth.Load(int3(pixel, 0));
 
     if (!DDGIScreenTraceDepthIsValid(rawDepth))
     {

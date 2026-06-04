@@ -44,7 +44,7 @@ namespace YutrelRP
         private static readonly int traceInstanceMaterialFlagsID = Shader.PropertyToID("_DDGITraceInstanceMaterialFlags");
         private static readonly int traceAlbedoID = DDGIResources.trace_albedo_ID;
         private static readonly int screenTraceDebugID = DDGIResources.screen_trace_debug_ID;
-        private static readonly int sceneDepthID = RenderTargets.scene_depth_ID;
+        private static readonly int screenTraceDepthID = Shader.PropertyToID("_DDGIScreenTraceDepth");
         private static readonly int screenTraceInvViewProjectionID = Shader.PropertyToID("_DDGIScreenTraceInvViewProjection");
         private static readonly int screenTraceCameraPositionWSID = Shader.PropertyToID("_DDGIScreenTraceCameraPositionWS");
         private static readonly int screenTraceReversedZID = Shader.PropertyToID("_DDGIScreenTraceReversedZ");
@@ -163,10 +163,13 @@ namespace YutrelRP
             resources.SetVolumeMetadata(volume);
 
             TextureHandle screenTraceDebugOutput = TextureHandle.nullHandle;
+            TextureHandle screenTraceDepth = TextureHandle.nullHandle;
             var writesScreenTraceDebug = screenTraceDebug && sceneDepth.IsValid() &&
                                          attachmentSize.x > 0 && attachmentSize.y > 0;
             if (writesScreenTraceDebug)
             {
+                screenTraceDepth = DDGIScreenTraceDepthCopyPass.Record(renderGraph, sceneDepth, attachmentSize);
+
                 var screenTraceDesc = new TextureDesc(attachmentSize.x, attachmentSize.y)
                 {
                     colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
@@ -186,7 +189,7 @@ namespace YutrelRP
                 pass.probeRayData = probeRayData;
                 pass.traceAlbedo = traceAlbedo;
                 pass.screenTraceDebug = screenTraceDebugOutput;
-                pass.sceneDepth = sceneDepth;
+                pass.screenTraceDepth = screenTraceDepth;
                 pass.writesScreenTraceDebug = writesScreenTraceDebug;
                 pass.screenTraceWidth = attachmentSize.x;
                 pass.screenTraceHeight = attachmentSize.y;
@@ -224,7 +227,7 @@ namespace YutrelRP
                 if (pass.writesScreenTraceDebug)
                 {
                     builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
-                    builder.UseTexture(sceneDepth, AccessFlags.Read);
+                    builder.UseTexture(screenTraceDepth, AccessFlags.Read);
                 }
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
@@ -243,7 +246,7 @@ namespace YutrelRP
         private TextureHandle probeRayData;
         private TextureHandle traceAlbedo;
         private TextureHandle screenTraceDebug;
-        private TextureHandle sceneDepth;
+        private TextureHandle screenTraceDepth;
         private TextureHandle probeIrradiance;
         private TextureHandle probeDistance;
         private RayTracingShader rayTracingShader;
@@ -287,7 +290,7 @@ namespace YutrelRP
             if (writesScreenTraceDebug)
             {
                 cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
-                cmd.SetRayTracingTextureParam(rayTracingShader, sceneDepthID, sceneDepth);
+                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
                 cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
                 cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
                 cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);

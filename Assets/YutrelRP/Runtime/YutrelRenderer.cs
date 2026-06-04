@@ -26,6 +26,7 @@ namespace YutrelRP
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
             DebugViewPass.Cleanup();
+            DDGIScreenTraceDepthCopyPass.Cleanup();
             DDGIProbeDebugPass.Cleanup();
             UnsupportedShadersPass.Cleanup();
 #endif
