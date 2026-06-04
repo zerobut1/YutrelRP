@@ -15,7 +15,12 @@ namespace YutrelRP
         private const string RayGenName = "RayGenDDGIProbeTrace";
         private const string ScreenTraceRayGenName = "RayGenDDGIScreenTrace";
         private const string ShaderPassName = "DDGIRayTracing";
+        private const string RenderDocShaderPassName = "DDGIRenderDocRayTracing";
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
+#if UNITY_EDITOR
+        private const string RenderDocProbeTraceShaderPath =
+            "Assets/YutrelRP/Shader/DDGI/DDGIProbeTraceRenderDoc.raytrace";
+#endif
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
@@ -68,6 +73,9 @@ namespace YutrelRP
         };
 
         private static RayTracingShader shader;
+#if UNITY_EDITOR
+        private static RayTracingShader renderDocShader;
+#endif
         private static RayTracingAccelerationStructure accelerationStructure;
         private static GraphicsBuffer traceInstanceTriangleRangesBuffer;
         private static GraphicsBuffer traceInstanceBaseColorsBuffer;
@@ -113,6 +121,16 @@ namespace YutrelRP
             {
                 issue = ValidateShaderResource(settings);
             }
+
+            var usesRenderDocShader = false;
+#if UNITY_EDITOR
+            if (issue == ProbeTraceIssue.None && IsRenderDocLoaded())
+            {
+                shader = GetRenderDocProbeTraceShader();
+                usesRenderDocShader = shader != null;
+                issue = usesRenderDocShader ? ProbeTraceIssue.None : ProbeTraceIssue.MissingRayTracingShader;
+            }
+#endif
 
             if (issue == ProbeTraceIssue.None)
             {
@@ -202,6 +220,7 @@ namespace YutrelRP
                 pass.screenTraceDebug = screenTraceDebugOutput;
                 pass.screenTraceDepth = screenTraceDepth;
                 pass.writesScreenTraceDebug = writesScreenTraceDebug;
+                pass.usesRenderDocShader = usesRenderDocShader;
                 pass.screenTraceWidth = attachmentSize.x;
                 pass.screenTraceHeight = attachmentSize.y;
                 pass.rayTracingShader = shader;
@@ -240,14 +259,17 @@ namespace YutrelRP
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.UseTexture(traceAlbedo, AccessFlags.Write);
-                builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
-                builder.UseTexture(screenTraceDepth, AccessFlags.Read);
-                builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
-                builder.UseTexture(pass.probeDistance, AccessFlags.Read);
-                builder.UseTexture(pass.probeData, AccessFlags.Read);
-                if (pass.environmentReflectionCube.IsValid())
+                if (!usesRenderDocShader)
                 {
-                    builder.UseTexture(pass.environmentReflectionCube);
+                    builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
+                    builder.UseTexture(screenTraceDepth, AccessFlags.Read);
+                    builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
+                    builder.UseTexture(pass.probeDistance, AccessFlags.Read);
+                    builder.UseTexture(pass.probeData, AccessFlags.Read);
+                    if (pass.environmentReflectionCube.IsValid())
+                    {
+                        builder.UseTexture(pass.environmentReflectionCube);
+                    }
                 }
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
@@ -300,24 +322,31 @@ namespace YutrelRP
         private float environmentValid;
         private bool hasEnvironmentReflectionCube;
         private bool writesScreenTraceDebug;
+        private bool usesRenderDocShader;
 
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
-            cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
+            cmd.SetRayTracingShaderPass(rayTracingShader, usesRenderDocShader ? RenderDocShaderPassName : ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
-            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
-            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
-            if (writesScreenTraceDebug)
+            if (!usesRenderDocShader)
             {
-                cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
-                cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
-                cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
+                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
+                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
+                if (writesScreenTraceDebug)
+                {
+                    cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
+                    cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
+                    cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
+                }
             }
-            cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
-            cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
-            cmd.SetRayTracingTextureParam(rayTracingShader, probeDataID, probeData);
+            if (!usesRenderDocShader)
+            {
+                cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
+                cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
+                cmd.SetRayTracingTextureParam(rayTracingShader, probeDataID, probeData);
+            }
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMinWSID, volumeMinWS);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMaxWSID, volumeMaxWS);
@@ -332,14 +361,13 @@ namespace YutrelRP
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDistanceDimensionsID, probeDistanceDimensions);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDataDimensionsID, probeDataDimensions);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeRelocationEnabledID, probeRelocationEnabled);
-            cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
-            cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceBaseColorsID, traceInstanceBaseColors);
-            cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
-            cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceMaterialFlagsID, traceInstanceMaterialFlags);
-            cmd.SetGlobalBuffer(traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
-            cmd.SetGlobalBuffer(traceInstanceBaseColorsID, traceInstanceBaseColors);
-            cmd.SetGlobalBuffer(traceTriangleNormalsID, traceTriangleNormals);
-            cmd.SetGlobalBuffer(traceInstanceMaterialFlagsID, traceInstanceMaterialFlags);
+            if (!usesRenderDocShader)
+            {
+                cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
+                cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceBaseColorsID, traceInstanceBaseColors);
+                cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
+                cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceMaterialFlagsID, traceInstanceMaterialFlags);
+            }
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightColorIlluminanceID,
                 directionalLightColorIlluminance);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightDirectionWSID, directionalLightDirectionWS);
@@ -347,7 +375,7 @@ namespace YutrelRP
                 directionalLightVisibilityEnabled);
             cmd.SetRayTracingFloatParam(rayTracingShader, directionalLightLambertEnabledID,
                 directionalLightLambertEnabled);
-            if (environmentReflectionCube.IsValid())
+            if (!usesRenderDocShader && environmentReflectionCube.IsValid())
             {
                 cmd.SetRayTracingTextureParam(rayTracingShader, EnvironmentReflectionCubeName, environmentReflectionCube);
             }
@@ -357,7 +385,7 @@ namespace YutrelRP
             cmd.SetRayTracingFloatParam(rayTracingShader, environmentValidID, environmentValid);
             cmd.DispatchRays(rayTracingShader, RayGenName, (uint)raysPerProbe, (uint)planeProbeCount,
                 (uint)probeCount.y, null);
-            if (writesScreenTraceDebug)
+            if (!usesRenderDocShader && writesScreenTraceDebug)
             {
                 cmd.DispatchRays(rayTracingShader, ScreenTraceRayGenName,
                     (uint)Mathf.Max(screenTraceWidth, 1), (uint)Mathf.Max(screenTraceHeight, 1), 1, null);
@@ -469,6 +497,18 @@ namespace YutrelRP
             shader = settings?.probeTraceShader;
             return shader == null ? ProbeTraceIssue.MissingRayTracingShader : ProbeTraceIssue.None;
         }
+
+#if UNITY_EDITOR
+        private static RayTracingShader GetRenderDocProbeTraceShader()
+        {
+            if (renderDocShader == null)
+            {
+                renderDocShader = AssetDatabase.LoadAssetAtPath<RayTracingShader>(RenderDocProbeTraceShaderPath);
+            }
+
+            return renderDocShader;
+        }
+#endif
 
         private static ProbeTraceIssue ValidateResourceDimensions(YutrelDDGIVolume volume)
         {
@@ -1181,6 +1221,41 @@ namespace YutrelRP
             return isLocalEnabledMethod != null && (bool)isLocalEnabledMethod.Invoke(null, null);
         }
 
+        private static bool IsRenderDocLoaded()
+        {
+            try
+            {
+                var renderDocType = typeof(EditorApplication).Assembly.GetType("UnityEditorInternal.RenderDoc");
+                if (renderDocType != null)
+                {
+                    var isLoadedMethod = renderDocType.GetMethod("IsLoaded",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic,
+                        null, System.Type.EmptyTypes, null);
+                    if (isLoadedMethod != null &&
+                        isLoadedMethod.ReturnType == typeof(bool) &&
+                        (bool)isLoadedMethod.Invoke(null, null))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (System.Exception)
+            {
+                // Fall back to the launch argument check below.
+            }
+
+            foreach (var arg in System.Environment.GetCommandLineArgs())
+            {
+                if (string.Equals(arg, "-loadrenderdoc", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
 #endif
 
         internal static void ReleasePersistentAtlasesForDisabled()
@@ -1198,6 +1273,9 @@ namespace YutrelRP
             DDGIProbeRelocationPass.Cleanup();
             DDGIProbeBlendPass.Cleanup();
             shader = null;
+#if UNITY_EDITOR
+            renderDocShader = null;
+#endif
             lastStatusKey = null;
         }
 
