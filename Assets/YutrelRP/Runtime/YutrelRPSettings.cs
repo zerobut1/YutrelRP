@@ -72,6 +72,7 @@ namespace YutrelRP
             DDGIProbeIrradianceScene = 19,
             DDGIProbeRayDataQualityScene = 20,
             DDGIProbeDistanceScene = 21,
+            DDGITraceAlbedo = 22,
         }
 #endif
     }

@@ -123,6 +123,11 @@ bool DDGIIsFinite(float value)
     return value == value && abs(value) < 1.0e20f;
 }
 
+bool DDGIIsFinite2(float2 value)
+{
+    return all(value == value) && all(abs(value) < 1.0e20f.xx);
+}
+
 bool DDGIIsFinite3(float3 value)
 {
     return all(value == value) && all(abs(value) < 1.0e20f.xxx);

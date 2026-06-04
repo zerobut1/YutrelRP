@@ -9,6 +9,7 @@ namespace YutrelRP
     {
         public static readonly int
             probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData"),
+            trace_albedo_ID = Shader.PropertyToID("_DDGITraceAlbedo"),
             probe_ray_data_dimensions_ID = Shader.PropertyToID("_DDGIProbeRayDataDimensions"),
             probe_ray_data_debug_slice_ID = Shader.PropertyToID("_DDGIProbeRayDataDebugSlice"),
             probe_ray_data_max_distance_ID = Shader.PropertyToID("_DDGIProbeRayDataMaxDistance"),
@@ -30,6 +31,7 @@ namespace YutrelRP
             diffuse_intensity_ID = Shader.PropertyToID("_DDGIDiffuseIntensity");
 
         public TextureHandle probe_ray_data;
+        public TextureHandle trace_albedo;
         public TextureHandle probe_irradiance;
         public TextureHandle probe_distance;
         public TextureHandle probe_data;
@@ -56,6 +58,7 @@ namespace YutrelRP
         public override void Reset()
         {
             probe_ray_data = TextureHandle.nullHandle;
+            trace_albedo = TextureHandle.nullHandle;
             probe_irradiance = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
             probe_data = TextureHandle.nullHandle;
@@ -119,7 +122,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 7;
+            private const int AtlasSemanticVersion = 8;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;

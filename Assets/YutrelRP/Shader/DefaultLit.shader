@@ -71,5 +71,35 @@
 			#include "DefaultLit.hlsl"
 			ENDHLSL
 		}
+
+		Pass
+		{
+			Name "DDGIRayTracing"
+			Tags
+			{
+				"LightMode" = "DDGIRayTracing"
+			}
+
+			HLSLPROGRAM
+			#pragma target 5.0
+			#pragma multi_compile_instancing
+			#pragma shader_feature_local _USE_BASECOLOR_TEX
+			#pragma raytracing DDGIRayTracing
+			#include "Assets/YutrelRP/Shader/DDGI/DDGITraceMaterial.hlsl"
+
+			[shader("closesthit")]
+			void DDGIRayTracingClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload,
+				BuiltInTriangleIntersectionAttributes attributes)
+			{
+				bool uv_valid;
+				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
+				uint albedo_status = DDGITraceMaterialAlbedoStatus(uv_valid);
+				float3 base_color = albedo_status == DDGI_TRACE_ALBEDO_STATUS_SAMPLED
+					? SampleStandardDefaultLitBaseColor(uv).rgb
+					: DDGITraceFallbackBaseColor();
+				DDGITraceCommitClosestHit(payload, base_color, albedo_status);
+			}
+			ENDHLSL
+		}
 	}
 }

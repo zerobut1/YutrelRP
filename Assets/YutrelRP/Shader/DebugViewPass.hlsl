@@ -11,6 +11,8 @@ TEXTURE2D(_ScreenSpaceAO);
 SAMPLER(sampler_ScreenSpaceAO);
 TEXTURE2D_ARRAY(_DDGIProbeRayData);
 SAMPLER(sampler_DDGIProbeRayData);
+TEXTURE2D_ARRAY(_DDGITraceAlbedo);
+SAMPLER(sampler_DDGITraceAlbedo);
 TEXTURE2D_ARRAY(_DDGIProbeIrradiance);
 SAMPLER(sampler_DDGIProbeIrradiance);
 TEXTURE2D_ARRAY(_DDGIProbeDistance);
@@ -250,6 +252,38 @@ float4 SampleDebugViewDDGIProbeRayData(float2 uv)
     return float4(saturate(radiance_color + row_line * 0.18f), 1.0f);
 }
 
+float4 SampleDebugViewDDGITraceAlbedo(float2 uv)
+{
+    uint width        = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
+    uint height       = (uint)max(_DDGIProbeRayDataDimensions.y, 1.0f);
+    uint slice        = (uint)clamp(_DDGIProbeRayDataDebugSlice, 0, max((int)_DDGIProbeRayDataDimensions.z - 1, 0));
+    uint3 probe_count = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
+
+    uint2 texel          = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    uint3 probe_coord    = DDGIProbeCoordFromPlaneIndex(texel.y, slice, probe_count);
+    uint3 ray_data_texel = DDGIProbeRayDataTexel(texel.x, probe_coord, probe_count);
+    float4 data          = LOAD_TEXTURE2D_ARRAY(_DDGITraceAlbedo, ray_data_texel.xy, ray_data_texel.z);
+    uint status          = (uint)round(data.a);
+    float row_line       = frac((1.0f - uv.y) * height) < 0.08f ? 1.0f : 0.0f;
+
+    if (status == 0u)
+    {
+        return float4(saturate(row_line * 0.18f.xxx), 1.0f);
+    }
+
+    float3 albedo = saturate(data.rgb);
+    if (status == 2u)
+    {
+        albedo = lerp(albedo, float3(1.0f, 0.7f, 0.05f), 0.35f);
+    }
+    else if (status == 3u)
+    {
+        albedo = lerp(albedo, float3(0.95f, 0.1f, 0.85f), 0.55f);
+    }
+
+    return float4(saturate(albedo + row_line * 0.18f), 1.0f);
+}
+
 float3 DebugViewDDGIIndexColor(uint3 probe_coord, uint3 probe_count)
 {
     float3 denom = max(float3(probe_count) - 1.0f, 1.0f.xxx);
@@ -428,6 +462,9 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 
     case 18:
         return SampleDebugViewDDGIGather(input.uv, 2);
+
+    case 22:
+        return SampleDebugViewDDGITraceAlbedo(input.uv);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

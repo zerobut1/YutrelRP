@@ -2,13 +2,12 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
+#include "Assets/YutrelRP/Shader/DDGI/DDGIProbeTraceCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
+RWTexture2DArray<float4> _DDGITraceAlbedo;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
-StructuredBuffer<uint2> _DDGITraceInstanceTriangleRanges;
-StructuredBuffer<float4> _DDGITraceInstanceBaseColors;
-StructuredBuffer<float4> _DDGITraceTriangleNormals;
 TextureCube<float4> _EnvironmentReflectionCube;
 SamplerState sampler_EnvironmentReflectionCube;
 
@@ -25,43 +24,6 @@ float _EnvironmentDiffuseMultiplier;
 float _DDGIEnvironmentValid;
 
 static const float3 DDGI_TRACE_FALLBACK_SKYLIGHT_RADIANCE = float3(0.015f, 0.018f, 0.022f);
-
-struct DDGIProbeTracePayload
-{
-    uint hitKind;
-    float rayT;
-    float3 normalWS;
-    float3 baseColor;
-};
-
-float3 DDGITraceFallbackNormalWS()
-{
-    return DDGISafeNormalize(-WorldRayDirection(), float3(0.0, 1.0, 0.0));
-}
-
-float3 DDGITraceGeometricNormalWS()
-{
-    uint2 triangle_range = _DDGITraceInstanceTriangleRanges[InstanceID()];
-    if (triangle_range.y == 0u)
-    {
-        return DDGITraceFallbackNormalWS();
-    }
-
-    uint normal_index = triangle_range.x + min(PrimitiveIndex(), triangle_range.y - 1u);
-    float4 normal_WS  = _DDGITraceTriangleNormals[normal_index];
-    return normal_WS.w > 0.5f ? DDGISafeNormalize(normal_WS.xyz, DDGITraceFallbackNormalWS()) : DDGITraceFallbackNormalWS();
-}
-
-float3 DDGITraceRayFacingNormalWS(float3 normalWS)
-{
-    float3 normal = DDGISafeNormalize(normalWS, DDGITraceFallbackNormalWS());
-    return dot(normal, WorldRayDirection()) > 0.0f ? -normal : normal;
-}
-
-float3 DDGITraceBaseColor()
-{
-    return max(_DDGITraceInstanceBaseColors[InstanceID()].rgb, 0.0f);
-}
 
 float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 lightDirection)
 {
@@ -84,6 +46,7 @@ float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 
     shadow_payload.rayT      = -1.0f;
     shadow_payload.normalWS  = normalized_normal;
     shadow_payload.baseColor = 0.0f.xxx;
+    shadow_payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
     TraceRay(_RaytracingAccelerationStructure,
              RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
@@ -130,15 +93,13 @@ void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
 {
     payload.hitKind = 0;
     payload.rayT = -1.0;
+    payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 }
 
 [shader("closesthit")]
 void ClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload, BuiltInTriangleIntersectionAttributes attributes)
 {
-    payload.hitKind = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1 : 2;
-    payload.rayT = RayTCurrent();
-    payload.normalWS = DDGITraceRayFacingNormalWS(DDGITraceGeometricNormalWS());
-    payload.baseColor = DDGITraceBaseColor();
+    DDGITraceCommitClosestHit(payload, DDGITraceFallbackBaseColor(), DDGI_TRACE_ALBEDO_STATUS_FALLBACK);
 }
 
 [shader("raygeneration")]
@@ -165,9 +126,11 @@ void RayGenDDGIProbeTrace()
     payload.rayT = -1.0;
     payload.normalWS = float3(0.0, 1.0, 0.0);
     payload.baseColor = float3(0.8, 0.8, 0.8);
+    payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
     uint3 rayDataTexel = DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount);
     _DDGIProbeRayData[rayDataTexel] = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeTracePending(_DDGIProbeMaxRayDistance));
+    _DDGITraceAlbedo[rayDataTexel] = float4(0.0, 0.0, 0.0, (float)DDGI_TRACE_ALBEDO_STATUS_MISS);
 
     TraceRay(_RaytracingAccelerationStructure,
              RAY_FLAG_NONE,
@@ -190,4 +153,5 @@ void RayGenDDGIProbeTrace()
     }
 
     _DDGIProbeRayData[rayDataTexel] = encoded;
+    _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
 }

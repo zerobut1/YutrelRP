@@ -2,6 +2,7 @@
 {
 	Properties
 	{
+		_BaseColor ("Base Color", Color) = (1, 1, 1, 1)
 		_BaseColorTex ("Base Color", 2D) = "white" {}
 		_NormalTex ("Normal", 2D) = "bump" {}
 		_SmoothnessTex ("Smoothness", 2D) = "white" {}
@@ -47,6 +48,33 @@
 			#pragma vertex DefaultLitShadowCasterVertex
 			#pragma fragment DefaultLitShadowCasterFragment
 			#include "Assets/YutrelRP/Shader/DefaultLit.hlsl"
+			ENDHLSL
+		}
+
+		Pass
+		{
+			Name "DDGIRayTracing"
+			Tags { "LightMode" = "DDGIRayTracing" }
+			Cull [_CullMode]
+
+			HLSLPROGRAM
+			#pragma target 5.0
+			#pragma multi_compile_instancing
+			#pragma raytracing DDGIRayTracing
+			#include "Assets/YutrelRP/Shader/DDGI/DDGITraceMaterial.hlsl"
+
+			[shader("closesthit")]
+			void DDGIRayTracingClosestHit(inout DDGIProbeTracePayload payload : SV_RayPayload,
+				BuiltInTriangleIntersectionAttributes attributes)
+			{
+				bool uv_valid;
+				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
+				uint albedo_status = DDGITraceMaterialAlbedoStatus(uv_valid);
+				float3 base_color = albedo_status == DDGI_TRACE_ALBEDO_STATUS_SAMPLED
+					? SampleSponzaDefaultLitBaseColor(uv).rgb
+					: DDGITraceFallbackBaseColor();
+				DDGITraceCommitClosestHit(payload, base_color, albedo_status);
+			}
 			ENDHLSL
 		}
 	}

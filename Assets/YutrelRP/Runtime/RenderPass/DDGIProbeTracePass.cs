@@ -13,7 +13,7 @@ namespace YutrelRP
     internal sealed class DDGIProbeTracePass
     {
         private const string RayGenName = "RayGenDDGIProbeTrace";
-        private const string ShaderPassName = "YutrelRPDDGIProbeTrace";
+        private const string ShaderPassName = "DDGIRayTracing";
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
@@ -33,8 +33,14 @@ namespace YutrelRP
         private static readonly int traceInstanceTriangleRangesID = Shader.PropertyToID("_DDGITraceInstanceTriangleRanges");
         private static readonly int traceInstanceBaseColorsID = Shader.PropertyToID("_DDGITraceInstanceBaseColors");
         private static readonly int traceTriangleNormalsID = Shader.PropertyToID("_DDGITraceTriangleNormals");
+        private static readonly int traceInstanceMaterialFlagsID = Shader.PropertyToID("_DDGITraceInstanceMaterialFlags");
+        private static readonly int traceAlbedoID = DDGIResources.trace_albedo_ID;
 
         private static readonly Color DefaultTraceBaseColor = new(0.8f, 0.8f, 0.8f, 1.0f);
+        private static readonly int BaseColorTexID = Shader.PropertyToID("_BaseColorTex");
+        private static readonly int UseBaseColorTexID = Shader.PropertyToID("_UseBaseColorTex");
+        private const uint TraceMaterialHasBaseColorTexture = 1u;
+        private const uint TraceMaterialHasUV0 = 2u;
         private static readonly int[] BaseColorPropertyIDs =
         {
             Shader.PropertyToID("_BaseColor"),
@@ -48,6 +54,7 @@ namespace YutrelRP
         private static GraphicsBuffer traceInstanceTriangleRangesBuffer;
         private static GraphicsBuffer traceInstanceBaseColorsBuffer;
         private static GraphicsBuffer traceTriangleNormalsBuffer;
+        private static GraphicsBuffer traceInstanceMaterialFlagsBuffer;
         private static RTHandle probeIrradianceRT;
         private static RTHandle probeDistanceRT;
         private static RTHandle probeDataRT;
@@ -134,11 +141,17 @@ namespace YutrelRP
 
             var probeRayData = renderGraph.CreateTexture(desc);
             resources.probe_ray_data = probeRayData;
+
+            desc.name = "DDGI TraceAlbedo";
+            desc.clearColor = Color.black;
+            var traceAlbedo = renderGraph.CreateTexture(desc);
+            resources.trace_albedo = traceAlbedo;
             resources.SetVolumeMetadata(volume);
 
             using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
             {
                 pass.probeRayData = probeRayData;
+                pass.traceAlbedo = traceAlbedo;
                 pass.rayTracingShader = shader;
                 pass.rayTracingAccelerationStructure = accelerationStructure;
                 pass.volumeMinWS = volume.WorldBounds.min;
@@ -150,6 +163,7 @@ namespace YutrelRP
                 pass.traceInstanceTriangleRanges = traceInstanceTriangleRangesBuffer;
                 pass.traceInstanceBaseColors = traceInstanceBaseColorsBuffer;
                 pass.traceTriangleNormals = traceTriangleNormalsBuffer;
+                pass.traceInstanceMaterialFlags = traceInstanceMaterialFlagsBuffer;
                 pass.SetDirectionalLight(lightResources);
                 pass.SetEnvironment(lightResources);
                 if (!pass.hasEnvironmentReflectionCube)
@@ -158,6 +172,7 @@ namespace YutrelRP
                 }
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
+                builder.UseTexture(traceAlbedo, AccessFlags.Write);
                 if (pass.environmentReflectionCube.IsValid())
                 {
                     builder.UseTexture(pass.environmentReflectionCube);
@@ -171,6 +186,7 @@ namespace YutrelRP
         }
 
         private TextureHandle probeRayData;
+        private TextureHandle traceAlbedo;
         private RayTracingShader rayTracingShader;
         private RayTracingAccelerationStructure rayTracingAccelerationStructure;
         private Vector3 volumeMinWS;
@@ -182,6 +198,7 @@ namespace YutrelRP
         private GraphicsBuffer traceInstanceTriangleRanges;
         private GraphicsBuffer traceInstanceBaseColors;
         private GraphicsBuffer traceTriangleNormals;
+        private GraphicsBuffer traceInstanceMaterialFlags;
         private Vector4 directionalLightColorIlluminance;
         private Vector4 directionalLightDirectionWS;
         private TextureHandle environmentReflectionCube;
@@ -196,6 +213,7 @@ namespace YutrelRP
             var cmd = context.cmd;
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
+            cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMinWSID, volumeMinWS);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeSpacingWSID, probeSpacingWS);
@@ -206,6 +224,7 @@ namespace YutrelRP
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceBaseColorsID, traceInstanceBaseColors);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
+            cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceMaterialFlagsID, traceInstanceMaterialFlags);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightColorIlluminanceID,
                 directionalLightColorIlluminance);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightDirectionWSID, directionalLightDirectionWS);
@@ -480,6 +499,7 @@ namespace YutrelRP
             var instanceCount = 0;
             var instanceRanges = new List<UInt2>();
             var instanceBaseColors = new List<Vector4>();
+            var instanceMaterialFlags = new List<uint>();
             var triangleNormals = new List<Vector4>();
 
             foreach (var renderer in renderers)
@@ -511,10 +531,22 @@ namespace YutrelRP
 
                 try
                 {
+                    var meshHasUV0 = HasMeshUV0(renderer);
                     foreach (var traceSubMesh in rendererSubMeshes)
                     {
                         if (traceSubMesh.triangleRange.y == 0u)
                         {
+                            continue;
+                        }
+
+                        var material = GetSubMeshMaterial(renderer, traceSubMesh.subMeshIndex);
+                        if (!TryGetSupportedTraceMaterial(material, out reason))
+                        {
+                            if (settings.logDiagnostics)
+                            {
+                                Debug.LogWarning($"YutrelRP DDGI ProbeTrace skipped submesh {traceSubMesh.subMeshIndex} on renderer '{renderer.name}': {reason}.");
+                            }
+
                             continue;
                         }
 
@@ -534,7 +566,9 @@ namespace YutrelRP
                         }
 
                         instanceRanges.Add(traceSubMesh.triangleRange);
-                        instanceBaseColors.Add(GetTraceBaseColor(renderer, traceSubMesh.subMeshIndex));
+                        instanceBaseColors.Add(GetTraceBaseColor(material));
+                        instanceMaterialFlags.Add(GetTraceMaterialFlags(renderer, material, traceSubMesh.subMeshIndex,
+                            meshHasUV0, settings.logDiagnostics));
                         instanceCount++;
                     }
                 }
@@ -549,7 +583,7 @@ namespace YutrelRP
                 return ProbeTraceIssue.NoContributors;
             }
 
-            if (!EnsureTraceGeometryBuffers(instanceRanges, instanceBaseColors, triangleNormals))
+            if (!EnsureTraceGeometryBuffers(instanceRanges, instanceBaseColors, instanceMaterialFlags, triangleNormals))
             {
                 ReleaseTraceGeometryBuffers();
                 return ProbeTraceIssue.ResourceAllocationFailed;
@@ -650,18 +684,91 @@ namespace YutrelRP
             }
         }
 
-        private static Vector4 GetTraceBaseColor(Renderer renderer, int subMeshIndex)
+        private static Material GetSubMeshMaterial(Renderer renderer, int subMeshIndex)
+        {
+            var materials = renderer.sharedMaterials;
+            if (materials == null || materials.Length == 0)
+            {
+                return null;
+            }
+
+            var materialIndex = Mathf.Clamp(subMeshIndex, 0, materials.Length - 1);
+            return materials[materialIndex];
+        }
+
+        private static bool TryGetSupportedTraceMaterial(Material material, out string reason)
+        {
+            reason = null;
+            if (material == null)
+            {
+                reason = "material is missing";
+                return false;
+            }
+
+            if (material.FindPass(ShaderPassName) < 0)
+            {
+                var shaderName = material.shader != null ? material.shader.name : "<missing shader>";
+                reason = $"material '{material.name}' shader '{shaderName}' has no '{ShaderPassName}' ray tracing pass";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static uint GetTraceMaterialFlags(Renderer renderer, Material material, int subMeshIndex, bool meshHasUV0,
+            bool logDiagnostics)
+        {
+            uint flags = 0u;
+            if (meshHasUV0)
+            {
+                flags |= TraceMaterialHasUV0;
+            }
+            else if (logDiagnostics)
+            {
+                Debug.LogWarning($"YutrelRP DDGI ProbeTrace fallback albedo for submesh {subMeshIndex} on renderer '{renderer.name}': mesh has no valid UV0.");
+            }
+
+            if (MaterialUsesBaseColorTexture(material))
+            {
+                flags |= TraceMaterialHasBaseColorTexture;
+            }
+            else if (logDiagnostics)
+            {
+                Debug.LogWarning($"YutrelRP DDGI ProbeTrace fallback albedo for material '{material.name}' on renderer '{renderer.name}': _BaseColorTex is disabled or missing.");
+            }
+
+            return flags;
+        }
+
+        private static bool MaterialUsesBaseColorTexture(Material material)
+        {
+            if (material == null || !material.HasTexture(BaseColorTexID))
+            {
+                return false;
+            }
+
+            if (material.HasFloat(UseBaseColorTexID) && material.GetFloat(UseBaseColorTexID) <= 0.5f)
+            {
+                return false;
+            }
+
+            return material.GetTexture(BaseColorTexID) != null;
+        }
+
+        private static bool HasMeshUV0(MeshRenderer renderer)
+        {
+            return renderer != null &&
+                   renderer.TryGetComponent<MeshFilter>(out var meshFilter) &&
+                   meshFilter.sharedMesh != null &&
+                   meshFilter.sharedMesh.HasVertexAttribute(VertexAttribute.TexCoord0);
+        }
+
+        private static Vector4 GetTraceBaseColor(Material material)
         {
             var color = DefaultTraceBaseColor;
-            var materials = renderer.sharedMaterials;
-            if (materials != null && materials.Length > 0)
+            if (material != null && TryGetMaterialBaseColor(material, out var materialColor))
             {
-                var materialIndex = Mathf.Clamp(subMeshIndex, 0, materials.Length - 1);
-                var material = materials[materialIndex];
-                if (material != null && TryGetMaterialBaseColor(material, out var materialColor))
-                {
-                    color = materialColor;
-                }
+                color = materialColor;
             }
 
             return new Vector4(
@@ -687,9 +794,10 @@ namespace YutrelRP
         }
 
         private static bool EnsureTraceGeometryBuffers(List<UInt2> instanceRanges, List<Vector4> instanceBaseColors,
-            List<Vector4> triangleNormals)
+            List<uint> instanceMaterialFlags, List<Vector4> triangleNormals)
         {
-            if (instanceRanges.Count == 0 || instanceBaseColors.Count != instanceRanges.Count || triangleNormals.Count == 0)
+            if (instanceRanges.Count == 0 || instanceBaseColors.Count != instanceRanges.Count ||
+                instanceMaterialFlags.Count != instanceRanges.Count || triangleNormals.Count == 0)
             {
                 return false;
             }
@@ -700,9 +808,12 @@ namespace YutrelRP
                 "DDGI Trace Instance Base Colors");
             traceTriangleNormalsBuffer = AllocStructuredBuffer(triangleNormals.Count, Marshal.SizeOf<Vector4>(),
                 "DDGI Trace Triangle Normals");
+            traceInstanceMaterialFlagsBuffer = AllocStructuredBuffer(instanceMaterialFlags.Count, Marshal.SizeOf<uint>(),
+                "DDGI Trace Instance Material Flags");
             traceInstanceTriangleRangesBuffer.SetData(instanceRanges);
             traceInstanceBaseColorsBuffer.SetData(instanceBaseColors);
             traceTriangleNormalsBuffer.SetData(triangleNormals);
+            traceInstanceMaterialFlagsBuffer.SetData(instanceMaterialFlags);
             return true;
         }
 
@@ -720,9 +831,11 @@ namespace YutrelRP
             traceInstanceTriangleRangesBuffer?.Dispose();
             traceInstanceBaseColorsBuffer?.Dispose();
             traceTriangleNormalsBuffer?.Dispose();
+            traceInstanceMaterialFlagsBuffer?.Dispose();
             traceInstanceTriangleRangesBuffer = null;
             traceInstanceBaseColorsBuffer = null;
             traceTriangleNormalsBuffer = null;
+            traceInstanceMaterialFlagsBuffer = null;
         }
 
         private static bool IsDDGIContributeGIRenderer(Renderer renderer)

@@ -13,6 +13,7 @@ TEXTURE2D(_MaterialAOTex);
 SAMPLER(sampler_MaterialAOTex);
 
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
+UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColorTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseAlphaClip)
 UNITY_DEFINE_INSTANCED_PROP(float, _AlphaCutoff)
@@ -26,7 +27,8 @@ float4 SampleSponzaDefaultLitBaseColor(float2 uv)
 {
     float4 base_color_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColorTex_ST);
     float2 base_color_uv = TransformDefaultLitTextureUV(uv, base_color_ST);
-    return SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv);
+    return SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv) *
+           UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
 }
 
 DefaultLitAlphaClipData BuildSponzaDefaultLitAlphaClip(float alpha)
