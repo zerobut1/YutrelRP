@@ -34,6 +34,7 @@ namespace YutrelRP
         private static readonly int probeMaxRayDistanceID = Shader.PropertyToID("_DDGIProbeMaxRayDistance");
         private static readonly int directionalLightColorIlluminanceID = Shader.PropertyToID("_DDGIDirectionalLightColorIlluminance");
         private static readonly int directionalLightDirectionWSID = Shader.PropertyToID("_DDGIDirectionalLightDirectionWS");
+        private static readonly int directionalLightVisibilityEnabledID = Shader.PropertyToID("_DDGIDirectionalLightVisibilityEnabled");
         private static readonly int environmentReflectionCubeHdrID = LightResources.environment_reflection_cube_hdr_ID;
         private static readonly int environmentIntensityID = LightResources.environment_intensity_ID;
         private static readonly int environmentDiffuseMultiplierID = LightResources.environment_diffuse_multiplier_ID;
@@ -215,6 +216,7 @@ namespace YutrelRP
                 pass.inverseViewProjection = GetInverseViewProjection(camera);
                 pass.cameraPositionWS = camera.transform.position;
                 pass.reversedZ = SystemInfo.usesReversedZBuffer ? 1 : 0;
+                pass.directionalLightVisibilityEnabled = settings.traceDirectionalVisibility ? 1.0f : 0.0f;
                 pass.SetDirectionalLight(lightResources);
                 pass.SetEnvironment(lightResources);
                 if (!pass.hasEnvironmentReflectionCube)
@@ -273,6 +275,7 @@ namespace YutrelRP
         private int screenTraceHeight;
         private Vector4 directionalLightColorIlluminance;
         private Vector4 directionalLightDirectionWS;
+        private float directionalLightVisibilityEnabled;
         private TextureHandle environmentReflectionCube;
         private Vector4 environmentReflectionCubeHdr;
         private float environmentIntensity;
@@ -320,6 +323,8 @@ namespace YutrelRP
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightColorIlluminanceID,
                 directionalLightColorIlluminance);
             cmd.SetRayTracingVectorParam(rayTracingShader, directionalLightDirectionWSID, directionalLightDirectionWS);
+            cmd.SetRayTracingFloatParam(rayTracingShader, directionalLightVisibilityEnabledID,
+                directionalLightVisibilityEnabled);
             if (environmentReflectionCube.IsValid())
             {
                 cmd.SetRayTracingTextureParam(rayTracingShader, EnvironmentReflectionCubeName, environmentReflectionCube);
