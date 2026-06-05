@@ -645,6 +645,7 @@ namespace YutrelRP
             writer.Write(0u);
             writer.Write(0u);
             writer.Write(0u);
+            writer.Write(0u);
             writer.Write(DdsCapsTexture);
             writer.Write(0u);
             writer.Write(0u);
