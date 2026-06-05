@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -183,9 +182,8 @@ namespace YutrelRP
 
                 try
                 {
-                    var data = texture.Readback.GetData<byte>();
                     var filePath = Path.Combine(dump.OutputDirectory, texture.FileName);
-                    WriteDdsTextureArray(filePath, texture.Width, texture.Height, texture.Slices, data);
+                    WriteDdsTextureArray(filePath, texture.Width, texture.Height, texture.Slices, texture.Readback);
                     texture.Status = TextureDumpStatus.Written;
                     texture.FilePath = filePath;
                     AddTextureMetadata(dump.Metadata, texture);
@@ -604,20 +602,26 @@ namespace YutrelRP
             return Path.Combine(root, stamp + "-" + Guid.NewGuid().ToString("N"));
         }
 
-        private static void WriteDdsTextureArray(string path, int width, int height, int slices, NativeArray<byte> data)
+        private static void WriteDdsTextureArray(string path, int width, int height, int slices,
+            AsyncGPUReadbackRequest request)
         {
-            var expectedBytes = width * height * slices * 8;
-            if (data.Length < expectedBytes)
-            {
-                throw new InvalidOperationException(
-                    $"Readback data is too small. Expected at least {expectedBytes} bytes, got {data.Length}.");
-            }
+            var sliceBytes = width * height * 8;
 
             using var stream = File.Open(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             using var writer = new BinaryWriter(stream);
             WriteDdsHeader(writer, width, height, slices);
-            var buffer = data.ToArray();
-            writer.Write(buffer, 0, expectedBytes);
+            for (var slice = 0; slice < slices; slice++)
+            {
+                var data = request.GetData<byte>(slice);
+                if (data.Length < sliceBytes)
+                {
+                    throw new InvalidOperationException(
+                        $"Readback slice {slice} data is too small. Expected at least {sliceBytes} bytes, got {data.Length}.");
+                }
+
+                var buffer = data.ToArray();
+                writer.Write(buffer, 0, sliceBytes);
+            }
         }
 
         private static void WriteDdsHeader(BinaryWriter writer, int width, int height, int slices)
