@@ -15,8 +15,7 @@ namespace YutrelRP
 {
     public static class DDGITextureDump
     {
-        private const string TaskName = "2026-06-05-ddgi-dds-texture-dump";
-        private const string OutputRoot = ".agent/tasks/" + TaskName + "/dumps";
+        private const string OutputRoot = "temp";
         private const string CopyArrayKernelName = "CopyRgbaHalfTexture2DArray";
         private const string Copy2DKernelName = "CopyRgbaHalfTexture2D";
         private const int ThreadGroupSizeX = 8;
