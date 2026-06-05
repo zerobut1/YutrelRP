@@ -15,7 +15,7 @@ namespace YutrelRP
 {
     public static class DDGITextureDump
     {
-        private const string OutputRoot = "temp";
+        private const string OutputRoot = "temp/bumps";
         private const string CopyArrayKernelName = "CopyRgbaHalfTexture2DArray";
         private const string Copy2DKernelName = "CopyRgbaHalfTexture2D";
         private const int ThreadGroupSizeX = 8;
