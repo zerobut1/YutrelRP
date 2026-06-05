@@ -43,6 +43,9 @@ namespace YutrelRP
         public TextureHandle probe_irradiance;
         public TextureHandle probe_distance;
         public TextureHandle probe_data;
+        public Texture probe_irradiance_texture;
+        public Texture probe_distance_texture;
+        public Texture probe_data_texture;
         public Vector3Int probe_count;
         public int rays_per_probe;
         public int probe_irradiance_interior_texels;
@@ -73,6 +76,9 @@ namespace YutrelRP
             probe_irradiance = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
             probe_data = TextureHandle.nullHandle;
+            probe_irradiance_texture = null;
+            probe_distance_texture = null;
+            probe_data_texture = null;
             probe_count = Vector3Int.zero;
             rays_per_probe = 0;
             probe_irradiance_interior_texels = 0;

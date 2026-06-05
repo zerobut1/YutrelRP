@@ -28,6 +28,7 @@ namespace YutrelRP
             DebugViewPass.Cleanup();
             DDGIScreenTraceDepthCopyPass.Cleanup();
             DDGIProbeDebugPass.Cleanup();
+            DDGITextureDump.Cleanup();
             UnsupportedShadersPass.Cleanup();
 #endif
             LightResources.Cleanup();
@@ -132,6 +133,9 @@ namespace YutrelRP
 
                     GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,
                         GizmoSubset.PostImageEffects);
+
+                    DDGITextureDump.Record(render_graph, camera, ddgi_resources, settings.ddgiSettings,
+                        attachment_size);
 #endif
 
                     FinalPass.Record(render_graph, camera, textures);
@@ -150,6 +154,10 @@ namespace YutrelRP
                 {
                     context.ExecuteCommandBuffer(command_buffer);
                     context.Submit();
+#if UNITY_EDITOR
+                    DDGITextureDump.StartReadbacks();
+                    DDGITextureDump.Update();
+#endif
                 }
 
                 CommandBufferPool.Release(command_buffer);

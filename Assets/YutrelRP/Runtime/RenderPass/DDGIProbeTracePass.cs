@@ -99,6 +99,7 @@ namespace YutrelRP
             if (IsUnityFrameDebuggerActive())
             {
                 ReleasePersistentAtlases();
+                SetDiagnostic(ref resources, ProbeTraceIssue.FrameDebuggerActive);
                 LogStatus(ProbeTraceIssue.FrameDebuggerActive, null);
                 return;
             }
@@ -124,6 +125,7 @@ namespace YutrelRP
             if (issue != ProbeTraceIssue.None)
             {
                 ReleasePersistentAtlases();
+                SetDiagnostic(ref resources, issue);
                 LogStatus(issue, volume);
                 return;
             }
@@ -133,6 +135,7 @@ namespace YutrelRP
             {
                 ReleasePersistentAtlases();
                 resources.Reset();
+                SetDiagnostic(ref resources, issue);
                 LogStatus(issue, volume);
                 return;
             }
@@ -141,6 +144,7 @@ namespace YutrelRP
             LogStatus(issue, volume);
             if (issue != ProbeTraceIssue.None)
             {
+                SetDiagnostic(ref resources, issue);
                 return;
             }
 
@@ -574,6 +578,9 @@ namespace YutrelRP
             resources.probe_irradiance = renderGraph.ImportTexture(probeIrradianceRT);
             resources.probe_distance = renderGraph.ImportTexture(probeDistanceRT);
             resources.probe_data = renderGraph.ImportTexture(probeDataRT);
+            resources.probe_irradiance_texture = probeIrradianceRT.rt;
+            resources.probe_distance_texture = probeDistanceRT.rt;
+            resources.probe_data_texture = probeDataRT.rt;
             resources.has_persistent_atlas = resources.probe_irradiance.IsValid() &&
                                              resources.probe_distance.IsValid() &&
                                              resources.probe_data.IsValid();
@@ -1163,6 +1170,14 @@ namespace YutrelRP
                     return "Unity Frame Debugger is active; DDGI ProbeTrace uses D3D12 ray tracing commands that are skipped to avoid editor device-loss crashes";
                 default:
                     return "unknown failure";
+            }
+        }
+
+        private static void SetDiagnostic(ref DDGIResources resources, ProbeTraceIssue issue)
+        {
+            if (resources != null && issue != ProbeTraceIssue.None)
+            {
+                resources.diagnostic = GetReason(issue);
             }
         }
 

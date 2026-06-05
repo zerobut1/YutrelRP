@@ -25,6 +25,8 @@ namespace YutrelRP.Editor
             "Volume-owned ray TMax for first-stage DDGI probe tracing.");
         private static readonly GUIContent probe_radius_label = new("Probe Preview Radius",
             "Scene View sphere radius in local units.");
+        private static readonly GUIContent dump_textures_label = new("Dump DDGI Textures",
+            "Export currently available DDGI textures as DDS files for offline RenderDoc inspection.");
 
         private static YutrelDDGIVolume editing_volume;
 
@@ -165,9 +167,24 @@ namespace YutrelRP.Editor
             EditorGUILayout.LabelField("World Probe Spacing", FormatVector3(spacing));
             EditorGUILayout.LabelField("ProbeRayData Layout",
                 $"{volume.RaysPerProbe} x {volume.ProbeCount.x * volume.ProbeCount.z} x {volume.ProbeCount.y}");
+            using (new EditorGUI.DisabledScope(DDGITextureDump.HasPendingRequest))
+            {
+                if (GUILayout.Button(dump_textures_label))
+                {
+                    DDGITextureDump.RequestDump();
+                    SceneView.RepaintAll();
+                }
+            }
             EditorGUILayout.HelpBox(
                 "DDGI probe grid bounds are the Volume bounds: boundary probes lie on min/max. For indoor scenes, keep boundary probes inside lit air with a small offset from walls, floor, and ceiling; avoid shrinking the volume so receiver surfaces fall outside, and avoid overshooting far outside the building.",
                 MessageType.Info);
+        }
+
+        [MenuItem("YutrelRP/DDGI/Dump DDGI Textures")]
+        private static void DumpDDGITextures()
+        {
+            DDGITextureDump.RequestDump();
+            SceneView.RepaintAll();
         }
 
         private void OnSelectionChanged()

@@ -22,6 +22,7 @@ namespace YutrelRP
             public RayTracingShader probeTraceShader;
             public ComputeShader probeRelocationShader;
             public ComputeShader probeBlendShader;
+            public ComputeShader textureDumpCopyShader;
             public bool probeRelocationEnabled = true;
             [Range(0.0f, 1.0f)] public float probeFixedRayBackfaceThreshold = 0.25f;
             [Range(0.0f, 1.0f)] public float probeRandomRayBackfaceThreshold = 0.1f;
