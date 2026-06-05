@@ -60,6 +60,8 @@ MonoBehaviour:
       probeRandomRayBackfaceThreshold: 0.1
       probeMinFrontfaceDistance: 1
       probeMaxRelocationOffset: 0.45
+      traceDirectionalVisibility: 1
+      traceDirectionalLambert: 1
       debugProbeRayDataSlice: 0
       debugProbeIrradianceAtlasSlice: 0
       debugProbeDistanceAtlasSlice: 0
