@@ -10,9 +10,9 @@ static const uint DDGI_TRACE_ALBEDO_STATUS_INVALID_UV = 3u;
 
 static const uint DDGI_TRACE_MATERIAL_HAS_BASE_COLOR_TEXTURE = 1u;
 static const uint DDGI_TRACE_MATERIAL_HAS_UV0                = 2u;
+static const float3 DDGI_TRACE_FALLBACK_BASE_COLOR           = float3(0.8f, 0.8f, 0.8f);
 
 StructuredBuffer<uint2> _DDGITraceInstanceTriangleRanges;
-StructuredBuffer<float4> _DDGITraceInstanceBaseColors;
 StructuredBuffer<float4> _DDGITraceTriangleNormals;
 StructuredBuffer<uint> _DDGITraceInstanceMaterialFlags;
 
@@ -72,7 +72,7 @@ float3 DDGITraceRayFacingNormalWS(float3 normalWS)
 
 float3 DDGITraceFallbackBaseColor()
 {
-    return max(_DDGITraceInstanceBaseColors[InstanceID()].rgb, 0.0f);
+    return DDGI_TRACE_FALLBACK_BASE_COLOR;
 }
 
 float3 DDGITraceSanitizeBaseColor(float3 baseColor)

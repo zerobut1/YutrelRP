@@ -37,6 +37,11 @@ UNITY_DEFINE_INSTANCED_PROP(float4, _MetallicTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _MaterialAOTex_ST)
 UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
+float4 GetStandardDefaultLitBaseColor()
+{
+    return UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+}
+
 float4 SampleStandardDefaultLitBaseColor(float2 uv)
 {
 #if defined(_USE_BASECOLOR_TEX)
@@ -44,7 +49,7 @@ float4 SampleStandardDefaultLitBaseColor(float2 uv)
     float2 base_color_uv = TransformDefaultLitTextureUV(uv, base_color_ST);
     return SAMPLE_TEXTURE2D(_BaseColorTex, sampler_BaseColorTex, base_color_uv);
 #else
-    return UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+    return GetStandardDefaultLitBaseColor();
 #endif
 }
 
@@ -55,7 +60,7 @@ float4 SampleStandardDefaultLitBaseColorLOD(float2 uv, float lod)
     float2 base_color_uv = TransformDefaultLitTextureUV(uv, base_color_ST);
     return SAMPLE_TEXTURE2D_LOD(_BaseColorTex, sampler_BaseColorTex, base_color_uv, lod);
 #else
-    return UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+    return GetStandardDefaultLitBaseColor();
 #endif
 }
 

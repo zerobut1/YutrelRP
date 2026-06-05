@@ -94,10 +94,19 @@
 			{
 				bool uv_valid;
 				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
-				uint albedo_status = DDGITraceMaterialPassAlbedoStatus(uv_valid);
-				float3 base_color = DDGITraceInstanceCanSampleBaseColorTexture() && uv_valid
-					? SampleStandardDefaultLitBaseColorLOD(uv, 0.0f).rgb
-					: DDGITraceFallbackBaseColor();
+				uint albedo_status = DDGI_TRACE_ALBEDO_STATUS_FALLBACK;
+				float3 base_color = GetStandardDefaultLitBaseColor().rgb;
+#if defined(_USE_BASECOLOR_TEX)
+				if (DDGITraceInstanceCanSampleBaseColorTexture() && uv_valid)
+				{
+					albedo_status = DDGI_TRACE_ALBEDO_STATUS_SAMPLED;
+					base_color = SampleStandardDefaultLitBaseColorLOD(uv, 0.0f).rgb;
+				}
+				else if (DDGITraceInstanceHasBaseColorTexture())
+				{
+					albedo_status = DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
+				}
+#endif
 				DDGITraceCommitClosestHit(payload, base_color, albedo_status);
 			}
 			ENDHLSL
