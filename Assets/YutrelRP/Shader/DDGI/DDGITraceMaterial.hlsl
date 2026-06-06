@@ -2,12 +2,11 @@
 #define YUTREL_DDGI_TRACE_MATERIAL_INCLUDED
 
 #include "Assets/YutrelRP/Shader/DDGI/DDGIProbeTraceCommon.hlsl"
-#include "UnityRayTracingMeshUtils.cginc"
 
 float2 DDGITraceMaterialHitUV(BuiltInTriangleIntersectionAttributes attributes, out bool uvValid)
 {
     uvValid = false;
-    if (!DDGITraceInstanceHasUV0())
+    if (!DDGITraceHitHasUV0())
     {
         return 0.0f.xx;
     }

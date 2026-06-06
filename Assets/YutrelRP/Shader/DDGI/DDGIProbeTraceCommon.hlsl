@@ -2,19 +2,15 @@
 #define YUTREL_DDGI_PROBE_TRACE_COMMON_INCLUDED
 
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
+#include "Assets/YutrelRP/Shader/Utils/Common.hlsl"
+#include "UnityRayTracingMeshUtils.cginc"
 
 static const uint DDGI_TRACE_ALBEDO_STATUS_MISS       = 0u;
 static const uint DDGI_TRACE_ALBEDO_STATUS_SAMPLED    = 1u;
 static const uint DDGI_TRACE_ALBEDO_STATUS_FALLBACK   = 2u;
 static const uint DDGI_TRACE_ALBEDO_STATUS_INVALID_UV = 3u;
 
-static const uint DDGI_TRACE_MATERIAL_HAS_BASE_COLOR_TEXTURE = 1u;
-static const uint DDGI_TRACE_MATERIAL_HAS_UV0                = 2u;
-static const float3 DDGI_TRACE_FALLBACK_BASE_COLOR           = float3(0.8f, 0.8f, 0.8f);
-
-StructuredBuffer<uint2> _DDGITraceInstanceTriangleRanges;
-StructuredBuffer<float4> _DDGITraceTriangleNormals;
-StructuredBuffer<uint> _DDGITraceInstanceMaterialFlags;
+static const float3 DDGI_TRACE_FALLBACK_BASE_COLOR = float3(0.8f, 0.8f, 0.8f);
 
 struct DDGIProbeTracePayload
 {
@@ -26,24 +22,9 @@ struct DDGIProbeTracePayload
     uint albedoStatus;
 };
 
-uint DDGITraceInstanceMaterialFlags()
+bool DDGITraceHitHasUV0()
 {
-    return _DDGITraceInstanceMaterialFlags[InstanceID()];
-}
-
-bool DDGITraceInstanceHasBaseColorTexture()
-{
-    return (DDGITraceInstanceMaterialFlags() & DDGI_TRACE_MATERIAL_HAS_BASE_COLOR_TEXTURE) != 0u;
-}
-
-bool DDGITraceInstanceHasUV0()
-{
-    return (DDGITraceInstanceMaterialFlags() & DDGI_TRACE_MATERIAL_HAS_UV0) != 0u;
-}
-
-bool DDGITraceInstanceCanSampleBaseColorTexture()
-{
-    return DDGITraceInstanceHasBaseColorTexture() && DDGITraceInstanceHasUV0();
+    return UnityRayTracingHasVertexAttribute(kVertexAttributeTexCoord0);
 }
 
 float3 DDGITraceFallbackNormalWS()
@@ -53,15 +34,18 @@ float3 DDGITraceFallbackNormalWS()
 
 float3 DDGITraceGeometricNormalWS()
 {
-    uint2 triangle_range = _DDGITraceInstanceTriangleRanges[InstanceID()];
-    if (triangle_range.y == 0u)
+    uint3 triangle_indices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
+    float3 p0              = UnityRayTracingFetchVertexAttribute3(triangle_indices.x, kVertexAttributePosition);
+    float3 p1              = UnityRayTracingFetchVertexAttribute3(triangle_indices.y, kVertexAttributePosition);
+    float3 p2              = UnityRayTracingFetchVertexAttribute3(triangle_indices.z, kVertexAttributePosition);
+    float3 normal_OS       = cross(p1 - p0, p2 - p0);
+    if (!DDGIIsFinite3(normal_OS) || dot(normal_OS, normal_OS) <= 1.0e-10f)
     {
         return DDGITraceFallbackNormalWS();
     }
 
-    uint normal_index = triangle_range.x + min(PrimitiveIndex(), triangle_range.y - 1u);
-    float4 normal_WS  = _DDGITraceTriangleNormals[normal_index];
-    return normal_WS.w > 0.5f ? DDGISafeNormalize(normal_WS.xyz, DDGITraceFallbackNormalWS()) : DDGITraceFallbackNormalWS();
+    float3 normal_WS = TransformObjectToWorldNormal(normal_OS);
+    return DDGISafeNormalize(normal_WS, DDGITraceFallbackNormalWS());
 }
 
 float3 DDGITraceRayFacingNormalWS(float3 normalWS)
@@ -78,33 +62,6 @@ float3 DDGITraceFallbackBaseColor()
 float3 DDGITraceSanitizeBaseColor(float3 baseColor)
 {
     return DDGIIsFinite3(baseColor) ? min(max(baseColor, 0.0f), 65504.0f) : DDGITraceFallbackBaseColor();
-}
-
-uint DDGITraceMaterialAlbedoStatus(bool uvValid)
-{
-    if (!DDGITraceInstanceHasUV0() || !uvValid)
-    {
-        return DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
-    }
-
-    if (!DDGITraceInstanceHasBaseColorTexture())
-    {
-        return DDGI_TRACE_ALBEDO_STATUS_FALLBACK;
-    }
-
-    return DDGI_TRACE_ALBEDO_STATUS_SAMPLED;
-}
-
-uint DDGITraceMaterialPassAlbedoStatus(bool uvValid)
-{
-    if (!DDGITraceInstanceHasBaseColorTexture())
-    {
-        return DDGI_TRACE_ALBEDO_STATUS_FALLBACK;
-    }
-
-    return (!DDGITraceInstanceHasUV0() || !uvValid)
-               ? DDGI_TRACE_ALBEDO_STATUS_INVALID_UV
-               : DDGI_TRACE_ALBEDO_STATUS_SAMPLED;
 }
 
 void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, uint albedoStatus)

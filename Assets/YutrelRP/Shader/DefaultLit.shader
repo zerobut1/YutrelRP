@@ -100,12 +100,12 @@
 				uint albedo_status = DDGI_TRACE_ALBEDO_STATUS_FALLBACK;
 				float3 base_color = GetStandardDefaultLitBaseColor().rgb;
 #if defined(_USE_BASECOLOR_TEX)
-				if (DDGITraceInstanceCanSampleBaseColorTexture() && uv_valid)
+				if (uv_valid)
 				{
 					albedo_status = DDGI_TRACE_ALBEDO_STATUS_SAMPLED;
 					base_color = SampleStandardDefaultLitBaseColorLOD(uv, 0.0f).rgb;
 				}
-				else if (DDGITraceInstanceHasBaseColorTexture())
+				else
 				{
 					albedo_status = DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
 				}

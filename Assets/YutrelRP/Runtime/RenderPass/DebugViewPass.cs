@@ -420,7 +420,7 @@ namespace YutrelRP
                 case Issue.MissingSceneDepth:
                     return "the scene depth source is missing";
                 case Issue.MissingDDGIProbeRayData:
-                    return "DDGI ProbeRayData is missing; enable DDGI, add one active DDGI Volume, and enable Contribute GI on eligible opaque MeshRenderers";
+                    return "DDGI ProbeRayData is missing; enable DDGI, add one active DDGI Volume, and use opaque MeshRenderers with RayTracingMode enabled and a DDGIRayTracing material pass";
                 case Issue.MissingDDGIProbeIrradiance:
                     return "DDGI ProbeIrradiance atlas is missing; enable DDGI and use a valid active DDGI Volume";
                 case Issue.MissingDDGIProbeDistance:
