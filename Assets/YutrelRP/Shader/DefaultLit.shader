@@ -110,7 +110,7 @@
 					albedo_status = DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
 				}
 #endif
-				DDGITraceCommitClosestHit(payload, base_color, albedo_status);
+				DDGITraceMaterialCommitClosestHit(payload, attributes, base_color, albedo_status);
 			}
 			ENDHLSL
 		}
