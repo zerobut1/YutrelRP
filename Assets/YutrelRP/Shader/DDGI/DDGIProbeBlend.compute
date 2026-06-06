@@ -1,5 +1,7 @@
 #pragma kernel BlendIrradiance
+#pragma kernel BlendIrradianceBorder
 #pragma kernel BlendDistance
+#pragma kernel BlendDistanceBorder
 
 #define YUTREL_DDGI_NO_GATHER_SAMPLING
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
@@ -13,6 +15,7 @@ float4 _DDGIProbeRayDataDimensions;
 float4 _DDGIProbeIrradianceDimensions;
 float4 _DDGIProbeDistanceDimensions;
 float _DDGIProbeRayDataMaxDistance;
+float3 _DDGIProbeSpacingWS;
 float _DDGIProbeHysteresis;
 float _DDGIProbeDistanceExponent;
 float _DDGIProbeRandomRayBackfaceThreshold;
@@ -47,6 +50,33 @@ bool DDGIProbeBlendAtlasTexel(uint3 dispatch_id, float4 dimensions, out uint3 pr
 
     local_texel = valid ? uint2(dispatch_id.x, dispatch_id.y) - DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels) : uint2(0u, 0u);
     return valid && local_texel.x < tile_texel_size && local_texel.y < tile_texel_size;
+}
+
+bool DDGIProbeBlendInteriorAtlasTexel(uint3 dispatch_id, float4 dimensions, out uint3 probe_coord, out uint2 local_texel, out uint interior_texels)
+{
+    if (!DDGIProbeBlendAtlasTexel(dispatch_id, dimensions, probe_coord, local_texel, interior_texels))
+    {
+        return false;
+    }
+
+    return !DDGIAtlasLocalTexelIsBorder(local_texel, interior_texels);
+}
+
+bool DDGIProbeBlendBorderAtlasTexel(uint3 dispatch_id, float4 dimensions, out uint3 probe_coord, out uint2 local_texel, out uint interior_texels)
+{
+    if (!DDGIProbeBlendAtlasTexel(dispatch_id, dimensions, probe_coord, local_texel, interior_texels))
+    {
+        return false;
+    }
+
+    return DDGIAtlasLocalTexelIsBorder(local_texel, interior_texels);
+}
+
+uint3 DDGIProbeBlendWrappedTexel(uint3 probe_coord, uint2 local_texel, uint interior_texels)
+{
+    uint2 tile_base      = DDGIProbeAtlasTileBaseTexel(probe_coord, interior_texels);
+    uint2 interior_texel = DDGIAtlasWrappedInteriorTexel(local_texel, interior_texels);
+    return uint3(tile_base + 1u + interior_texel, probe_coord.y);
 }
 
 float4 DDGIProbeBlendHistory(float4 history, float4 current_value)
@@ -87,15 +117,21 @@ float DDGIProbeBlendDistanceDirectionWeight(float3 atlas_direction, float3 ray_d
     return pow(cosine, max(_DDGIProbeDistanceExponent, 0.01f)) + 0.0001f;
 }
 
+float DDGIProbeBlendMaxDistance()
+{
+    return max(length(max(abs(_DDGIProbeSpacingWS), 0.001f.xxx)) * 1.5f, 0.001f);
+}
+
 float3 DDGIProbeBlendDistanceMoments(float4 ray_data)
 {
-    float max_distance    = max(_DDGIProbeRayDataMaxDistance, 0.001f);
+    float ray_max_distance = max(_DDGIProbeRayDataMaxDistance, 0.001f);
+    float max_distance     = DDGIProbeBlendMaxDistance();
     float signed_distance = ray_data.a;
-    bool miss             = DDGIProbeRayDataIsMiss(signed_distance, max_distance);
-    bool backface         = DDGIProbeRayDataIsBackface(signed_distance, max_distance);
-    float distance01      = saturate(DDGIProbeRayDataDistance(signed_distance, max_distance) / max_distance);
+    bool miss             = DDGIProbeRayDataIsMiss(signed_distance, ray_max_distance);
+    bool backface         = DDGIProbeRayDataIsBackface(signed_distance, ray_max_distance);
+    float distance        = min(DDGIProbeRayDataDistance(signed_distance, ray_max_distance), max_distance);
     float hit_weight      = miss ? 0.0f : (backface ? 0.15f : 1.0f);
-    return float3(distance01, distance01 * distance01, hit_weight);
+    return float3(distance, distance * distance, hit_weight);
 }
 
 float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
@@ -166,7 +202,7 @@ void BlendIrradiance(uint3 dispatch_id : SV_DispatchThreadID)
     uint3 probe_coord;
     uint2 local_texel;
     uint interior_texels;
-    if (!DDGIProbeBlendAtlasTexel(dispatch_id, _DDGIProbeIrradianceDimensions, probe_coord, local_texel, interior_texels))
+    if (!DDGIProbeBlendInteriorAtlasTexel(dispatch_id, _DDGIProbeIrradianceDimensions, probe_coord, local_texel, interior_texels))
     {
         return;
     }
@@ -178,12 +214,26 @@ void BlendIrradiance(uint3 dispatch_id : SV_DispatchThreadID)
 }
 
 [numthreads(8, 8, 1)]
+void BlendIrradianceBorder(uint3 dispatch_id : SV_DispatchThreadID)
+{
+    uint3 probe_coord;
+    uint2 local_texel;
+    uint interior_texels;
+    if (!DDGIProbeBlendBorderAtlasTexel(dispatch_id, _DDGIProbeIrradianceDimensions, probe_coord, local_texel, interior_texels))
+    {
+        return;
+    }
+
+    _DDGIProbeIrradiance[dispatch_id] = _DDGIProbeIrradiance[DDGIProbeBlendWrappedTexel(probe_coord, local_texel, interior_texels)];
+}
+
+[numthreads(8, 8, 1)]
 void BlendDistance(uint3 dispatch_id : SV_DispatchThreadID)
 {
     uint3 probe_coord;
     uint2 local_texel;
     uint interior_texels;
-    if (!DDGIProbeBlendAtlasTexel(dispatch_id, _DDGIProbeDistanceDimensions, probe_coord, local_texel, interior_texels))
+    if (!DDGIProbeBlendInteriorAtlasTexel(dispatch_id, _DDGIProbeDistanceDimensions, probe_coord, local_texel, interior_texels))
     {
         return;
     }
@@ -191,4 +241,18 @@ void BlendDistance(uint3 dispatch_id : SV_DispatchThreadID)
     float3 distance_moments = DDGIProbeBlendDistance(probe_coord, local_texel, interior_texels);
     float4 current          = float4(distance_moments, 1.0f);
     _DDGIProbeDistance[dispatch_id] = DDGIProbeBlendHistory(_DDGIProbeDistance[dispatch_id], current);
+}
+
+[numthreads(8, 8, 1)]
+void BlendDistanceBorder(uint3 dispatch_id : SV_DispatchThreadID)
+{
+    uint3 probe_coord;
+    uint2 local_texel;
+    uint interior_texels;
+    if (!DDGIProbeBlendBorderAtlasTexel(dispatch_id, _DDGIProbeDistanceDimensions, probe_coord, local_texel, interior_texels))
+    {
+        return;
+    }
+
+    _DDGIProbeDistance[dispatch_id] = _DDGIProbeDistance[DDGIProbeBlendWrappedTexel(probe_coord, local_texel, interior_texels)];
 }

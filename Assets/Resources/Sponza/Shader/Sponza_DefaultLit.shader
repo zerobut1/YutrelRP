@@ -69,11 +69,11 @@
 			{
 				bool uv_valid;
 				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
-				uint albedo_status = DDGITraceMaterialPassAlbedoStatus(uv_valid);
+				uint albedo_status = uv_valid ? DDGI_TRACE_ALBEDO_STATUS_SAMPLED : DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
 				float3 base_color = uv_valid
 					? SampleSponzaDefaultLitBaseColorLOD(uv, 0.0f).rgb
 					: DDGITraceFallbackBaseColor();
-				DDGITraceCommitClosestHit(payload, base_color, albedo_status);
+				DDGITraceMaterialCommitClosestHit(payload, attributes, base_color, albedo_status);
 			}
 			ENDHLSL
 		}

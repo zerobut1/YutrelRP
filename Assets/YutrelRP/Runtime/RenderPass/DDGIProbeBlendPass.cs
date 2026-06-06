@@ -7,7 +7,9 @@ namespace YutrelRP
     internal sealed class DDGIProbeBlendPass
     {
         private const string IrradianceKernelName = "BlendIrradiance";
+        private const string IrradianceBorderKernelName = "BlendIrradianceBorder";
         private const string DistanceKernelName = "BlendDistance";
+        private const string DistanceBorderKernelName = "BlendDistanceBorder";
         private const int ThreadGroupSizeX = 8;
         private const int ThreadGroupSizeY = 8;
 
@@ -27,6 +29,7 @@ namespace YutrelRP
         private static readonly int probeIrradianceDimensionsID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int probeDistanceDimensionsID = DDGIResources.probe_distance_dimensions_ID;
         private static readonly int probeRayDataMaxDistanceID = DDGIResources.probe_ray_data_max_distance_ID;
+        private static readonly int probeSpacingWSID = DDGIResources.probe_spacing_ws_ID;
         private static readonly int probeHysteresisID = Shader.PropertyToID("_DDGIProbeHysteresis");
         private static readonly int probeIrradianceEncodingGammaID = DDGIResources.probe_irradiance_encoding_gamma_ID;
         private static readonly int probeIrradianceThresholdID = Shader.PropertyToID("_DDGIProbeIrradianceThreshold");
@@ -37,7 +40,9 @@ namespace YutrelRP
 
         private static ComputeShader shader;
         private static int irradianceKernel = -1;
+        private static int irradianceBorderKernel = -1;
         private static int distanceKernel = -1;
+        private static int distanceBorderKernel = -1;
         private static string lastStatusKey;
 
         internal static void Record(RenderGraph renderGraph, YutrelDDGIVolume volume,
@@ -69,6 +74,7 @@ namespace YutrelRP
             pass.probeIrradianceDimensions = resources.ProbeIrradianceDimensions;
             pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
             pass.probeMaxRayDistance = Mathf.Max(0.001f, resources.probe_max_ray_distance);
+            pass.probeSpacingWS = resources.probe_spacing_ws;
             pass.probeHysteresis = Mathf.Clamp01(volume.ProbeHysteresis);
             pass.probeIrradianceEncodingGamma = Mathf.Max(0.01f, volume.IrradianceEncodingGamma);
             pass.probeIrradianceThreshold = Mathf.Max(0.0f, volume.IrradianceThreshold);
@@ -98,6 +104,7 @@ namespace YutrelRP
         private Vector4 probeIrradianceDimensions;
         private Vector4 probeDistanceDimensions;
         private float probeMaxRayDistance;
+        private Vector3 probeSpacingWS;
         private float probeHysteresis;
         private float probeIrradianceEncodingGamma;
         private float probeIrradianceThreshold;
@@ -115,16 +122,30 @@ namespace YutrelRP
         {
             var cmd = context.cmd;
             SetCommonParameters(cmd, irradianceKernel);
+            SetCommonParameters(cmd, irradianceBorderKernel);
             SetCommonParameters(cmd, distanceKernel);
+            SetCommonParameters(cmd, distanceBorderKernel);
             cmd.SetComputeTextureParam(computeShader, irradianceKernel, probeIrradianceID, probeIrradiance);
+            cmd.SetComputeTextureParam(computeShader, irradianceBorderKernel, probeIrradianceID, probeIrradiance);
             cmd.SetComputeTextureParam(computeShader, distanceKernel, probeDistanceID, probeDistance);
+            cmd.SetComputeTextureParam(computeShader, distanceBorderKernel, probeDistanceID, probeDistance);
 
             cmd.DispatchCompute(computeShader, irradianceKernel,
                 DivRoundUp((int)probeIrradianceDimensions.x, ThreadGroupSizeX),
                 DivRoundUp((int)probeIrradianceDimensions.y, ThreadGroupSizeY),
                 Mathf.Max(1, (int)probeIrradianceDimensions.z));
 
+            cmd.DispatchCompute(computeShader, irradianceBorderKernel,
+                DivRoundUp((int)probeIrradianceDimensions.x, ThreadGroupSizeX),
+                DivRoundUp((int)probeIrradianceDimensions.y, ThreadGroupSizeY),
+                Mathf.Max(1, (int)probeIrradianceDimensions.z));
+
             cmd.DispatchCompute(computeShader, distanceKernel,
+                DivRoundUp((int)probeDistanceDimensions.x, ThreadGroupSizeX),
+                DivRoundUp((int)probeDistanceDimensions.y, ThreadGroupSizeY),
+                Mathf.Max(1, (int)probeDistanceDimensions.z));
+
+            cmd.DispatchCompute(computeShader, distanceBorderKernel,
                 DivRoundUp((int)probeDistanceDimensions.x, ThreadGroupSizeX),
                 DivRoundUp((int)probeDistanceDimensions.y, ThreadGroupSizeY),
                 Mathf.Max(1, (int)probeDistanceDimensions.z));
@@ -139,6 +160,7 @@ namespace YutrelRP
             cmd.SetComputeVectorParam(computeShader, probeIrradianceDimensionsID, probeIrradianceDimensions);
             cmd.SetComputeVectorParam(computeShader, probeDistanceDimensionsID, probeDistanceDimensions);
             cmd.SetComputeFloatParam(computeShader, probeRayDataMaxDistanceID, probeMaxRayDistance);
+            cmd.SetComputeVectorParam(computeShader, probeSpacingWSID, probeSpacingWS);
             cmd.SetComputeFloatParam(computeShader, probeHysteresisID, probeHysteresis);
             cmd.SetComputeFloatParam(computeShader, probeIrradianceEncodingGammaID, probeIrradianceEncodingGamma);
             cmd.SetComputeFloatParam(computeShader, probeIrradianceThresholdID, probeIrradianceThreshold);
@@ -189,7 +211,9 @@ namespace YutrelRP
             {
                 shader = configuredShader;
                 irradianceKernel = -1;
+                irradianceBorderKernel = -1;
                 distanceKernel = -1;
+                distanceBorderKernel = -1;
             }
 
             if (shader == null)
@@ -197,7 +221,8 @@ namespace YutrelRP
                 return ProbeBlendIssue.MissingComputeShader;
             }
 
-            if (irradianceKernel >= 0 && distanceKernel >= 0)
+            if (irradianceKernel >= 0 && irradianceBorderKernel >= 0 &&
+                distanceKernel >= 0 && distanceBorderKernel >= 0)
             {
                 return ProbeBlendIssue.None;
             }
@@ -205,16 +230,23 @@ namespace YutrelRP
             try
             {
                 irradianceKernel = shader.FindKernel(IrradianceKernelName);
+                irradianceBorderKernel = shader.FindKernel(IrradianceBorderKernelName);
                 distanceKernel = shader.FindKernel(DistanceKernelName);
+                distanceBorderKernel = shader.FindKernel(DistanceBorderKernelName);
             }
             catch (System.Exception)
             {
                 irradianceKernel = -1;
+                irradianceBorderKernel = -1;
                 distanceKernel = -1;
+                distanceBorderKernel = -1;
                 return ProbeBlendIssue.MissingKernel;
             }
 
-            return irradianceKernel >= 0 && distanceKernel >= 0 ? ProbeBlendIssue.None : ProbeBlendIssue.MissingKernel;
+            return irradianceKernel >= 0 && irradianceBorderKernel >= 0 &&
+                   distanceKernel >= 0 && distanceBorderKernel >= 0
+                ? ProbeBlendIssue.None
+                : ProbeBlendIssue.MissingKernel;
         }
 
         private static void LogStatus(ProbeBlendIssue issue, YutrelDDGIVolume volume, bool logDiagnostics)
@@ -294,7 +326,9 @@ namespace YutrelRP
         {
             shader = null;
             irradianceKernel = -1;
+            irradianceBorderKernel = -1;
             distanceKernel = -1;
+            distanceBorderKernel = -1;
             lastStatusKey = null;
         }
 

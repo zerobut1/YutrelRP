@@ -586,19 +586,22 @@ namespace YutrelRP
                         volume.ProbeCount.z * (volume.ProbeIrradianceInteriorTexels + 2),
                         volume.ProbeCount.y,
                         GraphicsFormat.R16G16B16A16_SFloat,
-                        "DDGI ProbeIrradiance");
+                        "DDGI ProbeIrradiance",
+                        FilterMode.Bilinear);
                     probeDistanceRT = AllocAtlasRT(
                         volume.ProbeCount.x * (volume.ProbeDistanceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeDistanceInteriorTexels + 2),
                         volume.ProbeCount.y,
                         GraphicsFormat.R16G16B16A16_SFloat,
-                        "DDGI ProbeDistance");
+                        "DDGI ProbeDistance",
+                        FilterMode.Bilinear);
                     probeDataRT = AllocAtlasRT(
                         volume.ProbeCount.x,
                         volume.ProbeCount.z,
                         volume.ProbeCount.y,
                         GraphicsFormat.R16G16B16A16_SFloat,
-                        "DDGI ProbeData");
+                        "DDGI ProbeData",
+                        FilterMode.Point);
 
                     ClearPersistentAtlas(probeIrradianceRT, Color.black);
                     ClearPersistentAtlas(probeDistanceRT, Color.black);
@@ -628,10 +631,11 @@ namespace YutrelRP
             return resources.has_persistent_atlas ? ProbeTraceIssue.None : ProbeTraceIssue.ResourceAllocationFailed;
         }
 
-        private static RTHandle AllocAtlasRT(int width, int height, int slices, GraphicsFormat format, string name)
+        private static RTHandle AllocAtlasRT(int width, int height, int slices, GraphicsFormat format, string name,
+            FilterMode filterMode)
         {
             return RTHandles.Alloc(width, height, slices: slices, dimension: TextureDimension.Tex2DArray,
-                colorFormat: format, enableRandomWrite: true, filterMode: FilterMode.Point,
+                colorFormat: format, enableRandomWrite: true, filterMode: filterMode,
                 wrapMode: TextureWrapMode.Clamp, name: name);
         }
 
