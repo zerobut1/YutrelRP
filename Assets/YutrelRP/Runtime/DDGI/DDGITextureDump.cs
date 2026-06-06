@@ -116,11 +116,11 @@ namespace YutrelRP
 
             var recordedAny = false;
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.probe_ray_data, ref probeRayDataRawStaging,
-                "DDGIProbeRayDataRaw", "probe-ray-data-raw.dds", resources.ProbeRayDataDimensions,
+                "DDGIProbeRayData", "probe-ray-data.dds", resources.ProbeRayDataDimensions,
                 "RTXGI F32x2 RayData raw payload: R=asfloat(R10G10B10 packed radiance bits), G=signed distance (miss=1e27, backface=-hitT*0.2), B/A unused",
                 CaptureKind.RgFloatArray);
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.probe_ray_data, ref probeRayDataStaging,
-                "DDGIProbeRayDataDecoded", "probe-ray-data.dds", resources.ProbeRayDataDimensions,
+                "DDGIProbeRayDataDecoded", "probe-ray-data-decoded.dds", resources.ProbeRayDataDimensions,
                 "decoded view of RTXGI F32x2 RayData: RGB=RTXGIUintToFloat3(asuint(raw.R)), A=signed distance",
                 CaptureKind.ProbeRayDataDecoded);
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.trace_albedo, ref traceAlbedoStaging,
