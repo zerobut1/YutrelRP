@@ -15,6 +15,7 @@ namespace YutrelRP
         private const string ShaderPassName = "DDGIRayTracing";
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
         private const int FixedRayCount = 32;
+        private const GraphicsFormat ProbeRayDataFormat = GraphicsFormat.R32G32_SFloat;
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
@@ -136,14 +137,14 @@ namespace YutrelRP
             var planeProbeCount = probeCount.x * probeCount.z;
             var desc = new TextureDesc(raysPerProbe, planeProbeCount)
             {
-                colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                colorFormat = ProbeRayDataFormat,
                 dimension = TextureDimension.Tex2DArray,
                 slices = probeCount.y,
                 enableRandomWrite = true,
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 clearBuffer = true,
-                clearColor = new Color(0.0f, 0.0f, 0.0f, -volume.ProbeMaxRayDistance - 2.0f),
+                clearColor = new Color(0.0f, 1.0e27f, 0.0f, 0.0f),
                 name = "DDGI ProbeRayData"
             };
 
@@ -151,6 +152,7 @@ namespace YutrelRP
             resources.probe_ray_data = probeRayData;
 
             desc.name = "DDGI TraceAlbedo";
+            desc.colorFormat = GraphicsFormat.R16G16B16A16_SFloat;
             desc.clearColor = Color.black;
             var traceAlbedo = renderGraph.CreateTexture(desc);
             resources.trace_albedo = traceAlbedo;
@@ -421,6 +423,12 @@ namespace YutrelRP
                 return ProbeTraceIssue.UnsupportedRayTracing;
             }
 
+            if (!SystemInfo.IsFormatSupported(ProbeRayDataFormat,
+                    GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore))
+            {
+                return ProbeTraceIssue.UnsupportedProbeRayDataFormat;
+            }
+
             return ProbeTraceIssue.None;
         }
 
@@ -440,10 +448,10 @@ namespace YutrelRP
         private static ProbeRayRotation ComputeProbeRayRotation(YutrelDDGIVolume volume,
             YutrelRPSettings.DDGISettings settings)
         {
+            var fixedRaysEnabled = settings != null && settings.probeRelocationEnabled;
             var randomRotationEnabled = settings != null && settings.probeRandomRotationEnabled &&
                                         volume != null && volume.RaysPerProbe > FixedRayCount;
-            const bool fixedRaysEnabled = true;
-            var skipFixedRaysForBlend = settings != null && settings.probeRelocationEnabled;
+            var skipFixedRaysForBlend = fixedRaysEnabled;
             if (!randomRotationEnabled)
             {
                 return ProbeRayRotation.Identity(fixedRaysEnabled, skipFixedRaysForBlend);
@@ -935,6 +943,8 @@ namespace YutrelRP
                 case ProbeTraceIssue.UnsupportedGraphicsAPI:
                 case ProbeTraceIssue.UnsupportedRayTracing:
                     return "platform/API";
+                case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
+                    return "resource/format";
                 case ProbeTraceIssue.MissingVolume:
                 case ProbeTraceIssue.InvalidVolume:
                     return "volume";
@@ -999,6 +1009,8 @@ namespace YutrelRP
                     return "DDGI probe trace first version requires Direct3D12";
                 case ProbeTraceIssue.UnsupportedRayTracing:
                     return "SystemInfo.supportsRayTracing is false";
+                case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
+                    return "DDGI ProbeRayData requires GraphicsFormat.R32G32_SFloat with sample and load/store support for RTXGI F32x2 parity";
                 case ProbeTraceIssue.MissingVolume:
                     return "no active YutrelDDGIVolume was found";
                 case ProbeTraceIssue.InvalidVolume:
@@ -1084,7 +1096,8 @@ namespace YutrelRP
             EmptyAccelerationStructure = 7,
             ResourceTooLarge = 8,
             FrameDebuggerActive = 9,
-            ResourceAllocationFailed = 10
+            ResourceAllocationFailed = 10,
+            UnsupportedProbeRayDataFormat = 11
         }
     }
 }

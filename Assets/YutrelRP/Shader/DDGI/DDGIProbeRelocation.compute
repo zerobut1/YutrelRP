@@ -30,15 +30,15 @@ uint3 DDGIProbeRelocationCoord(uint probe_index, uint3 probe_count)
     return DDGIProbeCoordFromPlaneIndex(plane_index, probe_y, probe_count);
 }
 
-float4 DDGIProbeRelocationLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)
+float DDGIProbeRelocationLoadRayDistance(uint ray_index, uint3 probe_coord, uint3 probe_count)
 {
-    float4 ray_data = _DDGIProbeRayData.Load(uint4(DDGIProbeRayDataTexel(ray_index, probe_coord, probe_count), 0u));
-    if (!DDGIIsFinite4(ray_data))
+    float4 raw_ray_data = _DDGIProbeRayData.Load(uint4(DDGIProbeRayDataTexel(ray_index, probe_coord, probe_count), 0u));
+    if (!DDGIProbeRayDataRawIsValid(raw_ray_data))
     {
-        return float4(0.0f, 0.0f, 0.0f, DDGIProbeRayDataEncodeMiss(_DDGIProbeRayDataMaxDistance));
+        return DDGIProbeRayDataEncodeMiss();
     }
 
-    return ray_data;
+    return DDGIProbeRayDataLoadDistance(raw_ray_data);
 }
 
 bool DDGIProbeRelocationOffsetAccepted(float3 offset)
@@ -77,10 +77,9 @@ void RelocateProbes(uint3 dispatch_id : SV_DispatchThreadID)
     [loop]
     for (uint ray_index = 0u; ray_index < inspected_ray_count; ray_index++)
     {
-        float4 ray_data        = DDGIProbeRelocationLoadRayData(ray_index, probe_coord, probe_count);
-        float signed_distance  = ray_data.a;
-        bool miss              = DDGIProbeRayDataIsMiss(signed_distance, _DDGIProbeRayDataMaxDistance);
-        bool backface          = DDGIProbeRayDataIsBackface(signed_distance, _DDGIProbeRayDataMaxDistance);
+        float signed_distance  = DDGIProbeRelocationLoadRayDistance(ray_index, probe_coord, probe_count);
+        bool miss              = DDGIProbeRayDataIsMiss(signed_distance);
+        bool backface          = DDGIProbeRayDataIsBackface(signed_distance);
         bool frontface         = DDGIProbeRayDataIsFrontface(signed_distance);
 
         if (miss)
@@ -90,7 +89,7 @@ void RelocateProbes(uint3 dispatch_id : SV_DispatchThreadID)
         if (backface)
         {
             backface_count++;
-            float distance = abs(signed_distance);
+            float distance = DDGIProbeRayDataBackfaceDistance(signed_distance);
             if (distance < closest_backface_distance)
             {
                 closest_backface_distance = distance;

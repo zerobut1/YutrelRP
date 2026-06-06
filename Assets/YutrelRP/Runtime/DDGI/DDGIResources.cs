@@ -76,7 +76,8 @@ namespace YutrelRP
         public string diagnostic;
 
         // DDGI atlas 布局约定：
-        // ProbeRayData: width=raysPerProbe, height=probeCountX*probeCountZ, slice=probeY, planeIndex=probeX+probeZ*probeCountX。
+        // ProbeRayData: R32G32_SFloat, width=raysPerProbe, height=probeCountX*probeCountZ, slice=probeY,
+        // planeIndex=probeX+probeZ*probeCountX, R=asfloat(RTXGI R10G10B10 packed radiance), G=signed distance。
         // ProbeIrradiance/ProbeDistance: 每个 probe 为带 1 texel border 的 octahedral tile，
         // width=probeCountX*(interiorTexels+2), height=probeCountZ*(interiorTexels+2), slice=probeY。
         // ProbeData: width=probeCountX, height=probeCountZ, slice=probeY；rgba=offset.xyz/state，初始 offset=0,state=1(active)。
@@ -171,7 +172,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 12;
+            private const int AtlasSemanticVersion = 13;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;

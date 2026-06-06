@@ -18,6 +18,8 @@ namespace YutrelRP
         private const string OutputRoot = "Dumps";
         private const string CopyArrayKernelName = "CopyRgbaHalfTexture2DArray";
         private const string Copy2DKernelName = "CopyRgbaHalfTexture2D";
+        private const string CopyRgArrayKernelName = "CopyRgFloatTexture2DArray";
+        private const string CopyProbeRayDataKernelName = "CopyProbeRayDataTexture2DArray";
         private const int ThreadGroupSizeX = 8;
         private const int ThreadGroupSizeY = 8;
         private const uint DdsMagic = 0x20534444u;
@@ -26,20 +28,26 @@ namespace YutrelRP
         private const uint DdsResourceDimensionTexture2D = 3u;
         private const uint DdsAlphaModeUnknown = 0u;
         private const uint DxgiFormatR16G16B16A16Float = 10u;
+        private const uint DxgiFormatR32G32Float = 16u;
 
         private static readonly ProfilingSampler sampler = new("DDGI Texture Dump Capture");
         private static readonly int sourceID = Shader.PropertyToID("_DDGITextureDumpSource");
         private static readonly int source2DID = Shader.PropertyToID("_DDGITextureDumpSource2D");
+        private static readonly int sourceRgID = Shader.PropertyToID("_DDGITextureDumpSourceRG");
         private static readonly int destinationID = Shader.PropertyToID("_DDGITextureDumpDestination");
+        private static readonly int destinationRgID = Shader.PropertyToID("_DDGITextureDumpDestinationRG");
         private static readonly int textureSizeID = Shader.PropertyToID("_DDGITextureDumpSize");
 
         private static DumpRequest pendingRequest;
         private static ActiveDump activeDump;
+        private static RTHandle probeRayDataRawStaging;
         private static RTHandle probeRayDataStaging;
         private static RTHandle traceAlbedoStaging;
         private static RTHandle screenTraceDebugStaging;
         private static int copyArrayKernel = -1;
         private static int copy2DKernel = -1;
+        private static int copyRgArrayKernel = -1;
+        private static int copyProbeRayDataKernel = -1;
 
 #if UNITY_EDITOR
         public static bool HasPendingRequest => pendingRequest != null || activeDump != null;
@@ -107,14 +115,18 @@ namespace YutrelRP
             }
 
             var recordedAny = false;
+            recordedAny |= TryRecordTransientCapture(renderGraph, resources.probe_ray_data, ref probeRayDataRawStaging,
+                "DDGIProbeRayDataRaw", "probe-ray-data-raw.dds", resources.ProbeRayDataDimensions,
+                "RTXGI F32x2 RayData raw payload: R=asfloat(R10G10B10 packed radiance bits), G=signed distance (miss=1e27, backface=-hitT*0.2), B/A unused",
+                CaptureKind.RgFloatArray);
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.probe_ray_data, ref probeRayDataStaging,
-                "DDGIProbeRayData", "probe-ray-data.dds", resources.ProbeRayDataDimensions,
-                "x=rayIndex, y=probeX+probeZ*probeCount.x, slice=probeY, rgba=radiance.rgb + signedDistance",
-                false);
+                "DDGIProbeRayDataDecoded", "probe-ray-data.dds", resources.ProbeRayDataDimensions,
+                "decoded view of RTXGI F32x2 RayData: RGB=RTXGIUintToFloat3(asuint(raw.R)), A=signed distance",
+                CaptureKind.ProbeRayDataDecoded);
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.trace_albedo, ref traceAlbedoStaging,
                 "DDGITraceAlbedo", "trace-albedo.dds", resources.ProbeRayDataDimensions,
                 "x=rayIndex, y=probeX+probeZ*probeCount.x, slice=probeY, rgba=trace base color/status debug",
-                false);
+                CaptureKind.RgbaHalfArray);
             recordedAny |= TryRecordPersistentCapture(resources.probe_irradiance_texture, "DDGIProbeIrradiance",
                 "probe-irradiance.dds", resources.ProbeIrradianceDimensions,
                 "octahedral irradiance atlas with 1 texel border per probe tile; slice=probeY");
@@ -131,7 +143,7 @@ namespace YutrelRP
                 recordedAny |= TryRecordTransientCapture(renderGraph, resources.screen_trace_debug,
                     ref screenTraceDebugStaging, "DDGIScreenTraceDebug", "screen-trace-debug.dds",
                     screenTraceDimensions, "screen-space trace debug output, present only for DDGI screen trace debug view",
-                    true);
+                    CaptureKind.RgbaHalf2D);
             }
             else
             {
@@ -182,7 +194,8 @@ namespace YutrelRP
                 try
                 {
                     var filePath = Path.Combine(dump.OutputDirectory, texture.FileName);
-                    WriteDdsTextureArray(filePath, texture.Width, texture.Height, texture.Slices, texture.Readback);
+                    WriteDdsTextureArray(filePath, texture.Width, texture.Height, texture.Slices,
+                        texture.Format, texture.Readback);
                     texture.Status = TextureDumpStatus.Written;
                     texture.FilePath = filePath;
                     AddTextureMetadata(dump.Metadata, texture);
@@ -206,6 +219,7 @@ namespace YutrelRP
 
         internal static void Cleanup()
         {
+            ReleaseStaging(ref probeRayDataRawStaging);
             ReleaseStaging(ref probeRayDataStaging);
             ReleaseStaging(ref traceAlbedoStaging);
             ReleaseStaging(ref screenTraceDebugStaging);
@@ -213,13 +227,15 @@ namespace YutrelRP
             activeDump = null;
             copyArrayKernel = -1;
             copy2DKernel = -1;
+            copyRgArrayKernel = -1;
+            copyProbeRayDataKernel = -1;
 #if UNITY_EDITOR
             UnregisterEditorUpdate();
 #endif
         }
 
         private static bool TryRecordTransientCapture(RenderGraph renderGraph, TextureHandle source,
-            ref RTHandle staging, string name, string fileName, Vector4 dimensions, string layout, bool sourceIsTexture2D)
+            ref RTHandle staging, string name, string fileName, Vector4 dimensions, string layout, CaptureKind captureKind)
         {
             if (!source.IsValid())
             {
@@ -237,7 +253,7 @@ namespace YutrelRP
                 return false;
             }
 
-            var kernel = EnsureCopyShader(sourceIsTexture2D);
+            var kernel = EnsureCopyShader(captureKind);
             if (kernel < 0)
             {
                 activeDump.Metadata.missingResources.Add(Missing(name,
@@ -245,7 +261,7 @@ namespace YutrelRP
                 return false;
             }
 
-            if (!EnsureStaging(ref staging, width, height, slices, name))
+            if (!EnsureStaging(ref staging, width, height, slices, name, DestinationFormat(captureKind)))
             {
                 activeDump.Metadata.missingResources.Add(Missing(name,
                     "Failed to allocate persistent staging texture."));
@@ -263,7 +279,7 @@ namespace YutrelRP
             pass.width = width;
             pass.height = height;
             pass.slices = slices;
-            pass.sourceIsTexture2D = sourceIsTexture2D;
+            pass.captureKind = captureKind;
             builder.UseTexture(pass.source, AccessFlags.Read);
             builder.UseTexture(pass.destination, AccessFlags.Write);
             builder.AllowPassCulling(false);
@@ -336,8 +352,11 @@ namespace YutrelRP
 
                 try
                 {
+                    var readbackFormat = texture.Format == GraphicsFormat.R32G32_SFloat
+                        ? GraphicsFormat.R32G32_SFloat
+                        : GraphicsFormat.R16G16B16A16_SFloat;
                     texture.Readback = AsyncGPUReadback.Request(texture.Texture, 0, 0, texture.Width, 0,
-                        texture.Height, 0, texture.Slices, GraphicsFormat.R16G16B16A16_SFloat);
+                        texture.Height, 0, texture.Slices, readbackFormat);
                     texture.Status = TextureDumpStatus.PendingReadback;
                 }
                 catch (Exception exception)
@@ -373,56 +392,87 @@ namespace YutrelRP
             };
         }
 
-        private static int EnsureCopyShader(bool sourceIsTexture2D)
+        private static int EnsureCopyShader(CaptureKind captureKind)
         {
             if (activeDump.CopyShader == null)
             {
                 return -1;
             }
 
-            if (!sourceIsTexture2D && copyArrayKernel >= 0)
+            if (captureKind == CaptureKind.RgbaHalfArray && copyArrayKernel >= 0)
             {
                 return copyArrayKernel;
             }
 
-            if (sourceIsTexture2D && copy2DKernel >= 0)
+            if (captureKind == CaptureKind.RgbaHalf2D && copy2DKernel >= 0)
             {
                 return copy2DKernel;
             }
 
+            if (captureKind == CaptureKind.RgFloatArray && copyRgArrayKernel >= 0)
+            {
+                return copyRgArrayKernel;
+            }
+
+            if (captureKind == CaptureKind.ProbeRayDataDecoded && copyProbeRayDataKernel >= 0)
+            {
+                return copyProbeRayDataKernel;
+            }
+
             try
             {
-                if (sourceIsTexture2D)
+                switch (captureKind)
                 {
-                    copy2DKernel = activeDump.CopyShader.FindKernel(Copy2DKernelName);
-                }
-                else
-                {
-                    copyArrayKernel = activeDump.CopyShader.FindKernel(CopyArrayKernelName);
+                    case CaptureKind.RgbaHalf2D:
+                        copy2DKernel = activeDump.CopyShader.FindKernel(Copy2DKernelName);
+                        break;
+                    case CaptureKind.RgFloatArray:
+                        copyRgArrayKernel = activeDump.CopyShader.FindKernel(CopyRgArrayKernelName);
+                        break;
+                    case CaptureKind.ProbeRayDataDecoded:
+                        copyProbeRayDataKernel = activeDump.CopyShader.FindKernel(CopyProbeRayDataKernelName);
+                        break;
+                    default:
+                        copyArrayKernel = activeDump.CopyShader.FindKernel(CopyArrayKernelName);
+                        break;
                 }
             }
             catch (Exception)
             {
-                if (sourceIsTexture2D)
+                switch (captureKind)
                 {
-                    copy2DKernel = -1;
-                }
-                else
-                {
-                    copyArrayKernel = -1;
+                    case CaptureKind.RgbaHalf2D:
+                        copy2DKernel = -1;
+                        break;
+                    case CaptureKind.RgFloatArray:
+                        copyRgArrayKernel = -1;
+                        break;
+                    case CaptureKind.ProbeRayDataDecoded:
+                        copyProbeRayDataKernel = -1;
+                        break;
+                    default:
+                        copyArrayKernel = -1;
+                        break;
                 }
             }
 
-            return sourceIsTexture2D ? copy2DKernel : copyArrayKernel;
+            return captureKind switch
+            {
+                CaptureKind.RgbaHalf2D => copy2DKernel,
+                CaptureKind.RgFloatArray => copyRgArrayKernel,
+                CaptureKind.ProbeRayDataDecoded => copyProbeRayDataKernel,
+                _ => copyArrayKernel
+            };
         }
 
-        private static bool EnsureStaging(ref RTHandle handle, int width, int height, int slices, string name)
+        private static bool EnsureStaging(ref RTHandle handle, int width, int height, int slices, string name,
+            GraphicsFormat format)
         {
             if (handle != null && handle.rt != null &&
                 handle.rt.width == width &&
                 handle.rt.height == height &&
                 handle.rt.volumeDepth == slices &&
-                handle.rt.graphicsFormat == GraphicsFormat.R16G16B16A16_SFloat)
+                handle.rt.graphicsFormat == format)
             {
                 return true;
             }
@@ -432,7 +482,7 @@ namespace YutrelRP
             try
             {
                 handle = RTHandles.Alloc(width, height, slices: slices, dimension: TextureDimension.Tex2DArray,
-                    colorFormat: GraphicsFormat.R16G16B16A16_SFloat, enableRandomWrite: true,
+                    colorFormat: format, enableRandomWrite: true,
                     filterMode: FilterMode.Point, wrapMode: TextureWrapMode.Clamp,
                     name: "DDGI Texture Dump " + name);
                 return handle?.rt != null;
@@ -456,7 +506,15 @@ namespace YutrelRP
 
         private static bool IsReadableFormat(TextureDump texture)
         {
-            return texture.Format == GraphicsFormat.R16G16B16A16_SFloat;
+            return texture.Format == GraphicsFormat.R16G16B16A16_SFloat ||
+                   texture.Format == GraphicsFormat.R32G32_SFloat;
+        }
+
+        private static GraphicsFormat DestinationFormat(CaptureKind captureKind)
+        {
+            return captureKind == CaptureKind.RgFloatArray
+                ? GraphicsFormat.R32G32_SFloat
+                : GraphicsFormat.R16G16B16A16_SFloat;
         }
 
         private static bool IsValidTextureSize(int width, int height, int slices)
@@ -517,7 +575,7 @@ namespace YutrelRP
                 arraySlices = texture.Slices,
                 mipCount = texture.MipCount,
                 sourceGraphicsFormat = texture.Format.ToString(),
-                ddsFormat = "DXGI_FORMAT_R16G16B16A16_FLOAT",
+                ddsFormat = DdsFormatName(texture.Format),
                 dimension = texture.Slices > 1 ? "Texture2DArray" : "Texture2D",
                 layout = texture.Layout,
                 capturedFromTransientRenderGraphResource = texture.CapturedFromTransient
@@ -601,14 +659,14 @@ namespace YutrelRP
             return Path.Combine(root, stamp + "-" + Guid.NewGuid().ToString("N"));
         }
 
-        private static void WriteDdsTextureArray(string path, int width, int height, int slices,
+        private static void WriteDdsTextureArray(string path, int width, int height, int slices, GraphicsFormat format,
             AsyncGPUReadbackRequest request)
         {
-            var sliceBytes = width * height * 8;
+            var sliceBytes = width * height * BytesPerPixel(format);
 
             using var stream = File.Open(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             using var writer = new BinaryWriter(stream);
-            WriteDdsHeader(writer, width, height, slices);
+            WriteDdsHeader(writer, width, height, slices, format);
             for (var slice = 0; slice < slices; slice++)
             {
                 var data = request.GetData<byte>(slice);
@@ -623,14 +681,14 @@ namespace YutrelRP
             }
         }
 
-        private static void WriteDdsHeader(BinaryWriter writer, int width, int height, int slices)
+        private static void WriteDdsHeader(BinaryWriter writer, int width, int height, int slices, GraphicsFormat format)
         {
             writer.Write(DdsMagic);
             writer.Write(124u);
             writer.Write(0x0002100Fu);
             writer.Write((uint)height);
             writer.Write((uint)width);
-            writer.Write((uint)(width * 8));
+            writer.Write((uint)(width * BytesPerPixel(format)));
             writer.Write(0u);
             writer.Write(1u);
             for (var i = 0; i < 11; i++)
@@ -652,7 +710,7 @@ namespace YutrelRP
             writer.Write(0u);
             writer.Write(0u);
 
-            writer.Write(DxgiFormatR16G16B16A16Float);
+            writer.Write(DdsDxgiFormat(format));
             writer.Write(DdsResourceDimensionTexture2D);
             writer.Write(0u);
             writer.Write((uint)slices);
@@ -665,6 +723,44 @@ namespace YutrelRP
                    ((uint)value[1] << 8) |
                    ((uint)value[2] << 16) |
                    ((uint)value[3] << 24);
+        }
+
+        private static int BytesPerPixel(GraphicsFormat format)
+        {
+            switch (format)
+            {
+                case GraphicsFormat.R16G16B16A16_SFloat:
+                case GraphicsFormat.R32G32_SFloat:
+                    return 8;
+                default:
+                    throw new InvalidOperationException($"Unsupported DDS dump format: {format}.");
+            }
+        }
+
+        private static uint DdsDxgiFormat(GraphicsFormat format)
+        {
+            switch (format)
+            {
+                case GraphicsFormat.R16G16B16A16_SFloat:
+                    return DxgiFormatR16G16B16A16Float;
+                case GraphicsFormat.R32G32_SFloat:
+                    return DxgiFormatR32G32Float;
+                default:
+                    throw new InvalidOperationException($"Unsupported DDS dump format: {format}.");
+            }
+        }
+
+        private static string DdsFormatName(GraphicsFormat format)
+        {
+            switch (format)
+            {
+                case GraphicsFormat.R16G16B16A16_SFloat:
+                    return "DXGI_FORMAT_R16G16B16A16_FLOAT";
+                case GraphicsFormat.R32G32_SFloat:
+                    return "DXGI_FORMAT_R32G32_FLOAT";
+                default:
+                    return "unsupported";
+            }
         }
 
         private static void WriteMetadata(string path, DumpMetadata metadata)
@@ -749,19 +845,44 @@ namespace YutrelRP
             public int width;
             public int height;
             public int slices;
-            public bool sourceIsTexture2D;
+            public CaptureKind captureKind;
 
             public void Render(ComputeGraphContext context)
             {
                 var cmd = context.cmd;
-                cmd.SetComputeTextureParam(shader, kernel, sourceIsTexture2D ? source2DID : sourceID, source);
-                cmd.SetComputeTextureParam(shader, kernel, destinationID, destination);
+                switch (captureKind)
+                {
+                    case CaptureKind.RgbaHalf2D:
+                        cmd.SetComputeTextureParam(shader, kernel, source2DID, source);
+                        cmd.SetComputeTextureParam(shader, kernel, destinationID, destination);
+                        break;
+                    case CaptureKind.RgFloatArray:
+                        cmd.SetComputeTextureParam(shader, kernel, sourceRgID, source);
+                        cmd.SetComputeTextureParam(shader, kernel, destinationRgID, destination);
+                        break;
+                    case CaptureKind.ProbeRayDataDecoded:
+                        cmd.SetComputeTextureParam(shader, kernel, sourceRgID, source);
+                        cmd.SetComputeTextureParam(shader, kernel, destinationID, destination);
+                        break;
+                    default:
+                        cmd.SetComputeTextureParam(shader, kernel, sourceID, source);
+                        cmd.SetComputeTextureParam(shader, kernel, destinationID, destination);
+                        break;
+                }
                 cmd.SetComputeVectorParam(shader, textureSizeID, new Vector4(width, height, slices, 0.0f));
                 cmd.DispatchCompute(shader, kernel,
                     DivRoundUp(width, ThreadGroupSizeX),
                     DivRoundUp(height, ThreadGroupSizeY),
                     Mathf.Max(1, slices));
             }
+        }
+
+        private enum CaptureKind
+        {
+            RgbaHalfArray,
+            RgbaHalf2D,
+            RgFloatArray,
+            ProbeRayDataDecoded
         }
 
         private static int DivRoundUp(int value, int divisor)

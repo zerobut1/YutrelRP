@@ -213,7 +213,7 @@ void RayGenDDGIProbeTrace()
     payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
     uint3 rayDataTexel = DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount);
-    _DDGIProbeRayData[rayDataTexel] = float4(0.0, 0.0, 0.0, DDGIProbeRayDataEncodeTracePending(_DDGIProbeMaxRayDistance));
+    _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeTracePendingValue();
     _DDGITraceAlbedo[rayDataTexel] = float4(0.0, 0.0, 0.0, (float)DDGI_TRACE_ALBEDO_STATUS_MISS);
 
     TraceRay(_RaytracingAccelerationStructure,
@@ -225,21 +225,28 @@ void RayGenDDGIProbeTrace()
              ray,
              payload);
 
-    float4 encoded = float4(DDGITraceEnvironmentRadiance(ray.Direction), DDGIProbeRayDataEncodeMiss(_DDGIProbeMaxRayDistance));
-    if (payload.hitKind != 0)
+    if (payload.hitKind == 0)
+    {
+        _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeMissValue(DDGITraceEnvironmentRadiance(ray.Direction));
+    }
+    else if (payload.hitKind != 1)
+    {
+        _DDGIProbeRayData[rayDataTexel].g = DDGIProbeRayDataEncodeBackface(payload.rayT);
+    }
+    else if (_DDGIProbeFixedRaysEnabled > 0.5f && rayIndex < DDGIFixedRayCount())
+    {
+        _DDGIProbeRayData[rayDataTexel].g = DDGIProbeRayDataEncodeFrontface(payload.rayT);
+    }
+    else
     {
         float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
         float3 direct_radiance = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.geometricNormalWS, payload.baseColor);
         float3 feedback_radiance =
             DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
         float3 radiance = DDGITraceClampProbeRayDataStore(direct_radiance + feedback_radiance);
-        encoded = float4(radiance,
-                         payload.hitKind == 1
-                             ? DDGIProbeRayDataEncodeFrontface(payload.rayT)
-                             : DDGIProbeRayDataEncodeBackface(payload.rayT));
+        _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeFrontfaceValue(radiance, payload.rayT);
     }
 
-    _DDGIProbeRayData[rayDataTexel] = encoded;
     _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
 }
 

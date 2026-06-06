@@ -232,26 +232,27 @@ float4 SampleDebugViewDDGIProbeRayData(float2 uv)
     uint slice        = (uint)clamp(_DDGIProbeRayDataDebugSlice, 0, max((int)_DDGIProbeRayDataDimensions.z - 1, 0));
     uint3 probe_count = uint3((uint)max(_DDGIProbeCount.x, 1.0f), (uint)max(_DDGIProbeCount.y, 1.0f), (uint)max(_DDGIProbeCount.z, 1.0f));
 
-    uint2 texel          = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
-    uint3 probe_coord    = DDGIProbeCoordFromPlaneIndex(texel.y, slice, probe_count);
-    uint3 ray_data_texel = DDGIProbeRayDataTexel(texel.x, probe_coord, probe_count);
-    float4 data          = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, ray_data_texel.xy, ray_data_texel.z);
-    float probe_parity   = frac((float)(probe_coord.x + probe_coord.y + probe_coord.z) * 0.5f);
-    float row_line       = frac((1.0f - uv.y) * height) < 0.08f ? 1.0f : 0.0f;
+    uint2 texel           = uint2(min((uint)(uv.x * width), width - 1), min((uint)((1.0f - uv.y) * height), height - 1));
+    uint3 probe_coord     = DDGIProbeCoordFromPlaneIndex(texel.y, slice, probe_count);
+    uint3 ray_data_texel  = DDGIProbeRayDataTexel(texel.x, probe_coord, probe_count);
+    float4 raw_data       = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, ray_data_texel.xy, ray_data_texel.z);
+    DDGIProbeRayData data = DDGIProbeRayDataDecode(raw_data);
+    float probe_parity    = frac((float)(probe_coord.x + probe_coord.y + probe_coord.z) * 0.5f);
+    float row_line        = frac((1.0f - uv.y) * height) < 0.08f ? 1.0f : 0.0f;
 
-    float signed_distance = data.a;
-    if (DDGIProbeRayDataIsMiss(signed_distance, _DDGIProbeRayDataMaxDistance))
+    float signed_distance = data.distance;
+    if (DDGIProbeRayDataIsMiss(signed_distance))
     {
         float3 miss_color = float3(0.0f, 0.0f, 0.0f) + probe_parity * 0.02f + row_line * 0.2f;
         return float4(saturate(miss_color), 1.0f);
     }
 
-    if (DDGIProbeRayDataIsBackface(signed_distance, _DDGIProbeRayDataMaxDistance))
+    if (DDGIProbeRayDataIsBackface(signed_distance))
     {
         return float4(saturate(float3(0.95f, 0.18f, 0.85f) + row_line * 0.25f), 1.0f);
     }
 
-    float3 radiance_color = DebugViewToneMapDDGIRadiance(data.rgb);
+    float3 radiance_color = DebugViewToneMapDDGIRadiance(data.radiance);
     return float4(saturate(radiance_color + row_line * 0.18f), 1.0f);
 }
 

@@ -141,20 +141,21 @@ Shader "YutrelRP/DDGIProbeDebug"
 			for (uint ray_index = 0u; ray_index < rays_per_probe; ray_index++)
 			{
 				uint3 ray_texel = DDGIProbeRayDataTexel(ray_index, probe_coord, probe_count);
-				float4 ray_data = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, ray_texel.xy, ray_texel.z);
-				if (!DDGIProbeDebugValidFinite4(ray_data))
+				float4 raw_ray_data = LOAD_TEXTURE2D_ARRAY(_DDGIProbeRayData, ray_texel.xy, ray_texel.z);
+				float ray_distance = DDGIProbeRayDataLoadDistance(raw_ray_data);
+				if (!DDGIProbeRayDataRawIsValid(raw_ray_data))
 				{
 					invalid_count++;
 				}
-				else if (DDGIProbeRayDataIsMiss(ray_data.a, _DDGIProbeRayDataMaxDistance))
+				else if (DDGIProbeRayDataIsMiss(ray_distance))
 				{
 					miss_count++;
 				}
-				else if (DDGIProbeRayDataIsBackface(ray_data.a, _DDGIProbeRayDataMaxDistance))
+				else if (DDGIProbeRayDataIsBackface(ray_distance))
 				{
 					backface_count++;
 				}
-				else if (DDGIProbeRayDataIsFrontface(ray_data.a))
+				else if (DDGIProbeRayDataIsFrontface(ray_distance))
 				{
 					frontface_count++;
 				}

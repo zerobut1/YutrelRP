@@ -95,15 +95,15 @@ float4 DDGIProbeBlendIrradianceHistory(float4 history, float4 current_value)
     return float4(DDGIClampTextureStoreValue(lerp(current_irradiance, history_irradiance, history_weight)), 1.0f);
 }
 
-float4 DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)
+DDGIProbeRayData DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)
 {
-    float4 ray_data = _DDGIProbeRayData.Load(uint4(DDGIProbeRayDataTexel(ray_index, probe_coord, probe_count), 0u));
-    if (!DDGIIsFinite4(ray_data))
+    float4 raw_ray_data = _DDGIProbeRayData.Load(uint4(DDGIProbeRayDataTexel(ray_index, probe_coord, probe_count), 0u));
+    if (!DDGIProbeRayDataRawIsValid(raw_ray_data))
     {
-        return float4(0.0f, 0.0f, 0.0f, DDGIProbeRayDataEncodeMiss(_DDGIProbeRayDataMaxDistance));
+        raw_ray_data = DDGIProbeRayDataEncodeMissValue(0.0f.xxx);
     }
 
-    return float4(DDGIClampTextureStoreValue(ray_data.rgb), ray_data.a);
+    return DDGIProbeRayDataDecode(raw_ray_data);
 }
 
 float DDGIProbeBlendIrradianceDirectionWeight(float3 atlas_direction, float3 ray_direction)
@@ -122,13 +122,13 @@ float DDGIProbeBlendMaxDistance()
     return max(length(max(abs(_DDGIProbeSpacingWS), 0.001f.xxx)) * 1.5f, 0.001f);
 }
 
-float3 DDGIProbeBlendDistanceMoments(float4 ray_data)
+float3 DDGIProbeBlendDistanceMoments(DDGIProbeRayData ray_data)
 {
     float ray_max_distance = max(_DDGIProbeRayDataMaxDistance, 0.001f);
     float max_distance     = DDGIProbeBlendMaxDistance();
-    float signed_distance = ray_data.a;
-    bool miss             = DDGIProbeRayDataIsMiss(signed_distance, ray_max_distance);
-    bool backface         = DDGIProbeRayDataIsBackface(signed_distance, ray_max_distance);
+    float signed_distance = ray_data.distance;
+    bool miss             = DDGIProbeRayDataIsMiss(signed_distance);
+    bool backface         = DDGIProbeRayDataIsBackface(signed_distance);
     float distance        = min(DDGIProbeRayDataDistance(signed_distance, ray_max_distance), max_distance);
     float hit_weight      = miss ? 0.0f : (backface ? 0.15f : 1.0f);
     return float3(distance, distance * distance, hit_weight);
@@ -153,13 +153,13 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
     {
         float3 ray_direction = DDGIProbeRayDirection(ray_index, rays_per_probe, fixed_rays);
         float weight         = DDGIProbeBlendIrradianceDirectionWeight(direction, ray_direction);
-        float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
-        if (DDGIProbeRayDataIsBackface(ray_data.a, _DDGIProbeRayDataMaxDistance))
+        DDGIProbeRayData ray_data = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
+        if (DDGIProbeRayDataIsBackface(ray_data.distance))
         {
             backface_count++;
             continue;
         }
-        sum += ray_data.rgb * weight;
+        sum += ray_data.radiance * weight;
         weight_sum += weight;
     }
 
@@ -188,7 +188,7 @@ float3 DDGIProbeBlendDistance(uint3 probe_coord, uint2 local_texel, uint interio
     {
         float3 ray_direction = DDGIProbeRayDirection(ray_index, rays_per_probe, fixed_rays);
         float weight         = DDGIProbeBlendDistanceDirectionWeight(direction, ray_direction);
-        float4 ray_data      = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
+        DDGIProbeRayData ray_data = DDGIProbeBlendLoadRayData(ray_index, probe_coord, probe_count);
         sum += DDGIProbeBlendDistanceMoments(ray_data) * weight;
         weight_sum += weight;
     }
