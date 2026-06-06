@@ -55,16 +55,6 @@ float4 DDGIProbeBlendHistory(float4 history, float4 current_value)
     return lerp(current_value, history, history_weight);
 }
 
-float DDGIProbeBlendLuminance(float3 color)
-{
-    return dot(color, float3(0.2126f, 0.7152f, 0.0722f));
-}
-
-float DDGIProbeBlendMaxComponent(float3 value)
-{
-    return max(value.x, max(value.y, value.z));
-}
-
 float4 DDGIProbeBlendIrradianceHistory(float4 history, float4 current_value)
 {
     float3 history_irradiance = DDGIClampTextureStoreValue(history.rgb);
@@ -72,26 +62,7 @@ float4 DDGIProbeBlendIrradianceHistory(float4 history, float4 current_value)
     float history_weight      = history.a > 0.0f && dot(history_irradiance, history_irradiance) > 0.0f
                                     ? saturate(_DDGIProbeHysteresis)
                                     : 0.0f;
-    float3 delta              = current_irradiance - history_irradiance;
-
-    if (DDGIProbeBlendMaxComponent(history_irradiance - current_irradiance) > max(_DDGIProbeIrradianceThreshold, 0.0f))
-    {
-        history_weight = max(0.0f, history_weight - 0.75f);
-    }
-
-    if (DDGIProbeBlendLuminance(delta) > max(_DDGIProbeBrightnessThreshold, 0.0f))
-    {
-        delta *= 0.25f;
-    }
-
-    static const float c_threshold = 1.0f / 1024.0f;
-    float3 lerp_delta              = (1.0f - history_weight) * delta;
-    if (DDGIProbeBlendMaxComponent(current_irradiance) < DDGIProbeBlendMaxComponent(history_irradiance))
-    {
-        lerp_delta = min(max(c_threshold.xxx, abs(lerp_delta)), abs(delta)) * sign(lerp_delta);
-    }
-
-    return float4(DDGIClampTextureStoreValue(history_irradiance + lerp_delta), 1.0f);
+    return float4(DDGIClampTextureStoreValue(lerp(current_irradiance, history_irradiance, history_weight)), 1.0f);
 }
 
 float4 DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)

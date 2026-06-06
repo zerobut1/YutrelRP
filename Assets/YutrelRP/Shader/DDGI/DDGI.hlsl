@@ -349,6 +349,19 @@ float3 DDGISampleProbeIrradiance(Texture2DArray atlas, SamplerState atlas_sample
     return DDGIDecodeProbeIrradiance(encoded_irradiance);
 }
 
+float3 DDGISampleProbeIrradianceBlendValue(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
+                                           float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
+{
+    float2 uv                 = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
+    float3 encoded_irradiance = atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
+    return pow(DDGIClampTextureStoreValue(encoded_irradiance), (DDGIProbeIrradianceEncodingGamma() * 0.5f).xxx);
+}
+
+float3 DDGIResolveProbeIrradianceBlendValue(float3 blend_value)
+{
+    return DDGISanitizeLinearEnergy(blend_value * blend_value * YUTREL_DDGI_TWO_PI);
+}
+
 float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
                                float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
 {
@@ -482,13 +495,13 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
     result.coverage   = DDGIVolumeCoverage(position_WS, volume_min_WS, volume_max_WS, probe_spacing_WS);
     result.visibility = 0.0f;
 
+    float3 biased_position = DDGIBiasedSurfacePosition(position_WS, normal_WS, view_direction_WS, probe_normal_bias, probe_view_bias);
     float3 max_probe_coord = max(float3(probe_count) - 1.0f, 0.0f.xxx);
-    float3 grid_coord      = (position_WS - volume_min_WS) / max(probe_spacing_WS, 0.001f.xxx);
+    float3 grid_coord      = (biased_position - volume_min_WS) / max(probe_spacing_WS, 0.001f.xxx);
     float3 clamped_coord   = clamp(grid_coord, 0.0f.xxx, max_probe_coord);
     uint3 base_coord       = uint3(floor(clamped_coord));
     uint3 next_coord       = min(base_coord + 1u, probe_count - 1u);
     float3 weight          = saturate(clamped_coord - float3(base_coord));
-    float3 biased_position = DDGIBiasedSurfacePosition(position_WS, normal_WS, view_direction_WS, probe_normal_bias, probe_view_bias);
     float weight_sum       = 0.0f;
     float contribution_sum = 0.0f;
 
@@ -509,7 +522,7 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
                 float visibility       = DDGISampleProbeDistanceVisibility(distance_atlas, distance_sampler, probe_data, relocation_enabled, probe_coord, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
                 float surface_weight   = DDGIProbeSurfaceWeight(position_WS, normal_WS, probe_position);
                 float contribution     = trilinear_weight * visibility * surface_weight;
-                float3 irradiance      = DDGISampleProbeIrradiance(irradiance_atlas, irradiance_sampler, probe_coord, normal_WS, irradiance_interior_texels, irradiance_dimensions);
+                float3 irradiance      = DDGISampleProbeIrradianceBlendValue(irradiance_atlas, irradiance_sampler, probe_coord, normal_WS, irradiance_interior_texels, irradiance_dimensions);
 
                 result.irradiance += max(irradiance, 0.0f) * contribution;
                 result.visibility += trilinear_weight * visibility;
@@ -519,7 +532,7 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
         }
     }
 
-    result.irradiance = contribution_sum > 0.0001f ? result.irradiance / contribution_sum : 0.0f.xxx;
+    result.irradiance = contribution_sum > 0.0001f ? DDGIResolveProbeIrradianceBlendValue(result.irradiance / contribution_sum) : 0.0f.xxx;
     result.visibility = weight_sum > 0.0f ? saturate(result.visibility / weight_sum) : 0.0f;
     return result;
 }

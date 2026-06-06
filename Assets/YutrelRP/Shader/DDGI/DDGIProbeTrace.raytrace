@@ -150,7 +150,7 @@ float3 DDGITraceDirectDiffuseRadiance(float3 positionWS, float3 normalWS, float3
     float no_l                  = _DDGIDirectionalLightLambertEnabled > 0.5f ? raw_no_l : 1.0f;
     float illuminance           = max(_DDGIDirectionalLightColorIlluminance.w, 0.0);
     float3 light_radiance       = max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0) * illuminance;
-    float visibility            = no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, normalWS, light_direction) : 0.0f;
+    float visibility            = no_l > 0.0f ? 1.0f : 0.0f;
     return max(baseColor, 0.0f) * 0.31830988618379067f * light_radiance * no_l * visibility * has_directional_light;
 }
 
