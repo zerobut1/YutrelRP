@@ -447,7 +447,7 @@ namespace YutrelRP
 
         private static bool SupportsProbeIrradianceFormat()
         {
-            return SupportsProbeIrradianceSampleFormat() && SupportsProbeIrradianceRenderTargetFormat();
+            return SupportsProbeIrradianceRenderTargetFormat();
         }
 
         private static bool SupportsProbeIrradianceSampleFormat()
@@ -458,7 +458,9 @@ namespace YutrelRP
         private static bool SupportsProbeIrradianceRenderTargetFormat()
         {
             // Unity's URP checks Blend for UNorm render textures because direct Render support can
-            // reject A2B10G10R10 on D3D12 even when it is usable as a render target.
+            // reject A2B10G10R10 on D3D12 even when it is usable as a render target. The Sample
+            // usage query is also unreliable for this packed render texture, so do not use it as
+            // a startup blocker; shader SRV binding is validated by actual RenderGraph usage.
             return SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Blend);
         }
 
@@ -1081,7 +1083,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
                     return "DDGI ProbeRayData requires GraphicsFormat.R32G32_SFloat with sample and load/store support for RTXGI F32x2 parity";
                 case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
-                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with sample and render-target/blend support for RTXGI U32 parity (sample={SupportsProbeIrradianceSampleFormat()}, blend={SupportsProbeIrradianceRenderTargetFormat()}, render={SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Render)})";
+                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with render-target/blend support for RTXGI U32 parity (blend={SupportsProbeIrradianceRenderTargetFormat()}, render={SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Render)}, sampleQuery={SupportsProbeIrradianceSampleFormat()})";
                 case ProbeTraceIssue.MissingVolume:
                     return "no active YutrelDDGIVolume was found";
                 case ProbeTraceIssue.InvalidVolume:
