@@ -32,6 +32,7 @@ namespace YutrelRP
         private static readonly int probeSpacingWSID = DDGIResources.probe_spacing_ws_ID;
         private static readonly int probeHysteresisID = Shader.PropertyToID("_DDGIProbeHysteresis");
         private static readonly int probeIrradianceEncodingGammaID = DDGIResources.probe_irradiance_encoding_gamma_ID;
+        private static readonly int probeIrradianceFormatID = DDGIResources.probe_irradiance_format_ID;
         private static readonly int probeIrradianceThresholdID = Shader.PropertyToID("_DDGIProbeIrradianceThreshold");
         private static readonly int probeBrightnessThresholdID = Shader.PropertyToID("_DDGIProbeBrightnessThreshold");
         private static readonly int probeDistanceExponentID = Shader.PropertyToID("_DDGIProbeDistanceExponent");
@@ -163,6 +164,7 @@ namespace YutrelRP
             cmd.SetComputeVectorParam(computeShader, probeSpacingWSID, probeSpacingWS);
             cmd.SetComputeFloatParam(computeShader, probeHysteresisID, probeHysteresis);
             cmd.SetComputeFloatParam(computeShader, probeIrradianceEncodingGammaID, probeIrradianceEncodingGamma);
+            cmd.SetComputeIntParam(computeShader, probeIrradianceFormatID, DDGIResources.ProbeIrradianceFormatU32);
             cmd.SetComputeFloatParam(computeShader, probeIrradianceThresholdID, probeIrradianceThreshold);
             cmd.SetComputeFloatParam(computeShader, probeBrightnessThresholdID, probeBrightnessThreshold);
             cmd.SetComputeFloatParam(computeShader, probeDistanceExponentID, probeDistanceExponent);

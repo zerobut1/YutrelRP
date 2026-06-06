@@ -16,6 +16,7 @@ namespace YutrelRP
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
         private const int FixedRayCount = 32;
         private const GraphicsFormat ProbeRayDataFormat = GraphicsFormat.R32G32_SFloat;
+        private const GraphicsFormat ProbeIrradianceFormat = DDGIResources.ProbeIrradianceGraphicsFormat;
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
@@ -38,6 +39,7 @@ namespace YutrelRP
         private static readonly int probeNormalBiasID = DDGIResources.probe_normal_bias_ID;
         private static readonly int probeViewBiasID = DDGIResources.probe_view_bias_ID;
         private static readonly int probeIrradianceEncodingGammaID = DDGIResources.probe_irradiance_encoding_gamma_ID;
+        private static readonly int probeIrradianceFormatID = DDGIResources.probe_irradiance_format_ID;
         private static readonly int probeCountID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int raysPerProbeID = Shader.PropertyToID("_DDGIProbeRaysPerProbe");
         private static readonly int probeMaxRayDistanceID = Shader.PropertyToID("_DDGIProbeMaxRayDistance");
@@ -328,6 +330,7 @@ namespace YutrelRP
             cmd.SetRayTracingFloatParam(rayTracingShader, probeNormalBiasID, probeNormalBias);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeViewBiasID, probeViewBias);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeIrradianceEncodingGammaID, probeIrradianceEncodingGamma);
+            cmd.SetRayTracingIntParam(rayTracingShader, probeIrradianceFormatID, DDGIResources.ProbeIrradianceFormatU32);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);
@@ -427,6 +430,12 @@ namespace YutrelRP
                     GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore))
             {
                 return ProbeTraceIssue.UnsupportedProbeRayDataFormat;
+            }
+
+            if (!SystemInfo.IsFormatSupported(ProbeIrradianceFormat,
+                    GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore | GraphicsFormatUsage.Render))
+            {
+                return ProbeTraceIssue.UnsupportedProbeIrradianceFormat;
             }
 
             return ProbeTraceIssue.None;
@@ -584,7 +593,9 @@ namespace YutrelRP
         {
             var identity = new DDGIResources.Identity(volume);
             if (!hasPersistentIdentity || !persistentIdentity.Equals(identity) ||
-                probeIrradianceRT == null || probeDistanceRT == null || probeDataRT == null)
+                probeIrradianceRT == null || probeIrradianceRT.rt == null ||
+                probeIrradianceRT.rt.graphicsFormat != ProbeIrradianceFormat ||
+                probeDistanceRT == null || probeDataRT == null)
             {
                 ReleasePersistentAtlases();
                 try
@@ -593,7 +604,7 @@ namespace YutrelRP
                         volume.ProbeCount.x * (volume.ProbeIrradianceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeIrradianceInteriorTexels + 2),
                         volume.ProbeCount.y,
-                        GraphicsFormat.R16G16B16A16_SFloat,
+                        ProbeIrradianceFormat,
                         "DDGI ProbeIrradiance",
                         FilterMode.Bilinear);
                     probeDistanceRT = AllocAtlasRT(
@@ -611,7 +622,7 @@ namespace YutrelRP
                         "DDGI ProbeData",
                         FilterMode.Point);
 
-                    ClearPersistentAtlas(probeIrradianceRT, Color.black);
+                    ClearPersistentAtlas(probeIrradianceRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
                     ClearPersistentAtlas(probeDistanceRT, Color.black);
                     ClearPersistentAtlas(probeDataRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
                     persistentIdentity = identity;
@@ -944,6 +955,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.UnsupportedRayTracing:
                     return "platform/API";
                 case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
+                case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
                     return "resource/format";
                 case ProbeTraceIssue.MissingVolume:
                 case ProbeTraceIssue.InvalidVolume:
@@ -1011,6 +1023,8 @@ namespace YutrelRP
                     return "SystemInfo.supportsRayTracing is false";
                 case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
                     return "DDGI ProbeRayData requires GraphicsFormat.R32G32_SFloat with sample and load/store support for RTXGI F32x2 parity";
+                case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
+                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with sample, load/store, and render support for RTXGI U32 parity";
                 case ProbeTraceIssue.MissingVolume:
                     return "no active YutrelDDGIVolume was found";
                 case ProbeTraceIssue.InvalidVolume:
@@ -1097,7 +1111,8 @@ namespace YutrelRP
             ResourceTooLarge = 8,
             FrameDebuggerActive = 9,
             ResourceAllocationFailed = 10,
-            UnsupportedProbeRayDataFormat = 11
+            UnsupportedProbeRayDataFormat = 11,
+            UnsupportedProbeIrradianceFormat = 12
         }
     }
 }

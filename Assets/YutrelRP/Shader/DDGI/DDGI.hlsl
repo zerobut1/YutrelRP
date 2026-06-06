@@ -5,6 +5,7 @@ static const float YUTREL_DDGI_GOLDEN_ANGLE                  = 2.399963229728653
 static const float YUTREL_DDGI_TWO_PI                        = 6.28318530717958648f;
 static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA = 0.01f;
 static const float YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX       = 65504.0f;
+static const float YUTREL_DDGI_U32_IRRADIANCE_COMPENSATION   = 1.0989f;
 static const float YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX       = 1.0e30f;
 static const float YUTREL_DDGI_PROBE_RAY_MISS_DISTANCE       = 1.0e27f;
 static const float YUTREL_DDGI_PROBE_RAY_MISS_THRESHOLD      = 0.5e27f;
@@ -15,9 +16,11 @@ static const float YUTREL_DDGI_GATHER_MIN_VISIBILITY         = 0.05f;
 static const float YUTREL_DDGI_GATHER_CRUSH_THRESHOLD        = 0.2f;
 static const float YUTREL_DDGI_GATHER_MIN_WEIGHT             = 0.000001f;
 static const float YUTREL_DDGI_GATHER_MIN_TRILINEAR_WEIGHT   = 0.001f;
+static const int YUTREL_DDGI_IRRADIANCE_FORMAT_U32           = 0;
 static const uint YUTREL_DDGI_FIXED_RAY_COUNT                = 32u;
 
 float _DDGIProbeIrradianceEncodingGamma;
+int _DDGIProbeIrradianceFormat;
 float4 _DDGIProbeRayRotationRow0;
 float4 _DDGIProbeRayRotationRow1;
 float4 _DDGIProbeRayRotationRow2;
@@ -182,6 +185,27 @@ float3 DDGIClampTextureStoreValue(float3 value)
     return min(DDGISanitizeLinearEnergy(value), YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX.xxx);
 }
 
+bool DDGIProbeIrradianceFormatIsU32()
+{
+    return _DDGIProbeIrradianceFormat == YUTREL_DDGI_IRRADIANCE_FORMAT_U32;
+}
+
+float3 DDGIClampProbeIrradianceSampleValue(float3 encoded_irradiance)
+{
+    float3 value = DDGISanitizeLinearEnergy(encoded_irradiance);
+    return DDGIProbeIrradianceFormatIsU32() ? saturate(value) : DDGIClampTextureStoreValue(value);
+}
+
+float4 DDGIProbeIrradianceStoreValue(float3 encoded_irradiance)
+{
+    return float4(DDGIClampTextureStoreValue(encoded_irradiance), 1.0f);
+}
+
+float3 DDGIApplyProbeIrradianceFormatCompensation(float3 irradiance)
+{
+    return DDGIProbeIrradianceFormatIsU32() ? irradiance * YUTREL_DDGI_U32_IRRADIANCE_COMPENSATION : irradiance;
+}
+
 float3 DDGIEncodeProbeIrradiance(float3 linear_irradiance)
 {
     float inverse_gamma = rcp(DDGIProbeIrradianceEncodingGamma());
@@ -192,9 +216,9 @@ float3 DDGIEncodeProbeIrradiance(float3 linear_irradiance)
 float3 DDGIDecodeProbeIrradiance(float3 encoded_irradiance)
 {
     float gamma        = DDGIProbeIrradianceEncodingGamma();
-    float3 irradiance  = DDGIClampTextureStoreValue(encoded_irradiance);
+    float3 irradiance  = DDGIClampProbeIrradianceSampleValue(encoded_irradiance);
     float3 sqrt_energy = pow(irradiance, (gamma * 0.5f).xxx);
-    return DDGISanitizeLinearEnergy(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI);
+    return DDGIApplyProbeIrradianceFormatCompensation(DDGISanitizeLinearEnergy(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI));
 }
 
 struct DDGIProbeRayData
@@ -473,12 +497,12 @@ float3 DDGISampleProbeIrradianceBlendValue(Texture2DArray atlas, SamplerState at
 {
     float2 uv                 = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
     float3 encoded_irradiance = atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
-    return pow(DDGIClampTextureStoreValue(encoded_irradiance), (DDGIProbeIrradianceEncodingGamma() * 0.5f).xxx);
+    return pow(DDGIClampProbeIrradianceSampleValue(encoded_irradiance), (DDGIProbeIrradianceEncodingGamma() * 0.5f).xxx);
 }
 
 float3 DDGIResolveProbeIrradianceBlendValue(float3 blend_value)
 {
-    return DDGISanitizeLinearEnergy(blend_value * blend_value * YUTREL_DDGI_TWO_PI);
+    return DDGIApplyProbeIrradianceFormatCompensation(DDGISanitizeLinearEnergy(blend_value * blend_value * YUTREL_DDGI_TWO_PI));
 }
 
 float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,

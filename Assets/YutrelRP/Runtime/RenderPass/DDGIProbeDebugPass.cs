@@ -22,6 +22,7 @@ namespace YutrelRP
         private static readonly int probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int probe_irradiance_encoding_gamma_ID =
             DDGIResources.probe_irradiance_encoding_gamma_ID;
+        private static readonly int probe_irradiance_format_ID = DDGIResources.probe_irradiance_format_ID;
         private static readonly int probe_distance_ID = DDGIResources.probe_distance_ID;
         private static readonly int probe_distance_dimensions_ID = DDGIResources.probe_distance_dimensions_ID;
         private static readonly int probe_data_ID = DDGIResources.probe_data_ID;
@@ -219,6 +220,7 @@ namespace YutrelRP
             property_block.SetVector(probe_ray_data_dimensions_ID, probe_ray_data_dimensions);
             property_block.SetVector(probe_irradiance_dimensions_ID, probe_irradiance_dimensions);
             property_block.SetFloat(probe_irradiance_encoding_gamma_ID, probe_irradiance_encoding_gamma);
+            property_block.SetInteger(probe_irradiance_format_ID, DDGIResources.ProbeIrradianceFormatU32);
             property_block.SetVector(probe_distance_dimensions_ID, probe_distance_dimensions);
             property_block.SetVector(probe_data_dimensions_ID, probe_data_dimensions);
             property_block.SetVector(volume_min_ws_ID, volume_min_ws);

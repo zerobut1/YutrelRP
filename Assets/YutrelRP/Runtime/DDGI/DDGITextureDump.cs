@@ -28,6 +28,7 @@ namespace YutrelRP
         private const uint DdsAlphaModeUnknown = 0u;
         private const uint DxgiFormatR16G16B16A16Float = 10u;
         private const uint DxgiFormatR32G32Float = 16u;
+        private const uint DxgiFormatR10G10B10A2UNorm = 24u;
 
         private static readonly ProfilingSampler sampler = new("DDGI Texture Dump Capture");
         private static readonly int sourceID = Shader.PropertyToID("_DDGITextureDumpSource");
@@ -122,7 +123,7 @@ namespace YutrelRP
                 CaptureKind.RgbaHalfArray);
             recordedAny |= TryRecordPersistentCapture(resources.probe_irradiance_texture, "DDGIProbeIrradiance",
                 "probe-irradiance.dds", resources.ProbeIrradianceDimensions,
-                "octahedral irradiance atlas with 1 texel border per probe tile; slice=probeY");
+                "raw RTXGI U32 ProbeIrradiance: R10G10B10A2 UNorm gamma-encoded irradiance, 1 texel border per probe tile, slice=probeY, decode separately with DDGI gamma/2 then square, 2PI, and U32 1.0989 compensation");
             recordedAny |= TryRecordPersistentCapture(resources.probe_distance_texture, "DDGIProbeDistance",
                 "probe-distance.dds", resources.ProbeDistanceDimensions,
                 "octahedral distance atlas with 1 texel border per probe tile; slice=probeY");
@@ -304,7 +305,7 @@ namespace YutrelRP
                 return false;
             }
 
-            if (texture.graphicsFormat != GraphicsFormat.R16G16B16A16_SFloat)
+            if (!IsReadableFormat(texture.graphicsFormat))
             {
                 activeDump.Metadata.missingResources.Add(Missing(name,
                     $"Unsupported DDS dump source format: {texture.graphicsFormat}."));
@@ -343,11 +344,8 @@ namespace YutrelRP
 
                 try
                 {
-                    var readbackFormat = texture.Format == GraphicsFormat.R32G32_SFloat
-                        ? GraphicsFormat.R32G32_SFloat
-                        : GraphicsFormat.R16G16B16A16_SFloat;
                     texture.Readback = AsyncGPUReadback.Request(texture.Texture, 0, 0, texture.Width, 0,
-                        texture.Height, 0, texture.Slices, readbackFormat);
+                        texture.Height, 0, texture.Slices);
                     texture.Status = TextureDumpStatus.PendingReadback;
                 }
                 catch (Exception exception)
@@ -485,8 +483,14 @@ namespace YutrelRP
 
         private static bool IsReadableFormat(TextureDump texture)
         {
-            return texture.Format == GraphicsFormat.R16G16B16A16_SFloat ||
-                   texture.Format == GraphicsFormat.R32G32_SFloat;
+            return IsReadableFormat(texture.Format);
+        }
+
+        private static bool IsReadableFormat(GraphicsFormat format)
+        {
+            return format == GraphicsFormat.R16G16B16A16_SFloat ||
+                   format == GraphicsFormat.R32G32_SFloat ||
+                   format == DDGIResources.ProbeIrradianceGraphicsFormat;
         }
 
         private static GraphicsFormat DestinationFormat(CaptureKind captureKind)
@@ -583,6 +587,10 @@ namespace YutrelRP
                     probeNormalBias = resources.probe_normal_bias,
                     probeViewBias = resources.probe_view_bias,
                     probeIrradianceInteriorTexels = resources.probe_irradiance_interior_texels,
+                    probeIrradianceFormat = resources.probe_irradiance_format,
+                    probeIrradianceRtxgiFormat = DDGIResources.ProbeIrradianceRtxgiFormatName,
+                    probeIrradianceStorageFormat = DDGIResources.ProbeIrradianceStorageFormatName,
+                    probeIrradianceGraphicsFormat = DDGIResources.ProbeIrradianceGraphicsFormat.ToString(),
                     probeDistanceInteriorTexels = resources.probe_distance_interior_texels,
                     probeIrradianceEncodingGamma = resources.probe_irradiance_encoding_gamma,
                     probeDistanceExponent = resources.probe_distance_exponent,
@@ -708,6 +716,8 @@ namespace YutrelRP
         {
             switch (format)
             {
+                case GraphicsFormat.A2B10G10R10_UNormPack32:
+                    return 4;
                 case GraphicsFormat.R16G16B16A16_SFloat:
                 case GraphicsFormat.R32G32_SFloat:
                     return 8;
@@ -720,6 +730,8 @@ namespace YutrelRP
         {
             switch (format)
             {
+                case GraphicsFormat.A2B10G10R10_UNormPack32:
+                    return DxgiFormatR10G10B10A2UNorm;
                 case GraphicsFormat.R16G16B16A16_SFloat:
                     return DxgiFormatR16G16B16A16Float;
                 case GraphicsFormat.R32G32_SFloat:
@@ -733,6 +745,8 @@ namespace YutrelRP
         {
             switch (format)
             {
+                case GraphicsFormat.A2B10G10R10_UNormPack32:
+                    return "DXGI_FORMAT_R10G10B10A2_UNORM";
                 case GraphicsFormat.R16G16B16A16_SFloat:
                     return "DXGI_FORMAT_R16G16B16A16_FLOAT";
                 case GraphicsFormat.R32G32_SFloat:
@@ -893,6 +907,10 @@ namespace YutrelRP
             public float probeNormalBias;
             public float probeViewBias;
             public int probeIrradianceInteriorTexels;
+            public int probeIrradianceFormat;
+            public string probeIrradianceRtxgiFormat;
+            public string probeIrradianceStorageFormat;
+            public string probeIrradianceGraphicsFormat;
             public int probeDistanceInteriorTexels;
             public float probeIrradianceEncodingGamma;
             public float probeDistanceExponent;

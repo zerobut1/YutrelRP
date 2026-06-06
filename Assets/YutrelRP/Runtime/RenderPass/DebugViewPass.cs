@@ -38,6 +38,7 @@ namespace YutrelRP
         private static readonly int ddgi_probe_view_bias_ID = DDGIResources.probe_view_bias_ID;
         private static readonly int ddgi_probe_irradiance_encoding_gamma_ID =
             DDGIResources.probe_irradiance_encoding_gamma_ID;
+        private static readonly int ddgi_probe_irradiance_format_ID = DDGIResources.probe_irradiance_format_ID;
         private static readonly int ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
         private static readonly int ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
         private static readonly int directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
@@ -515,6 +516,7 @@ namespace YutrelRP
             property_block.SetFloat(ddgi_probe_normal_bias_ID, ddgi_probe_normal_bias);
             property_block.SetFloat(ddgi_probe_view_bias_ID, ddgi_probe_view_bias);
             property_block.SetFloat(ddgi_probe_irradiance_encoding_gamma_ID, ddgi_probe_irradiance_encoding_gamma);
+            property_block.SetInteger(ddgi_probe_irradiance_format_ID, DDGIResources.ProbeIrradianceFormatU32);
             property_block.SetFloat(ddgi_gather_valid_ID, reads_DDGI_gather ? 1.0f : 0.0f);
             property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
             property_block.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);

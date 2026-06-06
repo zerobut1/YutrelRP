@@ -7,6 +7,11 @@ namespace YutrelRP
 {
     public class DDGIResources : ContextItem
     {
+        public const int ProbeIrradianceFormatU32 = 0;
+        public const string ProbeIrradianceRtxgiFormatName = "RTXGI_DDGI_VOLUME_TEXTURE_FORMAT_U32";
+        public const string ProbeIrradianceStorageFormatName = "DXGI_FORMAT_R10G10B10A2_UNORM";
+        public const GraphicsFormat ProbeIrradianceGraphicsFormat = GraphicsFormat.A2B10G10R10_UNormPack32;
+
         public static readonly int
             probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData"),
             trace_albedo_ID = Shader.PropertyToID("_DDGITraceAlbedo"),
@@ -22,6 +27,7 @@ namespace YutrelRP
             probe_ray_data_max_distance_ID = Shader.PropertyToID("_DDGIProbeRayDataMaxDistance"),
             probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance"),
             probe_irradiance_dimensions_ID = Shader.PropertyToID("_DDGIProbeIrradianceDimensions"),
+            probe_irradiance_format_ID = Shader.PropertyToID("_DDGIProbeIrradianceFormat"),
             probe_irradiance_debug_slice_ID = Shader.PropertyToID("_DDGIProbeIrradianceDebugSlice"),
             probe_distance_ID = Shader.PropertyToID("_DDGIProbeDistance"),
             probe_distance_dimensions_ID = Shader.PropertyToID("_DDGIProbeDistanceDimensions"),
@@ -63,6 +69,7 @@ namespace YutrelRP
         public float probe_normal_bias;
         public float probe_view_bias;
         public float probe_irradiance_encoding_gamma;
+        public int probe_irradiance_format;
         public float probe_distance_exponent;
         public Vector4 probe_ray_rotation_row0;
         public Vector4 probe_ray_rotation_row1;
@@ -78,7 +85,9 @@ namespace YutrelRP
         // DDGI atlas 布局约定：
         // ProbeRayData: R32G32_SFloat, width=raysPerProbe, height=probeCountX*probeCountZ, slice=probeY,
         // planeIndex=probeX+probeZ*probeCountX, R=asfloat(RTXGI R10G10B10 packed radiance), G=signed distance。
-        // ProbeIrradiance/ProbeDistance: 每个 probe 为带 1 texel border 的 octahedral tile，
+        // ProbeIrradiance: RTXGI U32/R10G10B10A2 UNorm，每个 probe 为带 1 texel border 的 octahedral tile，
+        // RGB=gamma-encoded irradiance，A=1（2-bit alpha 为 3，当前不参与 irradiance）。
+        // ProbeDistance: 每个 probe 为带 1 texel border 的 octahedral tile，
         // width=probeCountX*(interiorTexels+2), height=probeCountZ*(interiorTexels+2), slice=probeY。
         // ProbeData: width=probeCountX, height=probeCountZ, slice=probeY；rgba=offset.xyz/state，初始 offset=0,state=1(active)。
         public override void Reset()
@@ -103,6 +112,7 @@ namespace YutrelRP
             probe_normal_bias = 0.0f;
             probe_view_bias = 0.0f;
             probe_irradiance_encoding_gamma = 0.0f;
+            probe_irradiance_format = ProbeIrradianceFormatU32;
             probe_distance_exponent = 0.0f;
             probe_ray_rotation_row0 = new Vector4(1.0f, 0.0f, 0.0f, 0.0f);
             probe_ray_rotation_row1 = new Vector4(0.0f, 1.0f, 0.0f, 0.0f);
@@ -130,6 +140,7 @@ namespace YutrelRP
             probe_normal_bias = volume.ProbeNormalBias;
             probe_view_bias = volume.ProbeViewBias;
             probe_irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
+            probe_irradiance_format = ProbeIrradianceFormatU32;
             probe_distance_exponent = volume.DistanceExponent;
         }
 
@@ -172,7 +183,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 13;
+            private const int AtlasSemanticVersion = 14;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;

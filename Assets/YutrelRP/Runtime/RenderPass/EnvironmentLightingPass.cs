@@ -58,6 +58,7 @@ namespace YutrelRP
             pass.ddgi_probe_normal_bias_ID = DDGIResources.probe_normal_bias_ID;
             pass.ddgi_probe_view_bias_ID = DDGIResources.probe_view_bias_ID;
             pass.ddgi_probe_irradiance_encoding_gamma_ID = DDGIResources.probe_irradiance_encoding_gamma_ID;
+            pass.ddgi_probe_irradiance_format_ID = DDGIResources.probe_irradiance_format_ID;
             pass.ddgi_probe_relocation_enabled_ID = DDGIResources.probe_relocation_enabled_ID;
             pass.ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
             pass.ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
@@ -170,6 +171,7 @@ namespace YutrelRP
             ddgi_probe_normal_bias_ID,
             ddgi_probe_view_bias_ID,
             ddgi_probe_irradiance_encoding_gamma_ID,
+            ddgi_probe_irradiance_format_ID,
             ddgi_probe_relocation_enabled_ID,
             ddgi_gather_valid_ID,
             ddgi_diffuse_intensity_ID;
@@ -243,6 +245,7 @@ namespace YutrelRP
             property_block.SetFloat(ddgi_probe_normal_bias_ID, ddgi_probe_normal_bias);
             property_block.SetFloat(ddgi_probe_view_bias_ID, ddgi_probe_view_bias);
             property_block.SetFloat(ddgi_probe_irradiance_encoding_gamma_ID, ddgi_probe_irradiance_encoding_gamma);
+            property_block.SetInteger(ddgi_probe_irradiance_format_ID, DDGIResources.ProbeIrradianceFormatU32);
             property_block.SetFloat(ddgi_probe_relocation_enabled_ID, ddgi_probe_relocation_enabled);
             property_block.SetFloat(ddgi_gather_valid_ID, has_DDGI_gather ? 1.0f : 0.0f);
             property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
