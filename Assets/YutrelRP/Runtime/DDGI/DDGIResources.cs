@@ -12,6 +12,12 @@ namespace YutrelRP
             trace_albedo_ID = Shader.PropertyToID("_DDGITraceAlbedo"),
             screen_trace_debug_ID = Shader.PropertyToID("_DDGIScreenTraceDebug"),
             probe_ray_data_dimensions_ID = Shader.PropertyToID("_DDGIProbeRayDataDimensions"),
+            probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0"),
+            probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1"),
+            probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2"),
+            probe_random_rotation_enabled_ID = Shader.PropertyToID("_DDGIProbeRandomRotationEnabled"),
+            probe_fixed_rays_enabled_ID = Shader.PropertyToID("_DDGIProbeFixedRaysEnabled"),
+            probe_skip_fixed_rays_for_blend_ID = Shader.PropertyToID("_DDGIProbeSkipFixedRaysForBlend"),
             probe_ray_data_debug_slice_ID = Shader.PropertyToID("_DDGIProbeRayDataDebugSlice"),
             probe_ray_data_max_distance_ID = Shader.PropertyToID("_DDGIProbeRayDataMaxDistance"),
             probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance"),
@@ -58,6 +64,12 @@ namespace YutrelRP
         public float probe_view_bias;
         public float probe_irradiance_encoding_gamma;
         public float probe_distance_exponent;
+        public Vector4 probe_ray_rotation_row0;
+        public Vector4 probe_ray_rotation_row1;
+        public Vector4 probe_ray_rotation_row2;
+        public float probe_random_rotation_enabled;
+        public bool probe_fixed_rays_enabled;
+        public bool probe_skip_fixed_rays_for_blend;
         public bool has_gather_data;
         public bool has_persistent_atlas;
         public bool probe_relocation_enabled;
@@ -91,6 +103,12 @@ namespace YutrelRP
             probe_view_bias = 0.0f;
             probe_irradiance_encoding_gamma = 0.0f;
             probe_distance_exponent = 0.0f;
+            probe_ray_rotation_row0 = new Vector4(1.0f, 0.0f, 0.0f, 0.0f);
+            probe_ray_rotation_row1 = new Vector4(0.0f, 1.0f, 0.0f, 0.0f);
+            probe_ray_rotation_row2 = new Vector4(0.0f, 0.0f, 1.0f, 0.0f);
+            probe_random_rotation_enabled = 0.0f;
+            probe_fixed_rays_enabled = false;
+            probe_skip_fixed_rays_for_blend = false;
             has_gather_data = false;
             has_persistent_atlas = false;
             probe_relocation_enabled = false;
@@ -112,6 +130,17 @@ namespace YutrelRP
             probe_view_bias = volume.ProbeViewBias;
             probe_irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
             probe_distance_exponent = volume.DistanceExponent;
+        }
+
+        internal void SetProbeRayRotation(Vector4 row0, Vector4 row1, Vector4 row2, bool randomRotationEnabled,
+            bool fixedRaysEnabled, bool skipFixedRaysForBlend)
+        {
+            probe_ray_rotation_row0 = row0;
+            probe_ray_rotation_row1 = row1;
+            probe_ray_rotation_row2 = row2;
+            probe_random_rotation_enabled = randomRotationEnabled ? 1.0f : 0.0f;
+            probe_fixed_rays_enabled = fixedRaysEnabled;
+            probe_skip_fixed_rays_for_blend = skipFixedRaysForBlend;
         }
 
         internal Vector4 ProbeRayDataDimensions => new(
@@ -142,7 +171,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 11;
+            private const int AtlasSemanticVersion = 12;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;

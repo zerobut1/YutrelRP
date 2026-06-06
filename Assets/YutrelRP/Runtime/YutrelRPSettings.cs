@@ -24,6 +24,7 @@ namespace YutrelRP
             public ComputeShader probeBlendShader;
             public ComputeShader textureDumpCopyShader;
             public bool probeRelocationEnabled = true;
+            public bool probeRandomRotationEnabled = true;
             [Range(0.0f, 1.0f)] public float probeFixedRayBackfaceThreshold = 0.25f;
             [Range(0.0f, 1.0f)] public float probeRandomRayBackfaceThreshold = 0.1f;
             [Min(0.0f)] public float probeMinFrontfaceDistance = 1.0f;

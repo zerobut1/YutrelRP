@@ -7,8 +7,13 @@ static const float YUTREL_DDGI_TWO_PI                         = 6.28318530717958
 static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA  = 0.01f;
 static const float YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX        = 65504.0f;
 static const float YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX        = 1.0e30f;
+static const uint YUTREL_DDGI_FIXED_RAY_COUNT                 = 32u;
 
 float _DDGIProbeIrradianceEncodingGamma;
+float4 _DDGIProbeRayRotationRow0;
+float4 _DDGIProbeRayRotationRow1;
+float4 _DDGIProbeRayRotationRow2;
+float _DDGIProbeRandomRotationEnabled;
 
 struct DDGIAtlasTexel
 {
@@ -260,6 +265,58 @@ float3 DDGIBuildProbeRayDirection(uint ray_index, uint ray_count)
     float radius           = sqrt(saturate(1.0f - y * y));
     float phi              = float(ray_index) * YUTREL_DDGI_GOLDEN_ANGLE;
     return DDGISafeNormalize(float3(cos(phi) * radius, y, sin(phi) * radius), float3(0.0f, 1.0f, 0.0f));
+}
+
+uint DDGIFixedRayCount()
+{
+    return YUTREL_DDGI_FIXED_RAY_COUNT;
+}
+
+bool DDGIUsesFixedProbeRays(bool fixed_rays_enabled, uint ray_count)
+{
+    return fixed_rays_enabled && ray_count > 0u;
+}
+
+uint DDGIProbeBlendRayStart(bool skip_fixed_rays, uint ray_count)
+{
+    return skip_fixed_rays && ray_count > DDGIFixedRayCount() ? DDGIFixedRayCount() : 0u;
+}
+
+uint DDGIProbeBlendRayCount(bool skip_fixed_rays, uint ray_count)
+{
+    uint ray_start = DDGIProbeBlendRayStart(skip_fixed_rays, ray_count);
+    return ray_count > ray_start ? ray_count - ray_start : ray_count;
+}
+
+float3 DDGIRotateProbeRayDirection(float3 direction)
+{
+    float3 rotated = float3(dot(_DDGIProbeRayRotationRow0.xyz, direction),
+                            dot(_DDGIProbeRayRotationRow1.xyz, direction),
+                            dot(_DDGIProbeRayRotationRow2.xyz, direction));
+    return DDGISafeNormalize(rotated, direction);
+}
+
+float3 DDGIProbeRayDirection(uint ray_index, uint ray_count, bool fixed_rays_enabled)
+{
+    bool uses_fixed_rays = DDGIUsesFixedProbeRays(fixed_rays_enabled, ray_count);
+    uint fixed_ray_count = min(DDGIFixedRayCount(), max(ray_count, 1u));
+    bool is_fixed_ray    = uses_fixed_rays && ray_index < fixed_ray_count;
+    uint sample_index    = ray_index;
+    uint sample_count    = max(ray_count, 1u);
+
+    if (uses_fixed_rays)
+    {
+        sample_index = is_fixed_ray ? ray_index : ray_index - fixed_ray_count;
+        sample_count = is_fixed_ray ? fixed_ray_count : max(ray_count - fixed_ray_count, 1u);
+    }
+
+    float3 direction = DDGIBuildProbeRayDirection(sample_index, sample_count);
+    if (is_fixed_ray || _DDGIProbeRandomRotationEnabled <= 0.5f)
+    {
+        return direction;
+    }
+
+    return DDGIRotateProbeRayDirection(direction);
 }
 
 float DDGIVolumeCoverage(float3 position_WS, float3 volume_min_WS, float3 volume_max_WS, float3 probe_spacing_WS)

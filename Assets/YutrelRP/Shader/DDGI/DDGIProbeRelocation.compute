@@ -119,13 +119,13 @@ void RelocateProbes(uint3 dispatch_id : SV_DispatchThreadID)
 
     if (closest_backface_index >= 0 && backface_ratio > saturate(_DDGIProbeFixedRayBackfaceThreshold))
     {
-        float3 direction = DDGIBuildProbeRayDirection((uint)closest_backface_index, (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f));
+        float3 direction = DDGIProbeRayDirection((uint)closest_backface_index, (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f), true);
         full_offset = offset + direction * (closest_backface_distance + min_frontface_distance * 0.5f);
     }
     else if (closest_frontface_index >= 0 && farthest_frontface_index >= 0 && closest_frontface_distance < min_frontface_distance)
     {
-        float3 closest_direction = DDGIBuildProbeRayDirection((uint)closest_frontface_index, (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f));
-        float3 farthest_direction = DDGIBuildProbeRayDirection((uint)farthest_frontface_index, (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f));
+        float3 closest_direction = DDGIProbeRayDirection((uint)closest_frontface_index, (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f), true);
+        float3 farthest_direction = DDGIProbeRayDirection((uint)farthest_frontface_index, (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f), true);
         if (dot(closest_direction, farthest_direction) <= 0.0f)
         {
             full_offset = offset + farthest_direction * min(farthest_frontface_distance, max(min_frontface_distance, 0.001f));

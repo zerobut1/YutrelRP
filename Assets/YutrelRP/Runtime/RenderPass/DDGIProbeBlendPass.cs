@@ -15,6 +15,13 @@ namespace YutrelRP
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
         private static readonly int probeIrradianceID = DDGIResources.probe_irradiance_ID;
         private static readonly int probeDistanceID = DDGIResources.probe_distance_ID;
+        private static readonly int probeRayRotationRow0ID = DDGIResources.probe_ray_rotation_row0_ID;
+        private static readonly int probeRayRotationRow1ID = DDGIResources.probe_ray_rotation_row1_ID;
+        private static readonly int probeRayRotationRow2ID = DDGIResources.probe_ray_rotation_row2_ID;
+        private static readonly int probeRandomRotationEnabledID = DDGIResources.probe_random_rotation_enabled_ID;
+        private static readonly int probeFixedRaysEnabledID = DDGIResources.probe_fixed_rays_enabled_ID;
+        private static readonly int probeSkipFixedRaysForBlendID =
+            DDGIResources.probe_skip_fixed_rays_for_blend_ID;
         private static readonly int probeCountID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int probeRayDataDimensionsID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int probeIrradianceDimensionsID = DDGIResources.probe_irradiance_dimensions_ID;
@@ -25,8 +32,8 @@ namespace YutrelRP
         private static readonly int probeIrradianceThresholdID = Shader.PropertyToID("_DDGIProbeIrradianceThreshold");
         private static readonly int probeBrightnessThresholdID = Shader.PropertyToID("_DDGIProbeBrightnessThreshold");
         private static readonly int probeDistanceExponentID = Shader.PropertyToID("_DDGIProbeDistanceExponent");
-        private static readonly int probeFixedRayBackfaceThresholdID =
-            DDGIResources.probe_fixed_ray_backface_threshold_ID;
+        private static readonly int probeRandomRayBackfaceThresholdID =
+            DDGIResources.probe_random_ray_backface_threshold_ID;
 
         private static ComputeShader shader;
         private static int irradianceKernel = -1;
@@ -67,7 +74,13 @@ namespace YutrelRP
             pass.probeIrradianceThreshold = Mathf.Max(0.0f, volume.IrradianceThreshold);
             pass.probeBrightnessThreshold = Mathf.Max(0.0f, volume.BrightnessThreshold);
             pass.probeDistanceExponent = Mathf.Max(0.01f, resources.probe_distance_exponent);
-            pass.probeFixedRayBackfaceThreshold = Mathf.Clamp01(settings.probeFixedRayBackfaceThreshold);
+            pass.probeRandomRayBackfaceThreshold = Mathf.Clamp01(settings.probeRandomRayBackfaceThreshold);
+            pass.probeRayRotationRow0 = resources.probe_ray_rotation_row0;
+            pass.probeRayRotationRow1 = resources.probe_ray_rotation_row1;
+            pass.probeRayRotationRow2 = resources.probe_ray_rotation_row2;
+            pass.probeRandomRotationEnabled = resources.probe_random_rotation_enabled;
+            pass.probeFixedRaysEnabled = resources.probe_fixed_rays_enabled ? 1.0f : 0.0f;
+            pass.probeSkipFixedRaysForBlend = resources.probe_skip_fixed_rays_for_blend ? 1.0f : 0.0f;
 
             builder.UseTexture(pass.probeRayData, AccessFlags.Read);
             builder.UseTexture(pass.probeIrradiance, AccessFlags.ReadWrite);
@@ -90,7 +103,13 @@ namespace YutrelRP
         private float probeIrradianceThreshold;
         private float probeBrightnessThreshold;
         private float probeDistanceExponent;
-        private float probeFixedRayBackfaceThreshold;
+        private float probeRandomRayBackfaceThreshold;
+        private Vector4 probeRayRotationRow0;
+        private Vector4 probeRayRotationRow1;
+        private Vector4 probeRayRotationRow2;
+        private float probeRandomRotationEnabled;
+        private float probeFixedRaysEnabled;
+        private float probeSkipFixedRaysForBlend;
 
         private void Render(ComputeGraphContext context)
         {
@@ -125,7 +144,13 @@ namespace YutrelRP
             cmd.SetComputeFloatParam(computeShader, probeIrradianceThresholdID, probeIrradianceThreshold);
             cmd.SetComputeFloatParam(computeShader, probeBrightnessThresholdID, probeBrightnessThreshold);
             cmd.SetComputeFloatParam(computeShader, probeDistanceExponentID, probeDistanceExponent);
-            cmd.SetComputeFloatParam(computeShader, probeFixedRayBackfaceThresholdID, probeFixedRayBackfaceThreshold);
+            cmd.SetComputeFloatParam(computeShader, probeRandomRayBackfaceThresholdID, probeRandomRayBackfaceThreshold);
+            cmd.SetComputeVectorParam(computeShader, probeRayRotationRow0ID, probeRayRotationRow0);
+            cmd.SetComputeVectorParam(computeShader, probeRayRotationRow1ID, probeRayRotationRow1);
+            cmd.SetComputeVectorParam(computeShader, probeRayRotationRow2ID, probeRayRotationRow2);
+            cmd.SetComputeFloatParam(computeShader, probeRandomRotationEnabledID, probeRandomRotationEnabled);
+            cmd.SetComputeFloatParam(computeShader, probeFixedRaysEnabledID, probeFixedRaysEnabled);
+            cmd.SetComputeFloatParam(computeShader, probeSkipFixedRaysForBlendID, probeSkipFixedRaysForBlend);
         }
 
         private static ProbeBlendIssue Validate(DDGIResources resources, YutrelDDGIVolume volume)

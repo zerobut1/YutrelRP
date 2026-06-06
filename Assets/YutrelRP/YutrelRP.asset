@@ -56,6 +56,7 @@ MonoBehaviour:
       probeBlendShader: {fileID: 7200000, guid: e44a695187074910b946399458275444, type: 3}
       textureDumpCopyShader: {fileID: 7200000, guid: 3c6d9f5b8a8f4e5bb693de733f8571e2, type: 3}
       probeRelocationEnabled: 1
+      probeRandomRotationEnabled: 1
       probeFixedRayBackfaceThreshold: 0.25
       probeRandomRayBackfaceThreshold: 0.1
       probeMinFrontfaceDistance: 1

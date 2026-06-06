@@ -29,6 +29,7 @@ float4 _DDGIProbeDistanceDimensions;
 float4 _DDGIProbeDataDimensions;
 float _DDGIProbeRelocationEnabled;
 int _DDGIProbeRaysPerProbe;
+float _DDGIProbeFixedRaysEnabled;
 float _DDGIProbeMaxRayDistance;
 float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
@@ -199,7 +200,7 @@ void RayGenDDGIProbeTrace()
 
     RayDesc ray;
     ray.Origin = probePositionWS;
-    ray.Direction = DDGIBuildProbeRayDirection(rayIndex, (uint)_DDGIProbeRaysPerProbe);
+    ray.Direction = DDGIProbeRayDirection(rayIndex, (uint)_DDGIProbeRaysPerProbe, _DDGIProbeFixedRaysEnabled > 0.5f);
     ray.TMin = 0.001;
     ray.TMax = _DDGIProbeMaxRayDistance;
 

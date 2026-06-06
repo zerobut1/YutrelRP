@@ -16,10 +16,16 @@ namespace YutrelRP
         private const string ScreenTraceRayGenName = "RayGenDDGIScreenTrace";
         private const string ShaderPassName = "DDGIRayTracing";
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
+        private const int FixedRayCount = 32;
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
+        private static readonly int probeRayRotationRow0ID = DDGIResources.probe_ray_rotation_row0_ID;
+        private static readonly int probeRayRotationRow1ID = DDGIResources.probe_ray_rotation_row1_ID;
+        private static readonly int probeRayRotationRow2ID = DDGIResources.probe_ray_rotation_row2_ID;
+        private static readonly int probeRandomRotationEnabledID = DDGIResources.probe_random_rotation_enabled_ID;
+        private static readonly int probeFixedRaysEnabledID = DDGIResources.probe_fixed_rays_enabled_ID;
         private static readonly int probeIrradianceID = DDGIResources.probe_irradiance_ID;
         private static readonly int probeIrradianceDimensionsID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int probeDistanceID = DDGIResources.probe_distance_ID;
@@ -163,6 +169,10 @@ namespace YutrelRP
             resources.trace_albedo = traceAlbedo;
             resources.SetVolumeMetadata(volume);
             resources.probe_relocation_enabled = settings.probeRelocationEnabled;
+            var probeRayRotation = ComputeProbeRayRotation(volume, settings);
+            resources.SetProbeRayRotation(probeRayRotation.row0, probeRayRotation.row1, probeRayRotation.row2,
+                probeRayRotation.randomRotationEnabled, probeRayRotation.fixedRaysEnabled,
+                probeRayRotation.skipFixedRaysForBlend);
 
             TextureHandle screenTraceDebugOutput = TextureHandle.nullHandle;
             TextureHandle screenTraceDepth = TextureHandle.nullHandle;
@@ -219,6 +229,11 @@ namespace YutrelRP
                 pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
                 pass.probeDataDimensions = resources.ProbeDataDimensions;
                 pass.probeRelocationEnabled = settings.probeRelocationEnabled ? 1.0f : 0.0f;
+                pass.probeRayRotationRow0 = resources.probe_ray_rotation_row0;
+                pass.probeRayRotationRow1 = resources.probe_ray_rotation_row1;
+                pass.probeRayRotationRow2 = resources.probe_ray_rotation_row2;
+                pass.probeRandomRotationEnabled = resources.probe_random_rotation_enabled;
+                pass.probeFixedRaysEnabled = resources.probe_fixed_rays_enabled ? 1.0f : 0.0f;
                 pass.traceInstanceTriangleRanges = traceInstanceTriangleRangesBuffer;
                 pass.traceTriangleNormals = traceTriangleNormalsBuffer;
                 pass.traceInstanceMaterialFlags = traceInstanceMaterialFlagsBuffer;
@@ -278,6 +293,11 @@ namespace YutrelRP
         private Vector4 probeDistanceDimensions;
         private Vector4 probeDataDimensions;
         private float probeRelocationEnabled;
+        private Vector4 probeRayRotationRow0;
+        private Vector4 probeRayRotationRow1;
+        private Vector4 probeRayRotationRow2;
+        private float probeRandomRotationEnabled;
+        private float probeFixedRaysEnabled;
         private GraphicsBuffer traceInstanceTriangleRanges;
         private GraphicsBuffer traceTriangleNormals;
         private GraphicsBuffer traceInstanceMaterialFlags;
@@ -332,6 +352,11 @@ namespace YutrelRP
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDistanceDimensionsID, probeDistanceDimensions);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDataDimensionsID, probeDataDimensions);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeRelocationEnabledID, probeRelocationEnabled);
+            cmd.SetRayTracingVectorParam(rayTracingShader, probeRayRotationRow0ID, probeRayRotationRow0);
+            cmd.SetRayTracingVectorParam(rayTracingShader, probeRayRotationRow1ID, probeRayRotationRow1);
+            cmd.SetRayTracingVectorParam(rayTracingShader, probeRayRotationRow2ID, probeRayRotationRow2);
+            cmd.SetRayTracingFloatParam(rayTracingShader, probeRandomRotationEnabledID, probeRandomRotationEnabled);
+            cmd.SetRayTracingFloatParam(rayTracingShader, probeFixedRaysEnabledID, probeFixedRaysEnabled);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceTriangleRangesID, traceInstanceTriangleRanges);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceTriangleNormalsID, traceTriangleNormals);
             cmd.SetRayTracingBufferParam(rayTracingShader, traceInstanceMaterialFlagsID, traceInstanceMaterialFlags);
@@ -431,6 +456,56 @@ namespace YutrelRP
         {
             var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
             return projection.m11 < 0.0f ? 1 : 0;
+        }
+
+        private static ProbeRayRotation ComputeProbeRayRotation(YutrelDDGIVolume volume,
+            YutrelRPSettings.DDGISettings settings)
+        {
+            var randomRotationEnabled = settings != null && settings.probeRandomRotationEnabled &&
+                                        volume != null && volume.RaysPerProbe > FixedRayCount;
+            const bool fixedRaysEnabled = true;
+            var skipFixedRaysForBlend = settings != null && settings.probeRelocationEnabled;
+            if (!randomRotationEnabled)
+            {
+                return ProbeRayRotation.Identity(fixedRaysEnabled, skipFixedRaysForBlend);
+            }
+
+            var random = RandomState((uint)Time.frameCount, (uint)GetStableVolumeKey(volume));
+            var u1 = 2.0f * Mathf.PI * NextFloat01(ref random);
+            var u2 = 2.0f * Mathf.PI * NextFloat01(ref random);
+            var u3 = NextFloat01(ref random);
+
+            var cos1 = Mathf.Cos(u1);
+            var sin1 = Mathf.Sin(u1);
+            var cos2 = Mathf.Cos(u2);
+            var sin2 = Mathf.Sin(u2);
+            var sq3 = 2.0f * Mathf.Sqrt(u3 * (1.0f - u3));
+            var s2 = 2.0f * u3 * sin2 * sin2 - 1.0f;
+            var c2 = 2.0f * u3 * cos2 * cos2 - 1.0f;
+            var sc = 2.0f * u3 * sin2 * cos2;
+
+            return new ProbeRayRotation(
+                new Vector4(cos1 * c2 - sin1 * sc, sin1 * c2 + cos1 * sc, sq3 * cos2, 0.0f),
+                new Vector4(cos1 * sc - sin1 * s2, sin1 * sc + cos1 * s2, sq3 * sin2, 0.0f),
+                new Vector4(cos1 * (sq3 * cos2) - sin1 * (sq3 * sin2),
+                    sin1 * (sq3 * cos2) + cos1 * (sq3 * sin2), 1.0f - 2.0f * u3, 0.0f),
+                true,
+                fixedRaysEnabled,
+                skipFixedRaysForBlend);
+        }
+
+        private static uint RandomState(uint frameIndex, uint volumeKey)
+        {
+            var state = frameIndex * 747796405u + volumeKey * 2891336453u + 277803737u;
+            return state != 0u ? state : 1u;
+        }
+
+        private static float NextFloat01(ref uint state)
+        {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            return (state & 0x00FFFFFFu) * (1.0f / 16777216.0f);
         }
 
         private static YutrelDDGIVolume ResolveActiveVolume(out ProbeTraceIssue issue)
@@ -1092,6 +1167,38 @@ namespace YutrelRP
         private static int GetStableVolumeKey(YutrelDDGIVolume volume)
         {
             return volume != null ? volume.GetEntityId().GetHashCode() : 0;
+        }
+
+        private readonly struct ProbeRayRotation
+        {
+            public readonly Vector4 row0;
+            public readonly Vector4 row1;
+            public readonly Vector4 row2;
+            public readonly bool randomRotationEnabled;
+            public readonly bool fixedRaysEnabled;
+            public readonly bool skipFixedRaysForBlend;
+
+            public ProbeRayRotation(Vector4 row0, Vector4 row1, Vector4 row2, bool randomRotationEnabled,
+                bool fixedRaysEnabled, bool skipFixedRaysForBlend)
+            {
+                this.row0 = row0;
+                this.row1 = row1;
+                this.row2 = row2;
+                this.randomRotationEnabled = randomRotationEnabled;
+                this.fixedRaysEnabled = fixedRaysEnabled;
+                this.skipFixedRaysForBlend = skipFixedRaysForBlend;
+            }
+
+            public static ProbeRayRotation Identity(bool fixedRaysEnabled, bool skipFixedRaysForBlend)
+            {
+                return new ProbeRayRotation(
+                    new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
+                    new Vector4(0.0f, 1.0f, 0.0f, 0.0f),
+                    new Vector4(0.0f, 0.0f, 1.0f, 0.0f),
+                    false,
+                    fixedRaysEnabled,
+                    skipFixedRaysForBlend);
+            }
         }
 
         private static string GetReason(ProbeTraceIssue issue)
