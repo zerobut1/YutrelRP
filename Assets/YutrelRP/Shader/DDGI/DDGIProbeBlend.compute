@@ -105,8 +105,7 @@ float4 DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_
 
 float DDGIProbeBlendIrradianceDirectionWeight(float3 atlas_direction, float3 ray_direction)
 {
-    float cosine = saturate(dot(atlas_direction, ray_direction));
-    return pow(cosine, 24.0f) + 0.0001f;
+    return saturate(dot(atlas_direction, ray_direction));
 }
 
 float DDGIProbeBlendDistanceDirectionWeight(float3 atlas_direction, float3 ray_direction)
