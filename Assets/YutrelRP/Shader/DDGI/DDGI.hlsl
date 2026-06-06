@@ -7,6 +7,10 @@ static const float YUTREL_DDGI_TWO_PI                         = 6.28318530717958
 static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA  = 0.01f;
 static const float YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX        = 65504.0f;
 static const float YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX        = 1.0e30f;
+static const float YUTREL_DDGI_GATHER_MIN_VISIBILITY          = 0.05f;
+static const float YUTREL_DDGI_GATHER_CRUSH_THRESHOLD         = 0.2f;
+static const float YUTREL_DDGI_GATHER_MIN_WEIGHT              = 0.000001f;
+static const float YUTREL_DDGI_GATHER_MIN_TRILINEAR_WEIGHT    = 0.001f;
 static const uint YUTREL_DDGI_FIXED_RAY_COUNT                 = 32u;
 
 float _DDGIProbeIrradianceEncodingGamma;
@@ -454,15 +458,26 @@ float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float
         return 1.0f;
     }
 
-    float chebyshev = variance / (variance + delta * delta);
-    return lerp(1.0f, max(saturate(chebyshev), 0.05f), hit_ratio);
+    float chebyshev = saturate(variance / max(variance + delta * delta, 1.0e-6f));
+    chebyshev *= chebyshev * chebyshev;
+    return lerp(1.0f, max(YUTREL_DDGI_GATHER_MIN_VISIBILITY, chebyshev), hit_ratio);
 }
 
 float DDGIProbeSurfaceWeight(float3 position_WS, float3 normal_WS, float3 probe_position_WS)
 {
     float3 surface_to_probe = DDGISafeNormalize(probe_position_WS - position_WS, normal_WS);
     float wrap_shading      = (dot(DDGISafeNormalize(normal_WS, float3(0.0f, 1.0f, 0.0f)), surface_to_probe) + 1.0f) * 0.5f;
-    return saturate(wrap_shading * wrap_shading + 0.2f);
+    return wrap_shading * wrap_shading + 0.2f;
+}
+
+float DDGICrushProbeWeight(float weight)
+{
+    weight = max(weight, YUTREL_DDGI_GATHER_MIN_WEIGHT);
+    if (weight < YUTREL_DDGI_GATHER_CRUSH_THRESHOLD)
+    {
+        weight *= weight * weight / (YUTREL_DDGI_GATHER_CRUSH_THRESHOLD * YUTREL_DDGI_GATHER_CRUSH_THRESHOLD);
+    }
+    return weight;
 }
 
 float DDGISampleProbeDistanceVisibility(Texture2DArray distance_atlas, SamplerState distance_sampler,
@@ -514,14 +529,15 @@ DDGIGatherSample DDGISampleTrilinearGather(Texture2DArray irradiance_atlas, Samp
                 uint3 probe_coord      = uint3(x == 0u ? base_coord.x : next_coord.x,
                                                y == 0u ? base_coord.y : next_coord.y,
                                                z == 0u ? base_coord.z : next_coord.z);
-                float3 axis_weight     = float3(x == 0u ? 1.0f - weight.x : weight.x,
-                                                y == 0u ? 1.0f - weight.y : weight.y,
-                                                z == 0u ? 1.0f - weight.z : weight.z);
+                float3 axis_weight     = max(YUTREL_DDGI_GATHER_MIN_TRILINEAR_WEIGHT.xxx,
+                                             float3(x == 0u ? 1.0f - weight.x : weight.x,
+                                                    y == 0u ? 1.0f - weight.y : weight.y,
+                                                    z == 0u ? 1.0f - weight.z : weight.z));
                 float trilinear_weight = axis_weight.x * axis_weight.y * axis_weight.z;
                 float3 probe_position  = DDGIProbeRelocatedWorldPosition(volume_min_WS, probe_spacing_WS, probe_coord, probe_data, relocation_enabled);
                 float visibility       = DDGISampleProbeDistanceVisibility(distance_atlas, distance_sampler, probe_data, relocation_enabled, probe_coord, biased_position, normal_WS, volume_min_WS, probe_spacing_WS, distance_interior_texels, distance_dimensions, max_ray_distance);
                 float surface_weight   = DDGIProbeSurfaceWeight(position_WS, normal_WS, probe_position);
-                float contribution     = trilinear_weight * visibility * surface_weight;
+                float contribution     = DDGICrushProbeWeight(visibility * surface_weight) * trilinear_weight;
                 float3 irradiance      = DDGISampleProbeIrradianceBlendValue(irradiance_atlas, irradiance_sampler, probe_coord, normal_WS, irradiance_interior_texels, irradiance_dimensions);
 
                 result.irradiance += max(irradiance, 0.0f) * contribution;
