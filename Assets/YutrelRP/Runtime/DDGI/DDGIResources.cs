@@ -53,9 +53,12 @@ namespace YutrelRP
         public TextureHandle trace_albedo;
         public TextureHandle screen_trace_debug;
         public TextureHandle probe_irradiance;
+        public TextureHandle probe_irradiance_history;
+        public TextureHandle probe_irradiance_write;
         public TextureHandle probe_distance;
         public TextureHandle probe_data;
         public Texture probe_irradiance_texture;
+        public Texture probe_irradiance_write_texture;
         public Texture probe_distance_texture;
         public Texture probe_data_texture;
         public Vector3Int probe_count;
@@ -96,9 +99,12 @@ namespace YutrelRP
             trace_albedo = TextureHandle.nullHandle;
             screen_trace_debug = TextureHandle.nullHandle;
             probe_irradiance = TextureHandle.nullHandle;
+            probe_irradiance_history = TextureHandle.nullHandle;
+            probe_irradiance_write = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
             probe_data = TextureHandle.nullHandle;
             probe_irradiance_texture = null;
+            probe_irradiance_write_texture = null;
             probe_distance_texture = null;
             probe_data_texture = null;
             probe_count = Vector3Int.zero;

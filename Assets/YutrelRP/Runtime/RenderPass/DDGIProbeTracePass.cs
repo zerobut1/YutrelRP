@@ -61,7 +61,8 @@ namespace YutrelRP
 
         private static RayTracingShader shader;
         private static RayTracingAccelerationStructure accelerationStructure;
-        private static RTHandle probeIrradianceRT;
+        private static RTHandle probeIrradianceHistoryRT;
+        private static RTHandle probeIrradianceWriteRT;
         private static RTHandle probeDistanceRT;
         private static RTHandle probeDataRT;
         private static RTHandle fallbackEnvironmentReflectionRT;
@@ -256,6 +257,10 @@ namespace YutrelRP
 
             DDGIProbeRelocationPass.Record(renderGraph, volume, settings, ref resources);
             DDGIProbeBlendPass.Record(renderGraph, volume, settings, ref resources);
+            if (resources.has_gather_data)
+            {
+                PublishProbeIrradianceWriteAtlas(ref resources);
+            }
         }
 
         private TextureHandle probeRayData;
@@ -433,7 +438,7 @@ namespace YutrelRP
             }
 
             if (!SystemInfo.IsFormatSupported(ProbeIrradianceFormat,
-                    GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore | GraphicsFormatUsage.Render))
+                    GraphicsFormatUsage.Sample | GraphicsFormatUsage.Render))
             {
                 return ProbeTraceIssue.UnsupportedProbeIrradianceFormat;
             }
@@ -593,20 +598,31 @@ namespace YutrelRP
         {
             var identity = new DDGIResources.Identity(volume);
             if (!hasPersistentIdentity || !persistentIdentity.Equals(identity) ||
-                probeIrradianceRT == null || probeIrradianceRT.rt == null ||
-                probeIrradianceRT.rt.graphicsFormat != ProbeIrradianceFormat ||
+                probeIrradianceHistoryRT == null || probeIrradianceHistoryRT.rt == null ||
+                probeIrradianceHistoryRT.rt.graphicsFormat != ProbeIrradianceFormat ||
+                probeIrradianceWriteRT == null || probeIrradianceWriteRT.rt == null ||
+                probeIrradianceWriteRT.rt.graphicsFormat != ProbeIrradianceFormat ||
                 probeDistanceRT == null || probeDataRT == null)
             {
                 ReleasePersistentAtlases();
                 try
                 {
-                    probeIrradianceRT = AllocAtlasRT(
+                    probeIrradianceHistoryRT = AllocAtlasRT(
                         volume.ProbeCount.x * (volume.ProbeIrradianceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeIrradianceInteriorTexels + 2),
                         volume.ProbeCount.y,
                         ProbeIrradianceFormat,
-                        "DDGI ProbeIrradiance",
-                        FilterMode.Bilinear);
+                        "DDGI ProbeIrradiance History",
+                        FilterMode.Bilinear,
+                        false);
+                    probeIrradianceWriteRT = AllocAtlasRT(
+                        volume.ProbeCount.x * (volume.ProbeIrradianceInteriorTexels + 2),
+                        volume.ProbeCount.z * (volume.ProbeIrradianceInteriorTexels + 2),
+                        volume.ProbeCount.y,
+                        ProbeIrradianceFormat,
+                        "DDGI ProbeIrradiance Write",
+                        FilterMode.Bilinear,
+                        false);
                     probeDistanceRT = AllocAtlasRT(
                         volume.ProbeCount.x * (volume.ProbeDistanceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeDistanceInteriorTexels + 2),
@@ -622,7 +638,8 @@ namespace YutrelRP
                         "DDGI ProbeData",
                         FilterMode.Point);
 
-                    ClearPersistentAtlas(probeIrradianceRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
+                    ClearPersistentAtlas(probeIrradianceHistoryRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
+                    ClearPersistentAtlas(probeIrradianceWriteRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
                     ClearPersistentAtlas(probeDistanceRT, Color.black);
                     ClearPersistentAtlas(probeDataRT, new Color(0.0f, 0.0f, 0.0f, 1.0f));
                     persistentIdentity = identity;
@@ -638,24 +655,46 @@ namespace YutrelRP
             }
 
             resources.SetVolumeMetadata(volume);
-            resources.probe_irradiance = renderGraph.ImportTexture(probeIrradianceRT);
+            resources.probe_irradiance_history = renderGraph.ImportTexture(probeIrradianceHistoryRT);
+            resources.probe_irradiance_write = renderGraph.ImportTexture(probeIrradianceWriteRT);
+            resources.probe_irradiance = resources.probe_irradiance_history;
             resources.probe_distance = renderGraph.ImportTexture(probeDistanceRT);
             resources.probe_data = renderGraph.ImportTexture(probeDataRT);
-            resources.probe_irradiance_texture = probeIrradianceRT.rt;
+            resources.probe_irradiance_texture = probeIrradianceHistoryRT.rt;
+            resources.probe_irradiance_write_texture = probeIrradianceWriteRT.rt;
             resources.probe_distance_texture = probeDistanceRT.rt;
             resources.probe_data_texture = probeDataRT.rt;
-            resources.has_persistent_atlas = resources.probe_irradiance.IsValid() &&
+            resources.has_persistent_atlas = resources.probe_irradiance_history.IsValid() &&
+                                             resources.probe_irradiance_write.IsValid() &&
                                              resources.probe_distance.IsValid() &&
                                              resources.probe_data.IsValid();
             return resources.has_persistent_atlas ? ProbeTraceIssue.None : ProbeTraceIssue.ResourceAllocationFailed;
         }
 
         private static RTHandle AllocAtlasRT(int width, int height, int slices, GraphicsFormat format, string name,
-            FilterMode filterMode)
+            FilterMode filterMode, bool enableRandomWrite = true)
         {
             return RTHandles.Alloc(width, height, slices: slices, dimension: TextureDimension.Tex2DArray,
-                colorFormat: format, enableRandomWrite: true, filterMode: filterMode,
+                colorFormat: format, enableRandomWrite: enableRandomWrite, filterMode: filterMode,
                 wrapMode: TextureWrapMode.Clamp, name: name);
+        }
+
+        private static void PublishProbeIrradianceWriteAtlas(ref DDGIResources resources)
+        {
+            if (resources == null ||
+                !resources.probe_irradiance_write.IsValid() ||
+                resources.probe_irradiance_write_texture == null)
+            {
+                return;
+            }
+
+            resources.probe_irradiance = resources.probe_irradiance_write;
+            resources.probe_irradiance_texture = resources.probe_irradiance_write_texture;
+            if (probeIrradianceHistoryRT != null &&
+                probeIrradianceWriteRT != null)
+            {
+                (probeIrradianceHistoryRT, probeIrradianceWriteRT) = (probeIrradianceWriteRT, probeIrradianceHistoryRT);
+            }
         }
 
         private static void ClearPersistentAtlas(RTHandle handle, Color color)
@@ -672,10 +711,12 @@ namespace YutrelRP
 
         private static void ReleasePersistentAtlases()
         {
-            RTHandles.Release(probeIrradianceRT);
+            RTHandles.Release(probeIrradianceHistoryRT);
+            RTHandles.Release(probeIrradianceWriteRT);
             RTHandles.Release(probeDistanceRT);
             RTHandles.Release(probeDataRT);
-            probeIrradianceRT = null;
+            probeIrradianceHistoryRT = null;
+            probeIrradianceWriteRT = null;
             probeDistanceRT = null;
             probeDataRT = null;
             hasPersistentIdentity = false;
@@ -1024,7 +1065,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
                     return "DDGI ProbeRayData requires GraphicsFormat.R32G32_SFloat with sample and load/store support for RTXGI F32x2 parity";
                 case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
-                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with sample, load/store, and render support for RTXGI U32 parity";
+                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with sample and render support for RTXGI U32 parity";
                 case ProbeTraceIssue.MissingVolume:
                     return "no active YutrelDDGIVolume was found";
                 case ProbeTraceIssue.InvalidVolume:
