@@ -22,6 +22,7 @@
 		_MetallicTex ("Metallic", 2D) = "black" {}
 		[Toggle(_USE_MATERIAL_AO_TEX)] _UseMaterialAOTex ("Use Material AO Texture", Float) = 0
 		_MaterialAOTex ("Material AO", 2D) = "white" {}
+		[Enum(UnityEngine.Rendering.CullMode)] _CullMode ("Cull Mode", Float) = 2
 	}
 	SubShader
 	{
@@ -37,6 +38,8 @@
 			{
 				"LightMode" = "GBuffer"
 			}
+
+			Cull [_CullMode]
 
 			HLSLPROGRAM
 			#pragma target 5.0

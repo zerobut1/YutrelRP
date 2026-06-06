@@ -60,7 +60,7 @@ Varyings DefaultLitVertex(Attributes input)
     return output;
 }
 
-RTStruct DefaultLitFragment(Varyings input)
+RTStruct DefaultLitFragment(Varyings input, bool is_front_face : SV_IsFrontFace)
 {
     RTStruct output;
     UNITY_SETUP_INSTANCE_ID(input);
@@ -68,6 +68,11 @@ RTStruct DefaultLitFragment(Varyings input)
     DefaultLitSurfaceInput surface_input = BuildDefaultLitSurfaceInput(input);
     DefaultLitSurfaceResult surface      = EvaluateDefaultLitSurface(surface_input);
     ClipDefaultLitSurface(surface.alpha_clip);
+    if (!is_front_face)
+    {
+        surface.surface.normal_WS = -surface.surface.normal_WS;
+    }
+
     GBufferData gbuffer = DefaultLitSurfaceToGBuffer(surface.surface);
 
     EncodedGBuffer encoded_gbuffer = EncodeGBuffer(gbuffer);
