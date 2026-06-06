@@ -19,7 +19,6 @@ namespace YutrelRP
         private const string CopyArrayKernelName = "CopyRgbaHalfTexture2DArray";
         private const string Copy2DKernelName = "CopyRgbaHalfTexture2D";
         private const string CopyRgArrayKernelName = "CopyRgFloatTexture2DArray";
-        private const string CopyProbeRayDataKernelName = "CopyProbeRayDataTexture2DArray";
         private const int ThreadGroupSizeX = 8;
         private const int ThreadGroupSizeY = 8;
         private const uint DdsMagic = 0x20534444u;
@@ -41,13 +40,11 @@ namespace YutrelRP
         private static DumpRequest pendingRequest;
         private static ActiveDump activeDump;
         private static RTHandle probeRayDataRawStaging;
-        private static RTHandle probeRayDataStaging;
         private static RTHandle traceAlbedoStaging;
         private static RTHandle screenTraceDebugStaging;
         private static int copyArrayKernel = -1;
         private static int copy2DKernel = -1;
         private static int copyRgArrayKernel = -1;
-        private static int copyProbeRayDataKernel = -1;
 
 #if UNITY_EDITOR
         public static bool HasPendingRequest => pendingRequest != null || activeDump != null;
@@ -119,10 +116,6 @@ namespace YutrelRP
                 "DDGIProbeRayData", "probe-ray-data.dds", resources.ProbeRayDataDimensions,
                 "RTXGI F32x2 RayData raw payload: R=asfloat(R10G10B10 packed radiance bits), G=signed distance (miss=1e27, backface=-hitT*0.2), B/A unused",
                 CaptureKind.RgFloatArray);
-            recordedAny |= TryRecordTransientCapture(renderGraph, resources.probe_ray_data, ref probeRayDataStaging,
-                "DDGIProbeRayDataDecoded", "probe-ray-data-decoded.dds", resources.ProbeRayDataDimensions,
-                "decoded view of RTXGI F32x2 RayData: RGB=RTXGIUintToFloat3(asuint(raw.R)), A=signed distance",
-                CaptureKind.ProbeRayDataDecoded);
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.trace_albedo, ref traceAlbedoStaging,
                 "DDGITraceAlbedo", "trace-albedo.dds", resources.ProbeRayDataDimensions,
                 "x=rayIndex, y=probeX+probeZ*probeCount.x, slice=probeY, rgba=trace base color/status debug",
@@ -220,7 +213,6 @@ namespace YutrelRP
         internal static void Cleanup()
         {
             ReleaseStaging(ref probeRayDataRawStaging);
-            ReleaseStaging(ref probeRayDataStaging);
             ReleaseStaging(ref traceAlbedoStaging);
             ReleaseStaging(ref screenTraceDebugStaging);
             pendingRequest = null;
@@ -228,7 +220,6 @@ namespace YutrelRP
             copyArrayKernel = -1;
             copy2DKernel = -1;
             copyRgArrayKernel = -1;
-            copyProbeRayDataKernel = -1;
 #if UNITY_EDITOR
             UnregisterEditorUpdate();
 #endif
@@ -414,11 +405,6 @@ namespace YutrelRP
                 return copyRgArrayKernel;
             }
 
-            if (captureKind == CaptureKind.ProbeRayDataDecoded && copyProbeRayDataKernel >= 0)
-            {
-                return copyProbeRayDataKernel;
-            }
-
             try
             {
                 switch (captureKind)
@@ -428,9 +414,6 @@ namespace YutrelRP
                         break;
                     case CaptureKind.RgFloatArray:
                         copyRgArrayKernel = activeDump.CopyShader.FindKernel(CopyRgArrayKernelName);
-                        break;
-                    case CaptureKind.ProbeRayDataDecoded:
-                        copyProbeRayDataKernel = activeDump.CopyShader.FindKernel(CopyProbeRayDataKernelName);
                         break;
                     default:
                         copyArrayKernel = activeDump.CopyShader.FindKernel(CopyArrayKernelName);
@@ -447,9 +430,6 @@ namespace YutrelRP
                     case CaptureKind.RgFloatArray:
                         copyRgArrayKernel = -1;
                         break;
-                    case CaptureKind.ProbeRayDataDecoded:
-                        copyProbeRayDataKernel = -1;
-                        break;
                     default:
                         copyArrayKernel = -1;
                         break;
@@ -460,7 +440,6 @@ namespace YutrelRP
             {
                 CaptureKind.RgbaHalf2D => copy2DKernel,
                 CaptureKind.RgFloatArray => copyRgArrayKernel,
-                CaptureKind.ProbeRayDataDecoded => copyProbeRayDataKernel,
                 _ => copyArrayKernel
             };
         }
@@ -860,10 +839,6 @@ namespace YutrelRP
                         cmd.SetComputeTextureParam(shader, kernel, sourceRgID, source);
                         cmd.SetComputeTextureParam(shader, kernel, destinationRgID, destination);
                         break;
-                    case CaptureKind.ProbeRayDataDecoded:
-                        cmd.SetComputeTextureParam(shader, kernel, sourceRgID, source);
-                        cmd.SetComputeTextureParam(shader, kernel, destinationID, destination);
-                        break;
                     default:
                         cmd.SetComputeTextureParam(shader, kernel, sourceID, source);
                         cmd.SetComputeTextureParam(shader, kernel, destinationID, destination);
@@ -881,8 +856,7 @@ namespace YutrelRP
         {
             RgbaHalfArray,
             RgbaHalf2D,
-            RgFloatArray,
-            ProbeRayDataDecoded
+            RgFloatArray
         }
 
         private static int DivRoundUp(int value, int divisor)

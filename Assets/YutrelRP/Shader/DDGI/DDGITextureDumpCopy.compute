@@ -1,9 +1,6 @@
 #pragma kernel CopyRgbaHalfTexture2DArray
 #pragma kernel CopyRgbaHalfTexture2D
 #pragma kernel CopyRgFloatTexture2DArray
-#pragma kernel CopyProbeRayDataTexture2DArray
-
-#include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
 
 Texture2DArray<float4> _DDGITextureDumpSource;
 Texture2D<float4> _DDGITextureDumpSource2D;
@@ -49,21 +46,4 @@ void CopyRgFloatTexture2DArray(uint3 id : SV_DispatchThreadID)
     }
 
     _DDGITextureDumpDestinationRG[id] = _DDGITextureDumpSourceRG.Load(int4(id.xyz, 0));
-}
-
-[numthreads(8, 8, 1)]
-void CopyProbeRayDataTexture2DArray(uint3 id : SV_DispatchThreadID)
-{
-    if (id.x >= (uint)_DDGITextureDumpSize.x ||
-        id.y >= (uint)_DDGITextureDumpSize.y ||
-        id.z >= (uint)_DDGITextureDumpSize.z)
-    {
-        return;
-    }
-
-    float2 raw_ray_data_rg = _DDGITextureDumpSourceRG.Load(int4(id.xyz, 0));
-    float4 raw_ray_data    = float4(raw_ray_data_rg, 0.0f, 0.0f);
-    float3 radiance     = DDGIProbeRayDataLoadRadiance(raw_ray_data);
-    float distance      = DDGIProbeRayDataLoadDistance(raw_ray_data);
-    _DDGITextureDumpDestination[id] = float4(radiance, distance);
 }
