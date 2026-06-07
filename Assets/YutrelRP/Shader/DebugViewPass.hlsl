@@ -41,7 +41,6 @@ float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
 float _DDGIProbeRelocationEnabled;
 float _DDGIGatherValid;
-float _DDGIDiffuseIntensity;
 
 struct DebugViewShadowData
 {
@@ -218,11 +217,8 @@ float3 DebugViewToneMapDDGIRadiance(float3 radiance)
 
 float3 DebugViewDDGIDiffuseScale(GBufferData gbuffer_data, float2 uv)
 {
-    float metallic        = saturate(gbuffer_data.metallic);
-    float material_AO     = saturate(gbuffer_data.material_AO);
-    float screen_space_AO = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, uv).r);
-    float combined_AO     = min(material_AO, screen_space_AO);
-    return max(gbuffer_data.base_color, 0.0f) * (1.0f - metallic) * combined_AO;
+    float metallic = saturate(gbuffer_data.metallic);
+    return max(gbuffer_data.base_color, 0.0f) * (1.0f - metallic) * INV_PI;
 }
 
 float4 SampleDebugViewDDGIProbeRayData(float2 uv)
@@ -389,7 +385,7 @@ float4 SampleDebugViewDDGIProbeData(float2 uv)
 
 float DebugViewEvaluateDDGICoverage(float3 position_WS)
 {
-    return _DDGIGatherValid > 0.5f ? DDGIVolumeCoverage(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS) : 0.0f;
+    return _DDGIGatherValid > 0.5f ? DDGIVolumeBlendWeight(position_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS) : 0.0f;
 }
 
 DDGIGatherSample DebugViewEvaluateDDGIGather(float3 position_WS, float3 normal_WS, float3 view_direction_WS)
@@ -398,7 +394,6 @@ DDGIGatherSample DebugViewEvaluateDDGIGather(float3 position_WS, float3 normal_W
     uint irradiance_texels  = (uint)max(_DDGIProbeIrradianceDimensions.w - 2.0f, 1.0f);
     uint distance_texels    = (uint)max(_DDGIProbeDistanceDimensions.w - 2.0f, 1.0f);
     DDGIGatherSample sample = DDGISampleTrilinearGather(_DDGIProbeIrradiance, sampler_DDGIProbeIrradiance, _DDGIProbeDistance, sampler_DDGIProbeDistance, _DDGIProbeData, _DDGIProbeRelocationEnabled > 0.5f, position_WS, normal_WS, view_direction_WS, _DDGIVolumeMinWS, _DDGIVolumeMaxWS, _DDGIProbeSpacingWS, probe_count, irradiance_texels, distance_texels, _DDGIProbeIrradianceDimensions, _DDGIProbeDistanceDimensions, _DDGIProbeRayDataMaxDistance, _DDGIProbeNormalBias, _DDGIProbeViewBias);
-    sample.irradiance *= _DDGIDiffuseIntensity;
     sample.coverage *= _DDGIGatherValid > 0.5f ? 1.0f : 0.0f;
     return sample;
 }
@@ -427,17 +422,18 @@ float4 SampleDebugViewDDGIGather(float2 uv, int gather_debug_mode)
     float3 position_WS    = ComputeWorldSpacePositionFromFullScreenUV(uv, scene_depth);
     float3 view_WS        = GetWorldSpaceViewDirectionForSurface(position_WS);
     DDGIGatherSample ddgi = DebugViewEvaluateDDGIGather(position_WS, gbuffer_data.normal_WS, view_WS);
+    float volume_blend    = DebugViewEvaluateDDGICoverage(position_WS);
     if (gather_debug_mode == 1)
     {
-        return float4(ddgi.coverage.xxx, 1.0f);
+        return float4(volume_blend.xxx, 1.0f);
     }
     if (gather_debug_mode == 2)
     {
-        return float4(ddgi.coverage, ddgi.visibility, ddgi.coverage * ddgi.visibility, 1.0f);
+        return float4(volume_blend, ddgi.visibility, volume_blend * ddgi.visibility, 1.0f);
     }
 
     float3 diffuse_scale = DebugViewDDGIDiffuseScale(gbuffer_data, uv);
-    float3 diffuse_only  = ddgi.irradiance * diffuse_scale * ddgi.coverage;
+    float3 diffuse_only  = ddgi.irradiance * diffuse_scale * volume_blend;
     return float4(DebugViewToneMapDDGIRadiance(diffuse_only), 1.0f);
 }
 

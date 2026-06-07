@@ -42,7 +42,6 @@ namespace YutrelRP
             DDGIResources.probe_irradiance_encoding_gamma_ID;
         private static readonly int ddgi_probe_irradiance_format_ID = DDGIResources.probe_irradiance_format_ID;
         private static readonly int ddgi_gather_valid_ID = DDGIResources.gather_valid_ID;
-        private static readonly int ddgi_diffuse_intensity_ID = DDGIResources.diffuse_intensity_ID;
         private static readonly int directional_shadow_cascade_count_ID = ShadowResources.directional_cascade_count_ID;
         private static readonly int directional_shadow_distance_fade_ID = ShadowResources.directional_distance_fade_ID;
         private static MaterialPropertyBlock property_block;
@@ -224,9 +223,6 @@ namespace YutrelRP
                 pass.GBuffer_B = textures.GBuffer_B;
                 pass.GBuffer_C = textures.GBuffer_C;
                 pass.scene_depth = textures.scene_depth;
-                pass.screen_space_ao = textures.screen_space_ao.IsValid()
-                    ? textures.screen_space_ao
-                    : render_graph.defaultResources.whiteTexture;
                 pass.ddgi_probe_irradiance = ddgi_resources.probe_irradiance;
                 pass.ddgi_probe_distance = ddgi_resources.probe_distance;
                 pass.ddgi_probe_data = ddgi_resources.probe_data;
@@ -245,13 +241,10 @@ namespace YutrelRP
                 pass.ddgi_probe_irradiance_encoding_gamma =
                     Mathf.Max(0.01f, ddgi_resources.probe_irradiance_encoding_gamma);
                 pass.ddgi_probe_relocation_enabled = ddgi_resources.probe_relocation_enabled ? 1.0f : 0.0f;
-                pass.ddgi_diffuse_intensity = Mathf.Max(0.0f, ddgi_settings != null ? ddgi_settings.diffuseIntensity : 1.0f);
-
                 builder.UseTexture(pass.GBuffer_A);
                 builder.UseTexture(pass.GBuffer_B);
                 builder.UseTexture(pass.GBuffer_C);
                 builder.UseTexture(pass.scene_depth);
-                builder.UseTexture(pass.screen_space_ao);
                 builder.UseTexture(pass.ddgi_probe_irradiance);
                 builder.UseTexture(pass.ddgi_probe_distance);
                 builder.UseTexture(pass.ddgi_probe_data);
@@ -503,7 +496,6 @@ namespace YutrelRP
         private float ddgi_probe_normal_bias;
         private float ddgi_probe_view_bias;
         private float ddgi_probe_irradiance_encoding_gamma = 1.0f;
-        private float ddgi_diffuse_intensity;
 
         private void Render(RasterGraphContext context)
         {
@@ -533,7 +525,6 @@ namespace YutrelRP
             property_block.SetFloat(ddgi_probe_irradiance_encoding_gamma_ID, ddgi_probe_irradiance_encoding_gamma);
             property_block.SetInteger(ddgi_probe_irradiance_format_ID, DDGIResources.ProbeIrradianceFormatU32);
             property_block.SetFloat(ddgi_gather_valid_ID, reads_DDGI_gather ? 1.0f : 0.0f);
-            property_block.SetFloat(ddgi_diffuse_intensity_ID, ddgi_diffuse_intensity);
             property_block.SetInteger(directional_shadow_cascade_count_ID, directional_shadow_cascade_count);
             property_block.SetVector(directional_shadow_distance_fade_ID, directional_shadow_distance_fade);
 
@@ -602,7 +593,6 @@ namespace YutrelRP
                 property_block.SetTexture(RenderTargets.GBuffer_B_ID, GBuffer_B);
                 property_block.SetTexture(RenderTargets.GBuffer_C_ID, GBuffer_C);
                 property_block.SetTexture(RenderTargets.scene_depth_ID, scene_depth);
-                property_block.SetTexture(RenderTargets.screen_space_ao_ID, screen_space_ao);
                 property_block.SetTexture(ddgi_probe_irradiance_ID, ddgi_probe_irradiance);
                 property_block.SetTexture(ddgi_probe_distance_ID, ddgi_probe_distance);
                 property_block.SetTexture(ddgi_probe_data_ID, ddgi_probe_data);

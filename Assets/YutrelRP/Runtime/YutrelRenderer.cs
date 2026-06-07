@@ -105,8 +105,7 @@ namespace YutrelRP
                     DDGIProbeTrace.Record(render_graph, camera, settings, light_resources, textures, attachment_size,
                         ref ddgi_resources);
 
-                    EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources,
-                        settings.ddgiSettings);
+                    EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources);
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 

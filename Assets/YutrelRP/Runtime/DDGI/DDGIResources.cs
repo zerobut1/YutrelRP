@@ -58,8 +58,7 @@ namespace YutrelRP
             probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias"),
             probe_view_bias_ID = Shader.PropertyToID("_DDGIProbeViewBias"),
             probe_irradiance_encoding_gamma_ID = Shader.PropertyToID("_DDGIProbeIrradianceEncodingGamma"),
-            gather_valid_ID = Shader.PropertyToID("_DDGIGatherValid"),
-            diffuse_intensity_ID = Shader.PropertyToID("_DDGIDiffuseIntensity");
+            gather_valid_ID = Shader.PropertyToID("_DDGIGatherValid");
 
         public TextureHandle probe_ray_data;
         public TextureHandle trace_albedo;
