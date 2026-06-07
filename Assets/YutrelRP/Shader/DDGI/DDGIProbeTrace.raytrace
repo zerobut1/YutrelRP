@@ -231,11 +231,13 @@ void RayGenDDGIProbeTrace()
     }
     else if (payload.hitKind != 1)
     {
-        _DDGIProbeRayData[rayDataTexel].g = DDGIProbeRayDataEncodeBackface(payload.rayT);
+        _DDGIProbeRayData[rayDataTexel] =
+            DDGIProbeRayDataSetBackfaceDistanceOnly(_DDGIProbeRayData[rayDataTexel], payload.rayT);
     }
     else if (_DDGIProbeFixedRaysEnabled > 0.5f && rayIndex < DDGIFixedRayCount())
     {
-        _DDGIProbeRayData[rayDataTexel].g = DDGIProbeRayDataEncodeFrontface(payload.rayT);
+        _DDGIProbeRayData[rayDataTexel] =
+            DDGIProbeRayDataSetFrontfaceDistanceOnly(_DDGIProbeRayData[rayDataTexel], payload.rayT);
     }
     else
     {

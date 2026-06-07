@@ -28,6 +28,7 @@ namespace YutrelRP
         private const uint DdsAlphaModeUnknown = 0u;
         private const uint DxgiFormatR16G16B16A16Float = 10u;
         private const uint DxgiFormatR32G32Float = 16u;
+        private const uint DxgiFormatR32G32B32A32Float = 2u;
         private const uint DxgiFormatR10G10B10A2UNorm = 24u;
 
         private static readonly ProfilingSampler sampler = new("DDGI Texture Dump Capture");
@@ -113,10 +114,13 @@ namespace YutrelRP
             }
 
             var recordedAny = false;
+            var probeRayDataCaptureKind = resources.probe_ray_data_format == DDGIResources.ProbeRayDataFormatF32x4
+                ? CaptureKind.RgbaFloatArray
+                : CaptureKind.RgFloatArray;
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.probe_ray_data, ref probeRayDataRawStaging,
                 "DDGIProbeRayData", "probe-ray-data.dds", resources.ProbeRayDataDimensions,
-                "RTXGI F32x2 RayData raw payload: R=asfloat(R10G10B10 packed radiance bits), G=signed distance (miss=1e27, backface=-hitT*0.2), B/A unused",
-                CaptureKind.RgFloatArray);
+                ProbeRayDataLayout(resources.probe_ray_data_format),
+                probeRayDataCaptureKind);
             recordedAny |= TryRecordTransientCapture(renderGraph, resources.trace_albedo, ref traceAlbedoStaging,
                 "DDGITraceAlbedo", "trace-albedo.dds", resources.ProbeRayDataDimensions,
                 "x=rayIndex, y=probeX+probeZ*probeCount.x, slice=probeY, rgba=trace base color/status debug",
@@ -388,7 +392,8 @@ namespace YutrelRP
                 return -1;
             }
 
-            if (captureKind == CaptureKind.RgbaHalfArray && copyArrayKernel >= 0)
+            if ((captureKind == CaptureKind.RgbaHalfArray || captureKind == CaptureKind.RgbaFloatArray) &&
+                copyArrayKernel >= 0)
             {
                 return copyArrayKernel;
             }
@@ -490,14 +495,21 @@ namespace YutrelRP
         {
             return format == GraphicsFormat.R16G16B16A16_SFloat ||
                    format == GraphicsFormat.R32G32_SFloat ||
+                   format == GraphicsFormat.R32G32B32A32_SFloat ||
                    format == DDGIResources.ProbeIrradianceGraphicsFormat;
         }
 
         private static GraphicsFormat DestinationFormat(CaptureKind captureKind)
         {
-            return captureKind == CaptureKind.RgFloatArray
-                ? GraphicsFormat.R32G32_SFloat
-                : GraphicsFormat.R16G16B16A16_SFloat;
+            switch (captureKind)
+            {
+                case CaptureKind.RgFloatArray:
+                    return GraphicsFormat.R32G32_SFloat;
+                case CaptureKind.RgbaFloatArray:
+                    return GraphicsFormat.R32G32B32A32_SFloat;
+                default:
+                    return GraphicsFormat.R16G16B16A16_SFloat;
+            }
         }
 
         private static bool IsValidTextureSize(int width, int height, int slices)
@@ -580,6 +592,13 @@ namespace YutrelRP
                 {
                     probeCount = Int3(resources.probe_count),
                     raysPerProbe = resources.rays_per_probe,
+                    probeRayDataFormat = resources.probe_ray_data_format,
+                    probeRayDataRtxgiFormat = DDGIResources.ProbeRayDataRtxgiFormatName(resources.probe_ray_data_format),
+                    probeRayDataStorageFormat = DDGIResources.ProbeRayDataStorageFormatName(resources.probe_ray_data_format),
+                    probeRayDataGraphicsFormat = DDGIResources.ProbeRayDataGraphicsFormat(
+                        resources.probe_ray_data_format == DDGIResources.ProbeRayDataFormatF32x4
+                            ? YutrelDDGIVolume.ProbeRayDataFormat.F32x4
+                            : YutrelDDGIVolume.ProbeRayDataFormat.F32x2).ToString(),
                     probeMaxRayDistance = resources.probe_max_ray_distance,
                     volumeMinWS = Float3(resources.volume_min_ws),
                     volumeMaxWS = Float3(resources.volume_max_ws),
@@ -627,6 +646,13 @@ namespace YutrelRP
         private static float[] Float3(Vector3 value)
         {
             return new[] { value.x, value.y, value.z };
+        }
+
+        private static string ProbeRayDataLayout(int format)
+        {
+            return format == DDGIResources.ProbeRayDataFormatF32x4
+                ? "RTXGI F32x4 RayData raw payload: RGB=radiance, A=signed distance (miss=1e27, backface=-hitT*0.2)"
+                : "RTXGI F32x2 RayData raw payload: R=asfloat(R10G10B10 packed radiance bits), G=signed distance (miss=1e27, backface=-hitT*0.2), B/A unused";
         }
 
         private static string CreateUniqueDumpDirectory(DateTime now)
@@ -721,6 +747,8 @@ namespace YutrelRP
                 case GraphicsFormat.R16G16B16A16_SFloat:
                 case GraphicsFormat.R32G32_SFloat:
                     return 8;
+                case GraphicsFormat.R32G32B32A32_SFloat:
+                    return 16;
                 default:
                     throw new InvalidOperationException($"Unsupported DDS dump format: {format}.");
             }
@@ -736,6 +764,8 @@ namespace YutrelRP
                     return DxgiFormatR16G16B16A16Float;
                 case GraphicsFormat.R32G32_SFloat:
                     return DxgiFormatR32G32Float;
+                case GraphicsFormat.R32G32B32A32_SFloat:
+                    return DxgiFormatR32G32B32A32Float;
                 default:
                     throw new InvalidOperationException($"Unsupported DDS dump format: {format}.");
             }
@@ -751,6 +781,8 @@ namespace YutrelRP
                     return "DXGI_FORMAT_R16G16B16A16_FLOAT";
                 case GraphicsFormat.R32G32_SFloat:
                     return "DXGI_FORMAT_R32G32_FLOAT";
+                case GraphicsFormat.R32G32B32A32_SFloat:
+                    return "DXGI_FORMAT_R32G32B32A32_FLOAT";
                 default:
                     return "unsupported";
             }
@@ -870,6 +902,7 @@ namespace YutrelRP
         {
             RgbaHalfArray,
             RgbaHalf2D,
+            RgbaFloatArray,
             RgFloatArray
         }
 
@@ -900,6 +933,10 @@ namespace YutrelRP
         {
             public int[] probeCount;
             public int raysPerProbe;
+            public int probeRayDataFormat;
+            public string probeRayDataRtxgiFormat;
+            public string probeRayDataStorageFormat;
+            public string probeRayDataGraphicsFormat;
             public float probeMaxRayDistance;
             public float[] volumeMinWS;
             public float[] volumeMaxWS;

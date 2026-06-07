@@ -7,6 +7,12 @@ namespace YutrelRP
 {
     public class DDGIResources : ContextItem
     {
+        public const int ProbeRayDataFormatF32x2 = 5;
+        public const int ProbeRayDataFormatF32x4 = 6;
+        public const string ProbeRayDataRtxgiFormatF32x2Name = "RTXGI_DDGI_VOLUME_TEXTURE_FORMAT_F32x2";
+        public const string ProbeRayDataRtxgiFormatF32x4Name = "RTXGI_DDGI_VOLUME_TEXTURE_FORMAT_F32x4";
+        public const string ProbeRayDataStorageFormatF32x2Name = "DXGI_FORMAT_R32G32_FLOAT";
+        public const string ProbeRayDataStorageFormatF32x4Name = "DXGI_FORMAT_R32G32B32A32_FLOAT";
         public const int ProbeIrradianceFormatU32 = 0;
         public const string ProbeIrradianceRtxgiFormatName = "RTXGI_DDGI_VOLUME_TEXTURE_FORMAT_U32";
         public const string ProbeIrradianceStorageFormatName = "DXGI_FORMAT_R10G10B10A2_UNORM";
@@ -16,6 +22,7 @@ namespace YutrelRP
             probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData"),
             trace_albedo_ID = Shader.PropertyToID("_DDGITraceAlbedo"),
             screen_trace_debug_ID = Shader.PropertyToID("_DDGIScreenTraceDebug"),
+            probe_ray_data_format_ID = Shader.PropertyToID("_DDGIProbeRayDataFormat"),
             probe_ray_data_dimensions_ID = Shader.PropertyToID("_DDGIProbeRayDataDimensions"),
             probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0"),
             probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1"),
@@ -63,6 +70,7 @@ namespace YutrelRP
         public Texture probe_data_texture;
         public Vector3Int probe_count;
         public int rays_per_probe;
+        public int probe_ray_data_format;
         public int probe_irradiance_interior_texels;
         public int probe_distance_interior_texels;
         public float probe_max_ray_distance;
@@ -86,8 +94,10 @@ namespace YutrelRP
         public string diagnostic;
 
         // DDGI atlas 布局约定：
-        // ProbeRayData: R32G32_SFloat, width=raysPerProbe, height=probeCountX*probeCountZ, slice=probeY,
-        // planeIndex=probeX+probeZ*probeCountX, R=asfloat(RTXGI R10G10B10 packed radiance), G=signed distance。
+        // ProbeRayData: R32G32_SFloat 或 R32G32B32A32_SFloat,
+        // width=raysPerProbe, height=probeCountX*probeCountZ, slice=probeY,
+        // planeIndex=probeX+probeZ*probeCountX。F32x2: R=asfloat(RTXGI R10G10B10 packed radiance),
+        // G=signed distance；F32x4: RGB=radiance, A=signed distance。
         // ProbeIrradiance: RTXGI U32/R10G10B10A2 UNorm，每个 probe 为带 1 texel border 的 octahedral tile，
         // RGB=gamma-encoded irradiance，A=1（2-bit alpha 为 3，当前不参与 irradiance）。
         // ProbeDistance: 每个 probe 为带 1 texel border 的 octahedral tile，
@@ -109,6 +119,7 @@ namespace YutrelRP
             probe_data_texture = null;
             probe_count = Vector3Int.zero;
             rays_per_probe = 0;
+            probe_ray_data_format = ProbeRayDataFormatF32x2;
             probe_irradiance_interior_texels = 0;
             probe_distance_interior_texels = 0;
             probe_max_ray_distance = 0.0f;
@@ -136,6 +147,7 @@ namespace YutrelRP
         {
             probe_count = volume.ProbeCount;
             rays_per_probe = volume.RaysPerProbe;
+            probe_ray_data_format = ProbeRayDataFormat(volume.RayDataFormat);
             probe_irradiance_interior_texels = volume.ProbeIrradianceInteriorTexels;
             probe_distance_interior_texels = volume.ProbeDistanceInteriorTexels;
             probe_max_ray_distance = volume.ProbeMaxRayDistance;
@@ -166,6 +178,34 @@ namespace YutrelRP
             probe_count.x * probe_count.z,
             probe_count.y,
             0.0f);
+
+        public static int ProbeRayDataFormat(YutrelDDGIVolume.ProbeRayDataFormat format)
+        {
+            return format == YutrelDDGIVolume.ProbeRayDataFormat.F32x4
+                ? ProbeRayDataFormatF32x4
+                : ProbeRayDataFormatF32x2;
+        }
+
+        public static GraphicsFormat ProbeRayDataGraphicsFormat(YutrelDDGIVolume.ProbeRayDataFormat format)
+        {
+            return format == YutrelDDGIVolume.ProbeRayDataFormat.F32x4
+                ? GraphicsFormat.R32G32B32A32_SFloat
+                : GraphicsFormat.R32G32_SFloat;
+        }
+
+        public static string ProbeRayDataRtxgiFormatName(int format)
+        {
+            return format == ProbeRayDataFormatF32x4
+                ? ProbeRayDataRtxgiFormatF32x4Name
+                : ProbeRayDataRtxgiFormatF32x2Name;
+        }
+
+        public static string ProbeRayDataStorageFormatName(int format)
+        {
+            return format == ProbeRayDataFormatF32x4
+                ? ProbeRayDataStorageFormatF32x4Name
+                : ProbeRayDataStorageFormatF32x2Name;
+        }
 
         internal Vector4 ProbeIrradianceDimensions
         {

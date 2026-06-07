@@ -18,6 +18,7 @@ namespace YutrelRP
         private static readonly int ddgi_probe_ray_data_ID = DDGIResources.probe_ray_data_ID;
         private static readonly int ddgi_trace_albedo_ID = DDGIResources.trace_albedo_ID;
         private static readonly int ddgi_screen_trace_debug_ID = DDGIResources.screen_trace_debug_ID;
+        private static readonly int ddgi_probe_ray_data_format_ID = DDGIResources.probe_ray_data_format_ID;
         private static readonly int ddgi_probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int ddgi_probe_ray_data_debug_slice_ID = DDGIResources.probe_ray_data_debug_slice_ID;
         private static readonly int ddgi_probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
@@ -147,6 +148,7 @@ namespace YutrelRP
             if (pass.reads_DDGI_probe_ray_data)
             {
                 pass.ddgi_probe_ray_data = ddgi_resources.probe_ray_data;
+                pass.ddgi_probe_ray_data_format = ddgi_resources.probe_ray_data_format;
                 pass.ddgi_probe_ray_data_dimensions = ddgi_resources.ProbeRayDataDimensions;
                 pass.ddgi_probe_ray_data_debug_slice = Mathf.Clamp(
                     ddgi_settings != null ? ddgi_settings.debugProbeRayDataSlice : 0,
@@ -474,6 +476,7 @@ namespace YutrelRP
         private int directional_shadow_cascade_count;
         private Vector4 directional_shadow_distance_fade;
         private Vector4 ddgi_probe_ray_data_dimensions;
+        private int ddgi_probe_ray_data_format;
         private int ddgi_probe_ray_data_debug_slice;
         private float ddgi_probe_ray_data_max_distance;
         private Vector3Int ddgi_probe_count;
@@ -500,6 +503,7 @@ namespace YutrelRP
             property_block.SetInteger(debug_view_mode_ID, (int)mode);
             property_block.SetInteger(debug_view_issue_ID, (int)issue);
             property_block.SetVector(ddgi_probe_count_ID, new Vector4(ddgi_probe_count.x, ddgi_probe_count.y, ddgi_probe_count.z, 0.0f));
+            property_block.SetInteger(ddgi_probe_ray_data_format_ID, ddgi_probe_ray_data_format);
             property_block.SetVector(ddgi_probe_ray_data_dimensions_ID, ddgi_probe_ray_data_dimensions);
             property_block.SetInteger(ddgi_probe_ray_data_debug_slice_ID, ddgi_probe_ray_data_debug_slice);
             property_block.SetFloat(ddgi_probe_ray_data_max_distance_ID, ddgi_probe_ray_data_max_distance);

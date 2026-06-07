@@ -46,12 +46,12 @@ gather 采样 UV 使用 tile center 加 `octantCoordinates * interiorTexels * 0.
 weight = pow(saturate(dot(atlasDirection, rayDirection)), 24) + 0.0001
 ```
 
-ray contribution 直接来自 `ProbeRayData.rgb`：
+ray contribution 通过 `DDGIProbeRayDataLoadRadiance` 从 `ProbeRayData` 解码：
 
 ```text
 miss           -> environment / fallback skylight radiance
 front-face hit -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance
-back-face hit  -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance，state 保留在 ProbeRayData.a
+back-face hit  -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance，state 保留在 ProbeRayData signed distance
 ```
 
 因此 irradiance atlas 能随当前帧方向光颜色、强度、方向和 skylight miss 输入变化。后续 gather 可以把它作为真实 radiance 数据流基线，但仍不能把它视为最终物理完整的 DDGI 结果。
@@ -59,19 +59,19 @@ back-face hit  -> ray-facing normal 的 directional direct diffuse radiance + hi
 当前能量约定：
 
 ```text
-ProbeRayData.rgb       = first-version diffuse radiance sample；hit 时已包含 trace material baseColor / PI、NoL、directional visibility；miss 时是 environment radiance
-ProbeRayData.rgb       += history ProbeIrradiance gather * saturate(trace baseColor) / PI * coverage * visibility；feedback 使用固定 1.0 gain，并在写入前 clamp 到有限非负范围
-ProbeIrradiance.rgb    = 对 ProbeRayData.rgb 做方向滤波后的 radiance-like 值，不包含 screen-space AO 或 final pre-exposure
+ProbeRayData radiance  = first-version diffuse radiance sample；hit 时已包含 trace material baseColor / PI、NoL、directional visibility；miss 时是 environment radiance
+ProbeRayData radiance += history ProbeIrradiance gather * saturate(trace baseColor) / PI * coverage * visibility；feedback 使用固定 1.0 gain，并在写入前 clamp 到有限非负范围
+ProbeIrradiance.rgb    = 对 ProbeRayData radiance 做方向滤波后的 radiance-like 值，不包含 screen-space AO 或 final pre-exposure
 EnvironmentLighting    = sample ProbeIrradiance 后乘 surface.diffuse_color、AO、DDGI diffuse intensity、coverage，并只在最终写 scene_color 时应用 pre-exposure
 ```
 
 history feedback 在 probe trace 阶段采样上一帧/上一轮 persistent atlas；本帧 trace 完成后，再由 blend pass 通过 `ProbeHysteresis` 写回同一 persistent atlas。atlas alpha 为 0 的初始化状态不会作为有效历史权重参与 blend，初始 history 为黑色，因此反馈会从 direct/miss 输入逐帧积累。反馈采样沿用 `DDGISampleTrilinearGather` 的 volume coverage、distance visibility、normal/view bias 与 atlas layout 语义，避免绕过已有 gather 约束。
 
-当前 trace 对 front/back hit 都按双面几何处理并使用 ray-facing normal 着色。这样可以避免导入资源 winding 或室内可见面被 RTAS 判定为 backface 时，把实际可见亮墙写成黑色。front/back 状态仍通过 `ProbeRayData.a` 保留给 distance/debug。
+当前 trace 对 front/back hit 都按双面几何处理并使用 ray-facing normal 着色。这样可以避免导入资源 winding 或室内可见面被 RTAS 判定为 backface 时，把实际可见亮墙写成黑色。front/back 状态仍通过 `ProbeRayData` signed distance 保留给 distance/debug。
 
 ## Distance 语义
 
-`ProbeDistance` 当前从 `ProbeRayData.a` 解析 signed distance/state，并存储归一化 distance moments 与 hit ratio：
+`ProbeDistance` 当前通过 `DDGIProbeRayDataLoadDistance` 从 `ProbeRayData` 解析 signed distance/state，并存储归一化 distance moments 与 hit ratio：
 
 ```text
 R = weighted mean(distance / probeMaxRayDistance)

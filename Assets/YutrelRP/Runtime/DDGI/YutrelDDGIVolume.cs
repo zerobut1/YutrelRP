@@ -19,11 +19,18 @@ namespace YutrelRP
         public const int MinProbeDistanceInteriorTexels = 2;
         public const int MaxProbeDistanceInteriorTexels = 64;
 
+        public enum ProbeRayDataFormat
+        {
+            F32x2 = 5,
+            F32x4 = 6
+        }
+
         [SerializeField] private Vector3 center = Vector3.zero;
         [SerializeField] private Vector3 size = new(10.0f, 5.0f, 10.0f);
         [SerializeField] private Vector3Int probeCount = new(4, 3, 4);
         [Range(MinRaysPerProbe, MaxRaysPerProbe)]
         [SerializeField] private int raysPerProbe = 64;
+        [SerializeField] private ProbeRayDataFormat probeRayDataFormat = ProbeRayDataFormat.F32x2;
         [Min(MinProbeMaxRayDistance)]
         [SerializeField] private float probeMaxRayDistance = 100.0f;
         // Persistent atlas identity: probeCount/atlas texel sizes rebuild DDGI history atlases.
@@ -72,6 +79,12 @@ namespace YutrelRP
         {
             get => raysPerProbe;
             set => raysPerProbe = Mathf.Clamp(value, MinRaysPerProbe, MaxRaysPerProbe);
+        }
+
+        public ProbeRayDataFormat RayDataFormat
+        {
+            get => IsValidRayDataFormat(probeRayDataFormat) ? probeRayDataFormat : ProbeRayDataFormat.F32x2;
+            set => probeRayDataFormat = IsValidRayDataFormat(value) ? value : ProbeRayDataFormat.F32x2;
         }
 
         public float ProbeMaxRayDistance
@@ -229,6 +242,7 @@ namespace YutrelRP
             size = ClampSize(size);
             probeCount = ClampProbeCount(probeCount);
             raysPerProbe = Mathf.Clamp(raysPerProbe, MinRaysPerProbe, MaxRaysPerProbe);
+            probeRayDataFormat = IsValidRayDataFormat(probeRayDataFormat) ? probeRayDataFormat : ProbeRayDataFormat.F32x2;
             probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
             probeIrradianceInteriorTexels = Mathf.Clamp(probeIrradianceInteriorTexels, MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels);
             probeDistanceInteriorTexels = Mathf.Clamp(probeDistanceInteriorTexels, MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels);
@@ -265,6 +279,12 @@ namespace YutrelRP
                 Mathf.Clamp(value.x, MinProbeCountPerAxis, MaxProbeCountPerAxis),
                 Mathf.Clamp(value.y, MinProbeCountPerAxis, MaxProbeCountPerAxis),
                 Mathf.Clamp(value.z, MinProbeCountPerAxis, MaxProbeCountPerAxis));
+        }
+
+        private static bool IsValidRayDataFormat(ProbeRayDataFormat format)
+        {
+            return format == ProbeRayDataFormat.F32x2 ||
+                   format == ProbeRayDataFormat.F32x4;
         }
 
         private static Vector3 Abs(Vector3 value)

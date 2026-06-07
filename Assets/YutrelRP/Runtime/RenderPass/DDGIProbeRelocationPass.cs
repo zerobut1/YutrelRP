@@ -11,6 +11,7 @@ namespace YutrelRP
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Relocation");
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
+        private static readonly int probeRayDataFormatID = DDGIResources.probe_ray_data_format_ID;
         private static readonly int probeDataID = DDGIResources.probe_data_ID;
         private static readonly int probeCountID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int probeRayDataDimensionsID = DDGIResources.probe_ray_data_dimensions_ID;
@@ -53,6 +54,7 @@ namespace YutrelRP
             pass.probeData = resources.probe_data;
             pass.computeShader = shader;
             pass.probeCount = resources.probe_count;
+            pass.probeRayDataFormat = resources.probe_ray_data_format;
             pass.probeRayDataDimensions = resources.ProbeRayDataDimensions;
             pass.probeMaxRayDistance = Mathf.Max(0.001f, resources.probe_max_ray_distance);
             pass.probeSpacingWS = resources.probe_spacing_ws;
@@ -71,6 +73,7 @@ namespace YutrelRP
         private TextureHandle probeData;
         private ComputeShader computeShader;
         private Vector3Int probeCount;
+        private int probeRayDataFormat;
         private Vector4 probeRayDataDimensions;
         private float probeMaxRayDistance;
         private Vector3 probeSpacingWS;
@@ -86,6 +89,7 @@ namespace YutrelRP
             cmd.SetComputeTextureParam(computeShader, kernel, probeDataID, probeData);
             cmd.SetComputeVectorParam(computeShader, probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
+            cmd.SetComputeIntParam(computeShader, probeRayDataFormatID, probeRayDataFormat);
             cmd.SetComputeVectorParam(computeShader, probeRayDataDimensionsID, probeRayDataDimensions);
             cmd.SetComputeFloatParam(computeShader, probeRayDataMaxDistanceID, probeMaxRayDistance);
             cmd.SetComputeVectorParam(computeShader, probeSpacingWSID, probeSpacingWS);

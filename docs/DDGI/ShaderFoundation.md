@@ -31,7 +31,12 @@ probeWorldPosition = volumeWorldMin + probeCoord * probeSpacingWS
 
 ## ProbeRayData
 
-`ProbeRayData` 是当前 probe trace 的帧内输出，格式为 `Texture2DArray R16G16B16A16_SFloat`：
+`ProbeRayData` 是当前 probe trace 的帧内输出，格式由 volume 的 `Probe Ray Data Format` 决定：
+
+```text
+F32x2 -> Texture2DArray R32G32_SFloat
+F32x4 -> Texture2DArray R32G32B32A32_SFloat
+```
 
 ```text
 width  = raysPerProbe
@@ -46,6 +51,15 @@ x     = rayIndex
 y     = probeX + probeZ * probeCount.x
 slice = probeY
 ```
+
+格式语义对齐 RTXGI：
+
+```text
+F32x2: R=asfloat(R10G10B10 packed radiance), G=signed distance
+F32x4: RGB=radiance, A=signed distance
+```
+
+所有 shader 都应通过 `DDGIProbeRayDataLoadRadiance`、`DDGIProbeRayDataLoadDistance` 和对应 encode/set helper 访问数据，避免直接绑定某个通道。
 
 当前 ray direction 使用 deterministic golden-angle sphere 分布：
 

@@ -4,7 +4,14 @@
 
 ## 贴图尺寸
 
-贴图类型为 `Texture2DArray`，格式为 `R16G16B16A16_SFloat`。
+贴图类型为 `Texture2DArray`，格式由 `YutrelDDGIVolume.Probe Ray Data Format` 决定：
+
+```text
+F32x2 -> R32G32_SFloat
+F32x4 -> R32G32B32A32_SFloat
+```
+
+默认使用 `F32x2`，与 RTXGI 的默认高性能路径一致；调试 Probe Trace 结果时可以切换到 `F32x4`，避免 radiance 被打包到 R10G10B10。
 
 尺寸映射如下：
 
@@ -66,38 +73,38 @@ row 3 = probe (x=1, y=slice, z=1)
 
 每一行的 `column 0..raysPerProbe-1` 是该 probe 发出的所有 ray。
 
-## RGBA 编码
+## 数据编码
 
 每个像素保存一条 ray 的 radiance 与 signed distance/state：
 
 ```text
+F32x2:
+R = asfloat(R10G10B10 packed radiance)
+G = signed distance / state
+B/A unused
+
+F32x4:
 RGB = radiance
 A   = signed distance / state
 ```
 
-### RGB 通道
+Shader 侧必须通过 `DDGIProbeRayDataLoadRadiance`、`DDGIProbeRayDataLoadDistance`、`DDGIProbeRayDataEncode*Value` 和 `DDGIProbeRayDataSet*DistanceOnly` 读写，不要直接假设 `.g` 或 `.a` 是 distance。
 
-`RGB` 表示该 ray 在命中 front-face 几何时计算出的无阴影方向光 direct diffuse radiance。第一版使用：
+### Radiance
 
-```text
-geometry normal
-default diffuse color
-current-frame first directional light color / intensity / direction
-```
+Radiance 表示 trace ray 的当前阶段 diffuse radiance。front-face hit 时包含 trace material base color、方向光 direct diffuse、可选方向光 visibility，以及 history irradiance feedback；miss 时写入 environment / fallback skylight radiance。`F32x2` 会把 radiance 饱和到 `[0, 1]` 并打包到 R10G10B10，`F32x4` 保留 32-bit float RGB，适合验证 Probe Trace 的原始结果。
 
-不读取材质 albedo，不做方向光阴影。miss、back-face hit、无方向光时写黑色 radiance。
+### Signed Distance / State
 
-### A 通道
-
-`A` 表示 signed distance/state：
+Distance/state 的逻辑语义与 RTXGI 保持一致：
 
 ```text
 front-face hit: +distance
-back-face hit : -distance
-miss          : -(probeMaxRayDistance + 1)
+back-face hit : -distance * 0.2
+miss          : +1e27
 ```
 
-因此 `A > 0` 为 front-face hit，`A < 0` 且大于 miss sentinel 阈值为 back-face hit，低于 miss sentinel 阈值为 miss。后续 visibility、relocation、classification 可以继续复用这个状态区分。
+因此 `distance >= 0.5e27` 为 miss，`distance < 0` 为 back-face hit，`0 <= distance < 0.5e27` 为 front-face hit。后续 visibility、relocation、classification 可以继续复用这个状态区分。
 
 ## RenderDoc 查看建议
 
@@ -108,16 +115,16 @@ RenderDoc 中选中 `RayTracing.Dispatch` 后，右侧 `Outputs` 通常不会直
 ```text
 name      ~= DDGI ProbeRayData
 dimension = Texture2DArray
-format    = RGBA16F / R16G16B16A16_FLOAT
+format    = R32G32_FLOAT 或 R32G32B32A32_FLOAT
 size      = raysPerProbe x (probeCount.x * probeCount.z) x probeCount.y
 ```
 
 查看时建议：
 
 1. 先看 RGB 或 DDGI ProbeRayData debug view，确认 radiance 是否随方向光颜色、强度、方向变化。
-2. 再看 A 通道，确认 miss/front-face/back-face 分布。
-3. 在 RenderDoc 中查看 A 通道时，建议显示范围覆盖 `-probeMaxRayDistance..probeMaxRayDistance`，并记住 miss 会落在 `-(probeMaxRayDistance + 1)`。
-4. 最后才看 RGBA 合成图。合成图可能受 HDR 数值和显示范围影响，不适合判断精确数据。
+2. F32x2 看 G 通道，F32x4 看 A 通道，确认 miss/front-face/back-face 分布。
+3. 查看 distance 通道时，建议显示范围覆盖 `-probeMaxRayDistance..probeMaxRayDistance`；miss 是 `1e27`，通常会被显示范围夹到白色。
+4. 最后才看合成图。合成图可能受 HDR 数值和显示范围影响，不适合判断精确数据。
 
 ## 基础验证方式
 
@@ -132,7 +139,7 @@ size      = raysPerProbe x (probeCount.x * probeCount.z) x probeCount.y
 
 ```text
 朝向地板的 ray 应该命中，A 为正距离或负距离。
-朝向天空的 ray 应该 miss，A 约为 `-(probeMaxRayDistance + 1)`。
+朝向天空的 ray 应该 miss，distance 约为 `1e27`。
 关闭地板 Contribute GI 后，相关命中应该消失。
 ```
 

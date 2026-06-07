@@ -15,12 +15,12 @@ namespace YutrelRP
         private const string ShaderPassName = "DDGIRayTracing";
         private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
         private const int FixedRayCount = 32;
-        private const GraphicsFormat ProbeRayDataFormat = GraphicsFormat.R32G32_SFloat;
         private const GraphicsFormat ProbeIrradianceFormat = DDGIResources.ProbeIrradianceGraphicsFormat;
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
+        private static readonly int probeRayDataFormatID = DDGIResources.probe_ray_data_format_ID;
         private static readonly int probeRayRotationRow0ID = DDGIResources.probe_ray_rotation_row0_ID;
         private static readonly int probeRayRotationRow1ID = DDGIResources.probe_ray_rotation_row1_ID;
         private static readonly int probeRayRotationRow2ID = DDGIResources.probe_ray_rotation_row2_ID;
@@ -101,6 +101,10 @@ namespace YutrelRP
             var volume = issue == ProbeTraceIssue.None ? ResolveActiveVolume(out issue) : null;
             if (issue == ProbeTraceIssue.None)
             {
+                issue = ValidateProbeRayDataFormat(volume);
+            }
+            if (issue == ProbeTraceIssue.None)
+            {
                 issue = ValidateShaderResource(settings);
             }
 
@@ -138,16 +142,18 @@ namespace YutrelRP
             var probeCount = volume.ProbeCount;
             var raysPerProbe = volume.RaysPerProbe;
             var planeProbeCount = probeCount.x * probeCount.z;
+            var probeRayDataFormat = DDGIResources.ProbeRayDataFormat(volume.RayDataFormat);
+            var probeRayDataGraphicsFormat = DDGIResources.ProbeRayDataGraphicsFormat(volume.RayDataFormat);
             var desc = new TextureDesc(raysPerProbe, planeProbeCount)
             {
-                colorFormat = ProbeRayDataFormat,
+                colorFormat = probeRayDataGraphicsFormat,
                 dimension = TextureDimension.Tex2DArray,
                 slices = probeCount.y,
                 enableRandomWrite = true,
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 clearBuffer = true,
-                clearColor = new Color(0.0f, 1.0e27f, 0.0f, 0.0f),
+                clearColor = ProbeRayDataClearColor(probeRayDataFormat),
                 name = "DDGI ProbeRayData"
             };
 
@@ -215,6 +221,7 @@ namespace YutrelRP
                 pass.probeIrradianceEncodingGamma = volume.IrradianceEncodingGamma;
                 pass.probeCount = probeCount;
                 pass.raysPerProbe = raysPerProbe;
+                pass.probeRayDataFormat = probeRayDataFormat;
                 pass.planeProbeCount = planeProbeCount;
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
                 pass.probeIrradianceDimensions = resources.ProbeIrradianceDimensions;
@@ -280,6 +287,7 @@ namespace YutrelRP
         private float probeIrradianceEncodingGamma;
         private Vector3Int probeCount;
         private int raysPerProbe;
+        private int probeRayDataFormat;
         private int planeProbeCount;
         private float probeMaxRayDistance;
         private Vector4 probeIrradianceDimensions;
@@ -339,6 +347,7 @@ namespace YutrelRP
             cmd.SetRayTracingVectorParam(rayTracingShader, probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);
+            cmd.SetRayTracingIntParam(rayTracingShader, probeRayDataFormatID, probeRayDataFormat);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeMaxRayDistanceID, probeMaxRayDistance);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeIrradianceDimensionsID, probeIrradianceDimensions);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDistanceDimensionsID, probeDistanceDimensions);
@@ -431,18 +440,32 @@ namespace YutrelRP
                 return ProbeTraceIssue.UnsupportedRayTracing;
             }
 
-            if (!SystemInfo.IsFormatSupported(ProbeRayDataFormat,
-                    GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore))
-            {
-                return ProbeTraceIssue.UnsupportedProbeRayDataFormat;
-            }
-
             if (!SupportsProbeIrradianceFormat())
             {
                 return ProbeTraceIssue.UnsupportedProbeIrradianceFormat;
             }
 
             return ProbeTraceIssue.None;
+        }
+
+        private static ProbeTraceIssue ValidateProbeRayDataFormat(YutrelDDGIVolume volume)
+        {
+            if (volume == null)
+            {
+                return ProbeTraceIssue.MissingVolume;
+            }
+
+            var format = DDGIResources.ProbeRayDataGraphicsFormat(volume.RayDataFormat);
+            return SystemInfo.IsFormatSupported(format, GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore)
+                ? ProbeTraceIssue.None
+                : ProbeTraceIssue.UnsupportedProbeRayDataFormat;
+        }
+
+        private static Color ProbeRayDataClearColor(int format)
+        {
+            return format == DDGIResources.ProbeRayDataFormatF32x4
+                ? new Color(0.0f, 0.0f, 0.0f, 1.0e27f)
+                : new Color(0.0f, 1.0e27f, 0.0f, 0.0f);
         }
 
         private static bool SupportsProbeIrradianceFormat()
@@ -987,7 +1010,7 @@ namespace YutrelRP
         {
             var device = SystemInfo.graphicsDeviceType;
             var volumeKey = volume != null
-                ? $"{GetStableVolumeKey(volume)}:{volume.ProbeCount}:{volume.RaysPerProbe}:{volume.ProbeMaxRayDistance}"
+                ? $"{GetStableVolumeKey(volume)}:{volume.ProbeCount}:{volume.RaysPerProbe}:{volume.RayDataFormat}:{volume.ProbeMaxRayDistance}"
                 : "none";
             var key = $"{issue}:{device}:{SystemInfo.supportsRayTracing}:{volumeKey}";
             if (key == lastStatusKey)
@@ -1081,7 +1104,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.UnsupportedRayTracing:
                     return "SystemInfo.supportsRayTracing is false";
                 case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
-                    return "DDGI ProbeRayData requires GraphicsFormat.R32G32_SFloat with sample and load/store support for RTXGI F32x2 parity";
+                    return "DDGI ProbeRayData requires the selected RTXGI F32x2/F32x4 GraphicsFormat with sample and load/store support";
                 case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
                     return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with render-target/blend support for RTXGI U32 parity (blend={SupportsProbeIrradianceRenderTargetFormat()}, render={SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Render)}, sampleQuery={SupportsProbeIrradianceSampleFormat()})";
                 case ProbeTraceIssue.MissingVolume:
