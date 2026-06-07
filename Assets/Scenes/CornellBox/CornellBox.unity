@@ -259,6 +259,7 @@ MonoBehaviour:
   size: {x: 2.4, y: 2.4, z: 2.4}
   probeCount: {x: 9, y: 9, z: 9}
   raysPerProbe: 256
+  probeRayDataFormat: 6
   probeMaxRayDistance: 10
   probeIrradianceInteriorTexels: 6
   probeDistanceInteriorTexels: 14
