@@ -29,9 +29,14 @@ namespace YutrelRP
         internal static void Record(RenderGraph renderGraph, YutrelDDGIVolume volume,
             YutrelRPSettings.DDGISettings settings, ref DDGIResources resources)
         {
-            resources.probe_relocation_enabled = settings != null && settings.probeRelocationEnabled;
+            var relocationRequested = settings != null && settings.probeRelocationEnabled;
+            resources.probe_relocation_enabled = settings != null && settings.ProbeRelocationEffectiveEnabled;
             if (!resources.probe_relocation_enabled)
             {
+                if (relocationRequested && settings != null && settings.logDiagnostics)
+                {
+                    LogStatus(ProbeRelocationIssue.DisabledByCurrentScope, volume, true);
+                }
                 return;
             }
 
@@ -181,6 +186,13 @@ namespace YutrelRP
                 return;
             }
 
+            if (issue == ProbeRelocationIssue.DisabledByCurrentScope)
+            {
+                Debug.Log(
+                    $"YutrelRP DDGI ProbeRelocation disabled: category={GetCategory(issue)}, reason={GetReason(issue)}.");
+                return;
+            }
+
             Debug.LogWarning(
                 $"YutrelRP DDGI ProbeRelocation skipped: category={GetCategory(issue)}, reason={GetReason(issue)}.");
         }
@@ -195,6 +207,8 @@ namespace YutrelRP
                 case ProbeRelocationIssue.MissingComputeShader:
                 case ProbeRelocationIssue.MissingKernel:
                     return "resource/loading";
+                case ProbeRelocationIssue.DisabledByCurrentScope:
+                    return "scope";
                 case ProbeRelocationIssue.MissingProbeRayData:
                 case ProbeRelocationIssue.MissingProbeData:
                 case ProbeRelocationIssue.MissingResources:
@@ -222,6 +236,8 @@ namespace YutrelRP
                     return "YutrelRPAsset DDGI probeRelocationShader is missing or invalid";
                 case ProbeRelocationIssue.MissingKernel:
                     return "DDGIProbeRelocation compute shader is missing the RelocateProbes kernel";
+                case ProbeRelocationIssue.DisabledByCurrentScope:
+                    return "Probe Relocation is disabled by the current DDGI project scope";
                 default:
                     return "unknown failure";
             }
@@ -248,7 +264,8 @@ namespace YutrelRP
             MissingProbeData = 4,
             InvalidMetadata = 5,
             MissingComputeShader = 6,
-            MissingKernel = 7
+            MissingKernel = 7,
+            DisabledByCurrentScope = 8
         }
     }
 }

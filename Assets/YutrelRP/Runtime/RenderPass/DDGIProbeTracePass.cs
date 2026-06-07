@@ -161,8 +161,9 @@ namespace YutrelRP
             var traceAlbedo = renderGraph.CreateTexture(desc);
             resources.trace_albedo = traceAlbedo;
             resources.SetVolumeMetadata(volume);
-            resources.probe_relocation_enabled = settings.probeRelocationEnabled;
-            var probeRayRotation = ComputeProbeRayRotation(volume, settings);
+            var probeRelocationEnabled = settings.ProbeRelocationEffectiveEnabled;
+            resources.probe_relocation_enabled = probeRelocationEnabled;
+            var probeRayRotation = ComputeProbeRayRotation(volume, settings, probeRelocationEnabled);
             resources.SetProbeRayRotation(probeRayRotation.row0, probeRayRotation.row1, probeRayRotation.row2,
                 probeRayRotation.randomRotationEnabled, probeRayRotation.fixedRaysEnabled,
                 probeRayRotation.skipFixedRaysForBlend);
@@ -222,7 +223,7 @@ namespace YutrelRP
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
                 pass.probeIrradianceDimensions = resources.ProbeIrradianceDimensions;
                 pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
-                pass.probeRelocationEnabled = settings.probeRelocationEnabled ? 1.0f : 0.0f;
+                pass.probeRelocationEnabled = probeRelocationEnabled ? 1.0f : 0.0f;
                 pass.probeRayRotationRow0 = resources.probe_ray_rotation_row0;
                 pass.probeRayRotationRow1 = resources.probe_ray_rotation_row1;
                 pass.probeRayRotationRow2 = resources.probe_ray_rotation_row2;
@@ -456,9 +457,9 @@ namespace YutrelRP
         }
 
         private static ProbeRayRotation ComputeProbeRayRotation(YutrelDDGIVolume volume,
-            YutrelRPSettings.DDGISettings settings)
+            YutrelRPSettings.DDGISettings settings, bool probeRelocationEnabled)
         {
-            var fixedRaysEnabled = settings != null && settings.probeRelocationEnabled;
+            var fixedRaysEnabled = probeRelocationEnabled;
             var randomRotationEnabled = settings != null && settings.probeRandomRotationEnabled &&
                                         volume != null && volume.RaysPerProbe > FixedRayCount;
             var skipFixedRaysForBlend = fixedRaysEnabled;

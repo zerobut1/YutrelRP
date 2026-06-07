@@ -75,7 +75,7 @@ namespace YutrelRP
             pass.probe_spacing_ws = ddgi_resources != null ? ddgi_resources.probe_spacing_ws : Vector3.zero;
             pass.probe_relocation_enabled =
                 ddgi_resources != null && ddgi_resources.probe_relocation_enabled &&
-                ddgi_settings != null && ddgi_settings.probeRelocationEnabled
+                ddgi_settings != null && ddgi_settings.ProbeRelocationEffectiveEnabled
                     ? 1.0f
                     : 0.0f;
             pass.instance_count = pass.probe_count.x * pass.probe_count.y * pass.probe_count.z;
