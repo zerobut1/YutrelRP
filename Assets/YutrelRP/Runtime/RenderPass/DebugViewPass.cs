@@ -22,6 +22,7 @@ namespace YutrelRP
         private static readonly int ddgi_probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int ddgi_probe_ray_data_debug_slice_ID = DDGIResources.probe_ray_data_debug_slice_ID;
         private static readonly int ddgi_probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
+        private static readonly int ddgi_probe_ray_radiance_max_ID = DDGIResources.probe_ray_radiance_max_ID;
         private static readonly int ddgi_probe_irradiance_ID = DDGIResources.probe_irradiance_ID;
         private static readonly int ddgi_probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int ddgi_probe_irradiance_debug_slice_ID = DDGIResources.probe_irradiance_debug_slice_ID;
@@ -155,6 +156,8 @@ namespace YutrelRP
                     0,
                     Mathf.Max(0, ddgi_resources.probe_count.y - 1));
                 pass.ddgi_probe_ray_data_max_distance = Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance);
+                pass.ddgi_probe_ray_radiance_max =
+                    Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, ddgi_resources.probe_ray_radiance_max);
                 builder.UseTexture(pass.ddgi_probe_ray_data);
             }
 
@@ -166,6 +169,8 @@ namespace YutrelRP
                     ddgi_settings != null ? ddgi_settings.debugProbeRayDataSlice : 0,
                     0,
                     Mathf.Max(0, ddgi_resources.probe_count.y - 1));
+                pass.ddgi_probe_ray_radiance_max =
+                    Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, ddgi_resources.probe_ray_radiance_max);
                 builder.UseTexture(pass.ddgi_trace_albedo);
             }
 
@@ -181,6 +186,8 @@ namespace YutrelRP
                 pass.ddgi_probe_irradiance_dimensions = ddgi_resources.ProbeIrradianceDimensions;
                 pass.ddgi_probe_irradiance_encoding_gamma =
                     Mathf.Max(0.01f, ddgi_resources.probe_irradiance_encoding_gamma);
+                pass.ddgi_probe_ray_radiance_max =
+                    Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, ddgi_resources.probe_ray_radiance_max);
                 pass.ddgi_probe_irradiance_debug_slice = Mathf.Clamp(
                     ddgi_settings != null ? ddgi_settings.debugProbeIrradianceAtlasSlice : 0,
                     0,
@@ -228,6 +235,8 @@ namespace YutrelRP
                 pass.ddgi_probe_distance_dimensions = ddgi_resources.ProbeDistanceDimensions;
                 pass.ddgi_probe_data_dimensions = ddgi_resources.ProbeDataDimensions;
                 pass.ddgi_probe_ray_data_max_distance = Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance);
+                pass.ddgi_probe_ray_radiance_max =
+                    Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, ddgi_resources.probe_ray_radiance_max);
                 pass.ddgi_volume_min_ws = ddgi_resources.volume_min_ws;
                 pass.ddgi_volume_max_ws = ddgi_resources.volume_max_ws;
                 pass.ddgi_probe_spacing_ws = ddgi_resources.probe_spacing_ws;
@@ -479,6 +488,7 @@ namespace YutrelRP
         private int ddgi_probe_ray_data_format;
         private int ddgi_probe_ray_data_debug_slice;
         private float ddgi_probe_ray_data_max_distance;
+        private float ddgi_probe_ray_radiance_max = YutrelDDGIVolume.MinProbeRayRadianceMax;
         private Vector3Int ddgi_probe_count;
         private Vector4 ddgi_probe_irradiance_dimensions;
         private Vector4 ddgi_probe_distance_dimensions;
@@ -507,6 +517,7 @@ namespace YutrelRP
             property_block.SetVector(ddgi_probe_ray_data_dimensions_ID, ddgi_probe_ray_data_dimensions);
             property_block.SetInteger(ddgi_probe_ray_data_debug_slice_ID, ddgi_probe_ray_data_debug_slice);
             property_block.SetFloat(ddgi_probe_ray_data_max_distance_ID, ddgi_probe_ray_data_max_distance);
+            property_block.SetFloat(ddgi_probe_ray_radiance_max_ID, ddgi_probe_ray_radiance_max);
             property_block.SetVector(ddgi_probe_irradiance_dimensions_ID, ddgi_probe_irradiance_dimensions);
             property_block.SetInteger(ddgi_probe_irradiance_debug_slice_ID, ddgi_probe_irradiance_debug_slice);
             property_block.SetVector(ddgi_probe_distance_dimensions_ID, ddgi_probe_distance_dimensions);

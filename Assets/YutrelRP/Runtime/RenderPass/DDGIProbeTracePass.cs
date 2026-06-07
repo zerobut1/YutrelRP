@@ -13,7 +13,6 @@ namespace YutrelRP
         private const string RayGenName = "RayGenDDGIProbeTrace";
         private const string ScreenTraceRayGenName = "RayGenDDGIScreenTrace";
         private const string ShaderPassName = "DDGIRayTracing";
-        private const string EnvironmentReflectionCubeName = "_EnvironmentReflectionCube";
         private const int FixedRayCount = 32;
         private const GraphicsFormat ProbeIrradianceFormat = DDGIResources.ProbeIrradianceGraphicsFormat;
 
@@ -21,6 +20,7 @@ namespace YutrelRP
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
         private static readonly int probeRayDataFormatID = DDGIResources.probe_ray_data_format_ID;
+        private static readonly int probeRayRadianceMaxID = DDGIResources.probe_ray_radiance_max_ID;
         private static readonly int probeRayRotationRow0ID = DDGIResources.probe_ray_rotation_row0_ID;
         private static readonly int probeRayRotationRow1ID = DDGIResources.probe_ray_rotation_row1_ID;
         private static readonly int probeRayRotationRow2ID = DDGIResources.probe_ray_rotation_row2_ID;
@@ -31,7 +31,6 @@ namespace YutrelRP
         private static readonly int probeDistanceID = DDGIResources.probe_distance_ID;
         private static readonly int probeDistanceDimensionsID = DDGIResources.probe_distance_dimensions_ID;
         private static readonly int probeDataID = DDGIResources.probe_data_ID;
-        private static readonly int probeDataDimensionsID = DDGIResources.probe_data_dimensions_ID;
         private static readonly int probeRelocationEnabledID = DDGIResources.probe_relocation_enabled_ID;
         private static readonly int volumeMinWSID = Shader.PropertyToID("_DDGIVolumeMinWS");
         private static readonly int volumeMaxWSID = Shader.PropertyToID("_DDGIVolumeMaxWS");
@@ -47,10 +46,6 @@ namespace YutrelRP
         private static readonly int directionalLightDirectionWSID = Shader.PropertyToID("_DDGIDirectionalLightDirectionWS");
         private static readonly int directionalLightVisibilityEnabledID = Shader.PropertyToID("_DDGIDirectionalLightVisibilityEnabled");
         private static readonly int directionalLightLambertEnabledID = Shader.PropertyToID("_DDGIDirectionalLightLambertEnabled");
-        private static readonly int environmentReflectionCubeHdrID = LightResources.environment_reflection_cube_hdr_ID;
-        private static readonly int environmentIntensityID = LightResources.environment_intensity_ID;
-        private static readonly int environmentDiffuseMultiplierID = LightResources.environment_diffuse_multiplier_ID;
-        private static readonly int environmentValidID = Shader.PropertyToID("_DDGIEnvironmentValid");
         private static readonly int traceAlbedoID = DDGIResources.trace_albedo_ID;
         private static readonly int screenTraceDebugID = DDGIResources.screen_trace_debug_ID;
         private static readonly int screenTraceDepthID = Shader.PropertyToID("_DDGIScreenTraceDepth");
@@ -65,7 +60,6 @@ namespace YutrelRP
         private static RTHandle probeIrradianceWriteRT;
         private static RTHandle probeDistanceRT;
         private static RTHandle probeDataRT;
-        private static RTHandle fallbackEnvironmentReflectionRT;
         private static DDGIResources.Identity persistentIdentity;
         private static bool hasPersistentIdentity;
         private static string lastStatusKey;
@@ -195,8 +189,8 @@ namespace YutrelRP
             }
             else
             {
-                screenTraceDebugOutput = CreateFallbackScreenTraceDebug(renderGraph);
-                screenTraceDepth = CreateFallbackScreenTraceDepth(renderGraph);
+                screenTraceDebugOutput = TextureHandle.nullHandle;
+                screenTraceDepth = TextureHandle.nullHandle;
             }
 
             using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
@@ -222,11 +216,11 @@ namespace YutrelRP
                 pass.probeCount = probeCount;
                 pass.raysPerProbe = raysPerProbe;
                 pass.probeRayDataFormat = probeRayDataFormat;
+                pass.probeRayRadianceMax = Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, resources.probe_ray_radiance_max);
                 pass.planeProbeCount = planeProbeCount;
                 pass.probeMaxRayDistance = volume.ProbeMaxRayDistance;
                 pass.probeIrradianceDimensions = resources.ProbeIrradianceDimensions;
                 pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
-                pass.probeDataDimensions = resources.ProbeDataDimensions;
                 pass.probeRelocationEnabled = settings.probeRelocationEnabled ? 1.0f : 0.0f;
                 pass.probeRayRotationRow0 = resources.probe_ray_rotation_row0;
                 pass.probeRayRotationRow1 = resources.probe_ray_rotation_row1;
@@ -240,23 +234,17 @@ namespace YutrelRP
                 pass.directionalLightVisibilityEnabled = settings.traceDirectionalVisibility ? 1.0f : 0.0f;
                 pass.directionalLightLambertEnabled = settings.traceDirectionalLambert ? 1.0f : 0.0f;
                 pass.SetDirectionalLight(lightResources);
-                pass.SetEnvironment(lightResources);
-                if (!pass.hasEnvironmentReflectionCube)
-                {
-                    pass.environmentReflectionCube = ImportFallbackEnvironmentReflection(renderGraph);
-                }
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.UseTexture(traceAlbedo, AccessFlags.Write);
-                builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
-                builder.UseTexture(screenTraceDepth, AccessFlags.Read);
+                if (writesScreenTraceDebug)
+                {
+                    builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
+                    builder.UseTexture(screenTraceDepth, AccessFlags.Read);
+                }
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
                 builder.UseTexture(pass.probeData, AccessFlags.Read);
-                if (pass.environmentReflectionCube.IsValid())
-                {
-                    builder.UseTexture(pass.environmentReflectionCube);
-                }
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
@@ -288,11 +276,11 @@ namespace YutrelRP
         private Vector3Int probeCount;
         private int raysPerProbe;
         private int probeRayDataFormat;
+        private float probeRayRadianceMax;
         private int planeProbeCount;
         private float probeMaxRayDistance;
         private Vector4 probeIrradianceDimensions;
         private Vector4 probeDistanceDimensions;
-        private Vector4 probeDataDimensions;
         private float probeRelocationEnabled;
         private Vector4 probeRayRotationRow0;
         private Vector4 probeRayRotationRow1;
@@ -309,12 +297,6 @@ namespace YutrelRP
         private Vector4 directionalLightDirectionWS;
         private float directionalLightVisibilityEnabled;
         private float directionalLightLambertEnabled;
-        private TextureHandle environmentReflectionCube;
-        private Vector4 environmentReflectionCubeHdr;
-        private float environmentIntensity;
-        private float environmentDiffuseMultiplier;
-        private float environmentValid;
-        private bool hasEnvironmentReflectionCube;
         private bool writesScreenTraceDebug;
 
         private void Render(ComputeGraphContext context)
@@ -323,10 +305,10 @@ namespace YutrelRP
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
-            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
-            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
             if (writesScreenTraceDebug)
             {
+                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
+                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
                 cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
                 cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
                 cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
@@ -348,10 +330,10 @@ namespace YutrelRP
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetRayTracingIntParam(rayTracingShader, raysPerProbeID, raysPerProbe);
             cmd.SetRayTracingIntParam(rayTracingShader, probeRayDataFormatID, probeRayDataFormat);
+            cmd.SetRayTracingFloatParam(rayTracingShader, probeRayRadianceMaxID, probeRayRadianceMax);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeMaxRayDistanceID, probeMaxRayDistance);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeIrradianceDimensionsID, probeIrradianceDimensions);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeDistanceDimensionsID, probeDistanceDimensions);
-            cmd.SetRayTracingVectorParam(rayTracingShader, probeDataDimensionsID, probeDataDimensions);
             cmd.SetRayTracingFloatParam(rayTracingShader, probeRelocationEnabledID, probeRelocationEnabled);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeRayRotationRow0ID, probeRayRotationRow0);
             cmd.SetRayTracingVectorParam(rayTracingShader, probeRayRotationRow1ID, probeRayRotationRow1);
@@ -365,14 +347,6 @@ namespace YutrelRP
                 directionalLightVisibilityEnabled);
             cmd.SetRayTracingFloatParam(rayTracingShader, directionalLightLambertEnabledID,
                 directionalLightLambertEnabled);
-            if (environmentReflectionCube.IsValid())
-            {
-                cmd.SetRayTracingTextureParam(rayTracingShader, EnvironmentReflectionCubeName, environmentReflectionCube);
-            }
-            cmd.SetRayTracingVectorParam(rayTracingShader, environmentReflectionCubeHdrID, environmentReflectionCubeHdr);
-            cmd.SetRayTracingFloatParam(rayTracingShader, environmentIntensityID, environmentIntensity);
-            cmd.SetRayTracingFloatParam(rayTracingShader, environmentDiffuseMultiplierID, environmentDiffuseMultiplier);
-            cmd.SetRayTracingFloatParam(rayTracingShader, environmentValidID, environmentValid);
             cmd.DispatchRays(rayTracingShader, RayGenName, (uint)raysPerProbe, (uint)planeProbeCount,
                 (uint)probeCount.y, null);
             if (writesScreenTraceDebug)
@@ -395,36 +369,6 @@ namespace YutrelRP
             directionalLightColorIlluminance = new Vector4(light.color.x, light.color.y, light.color.z,
                 Mathf.Max(0.0f, light.illuminance));
             directionalLightDirectionWS = new Vector4(light.direction.x, light.direction.y, light.direction.z, 1.0f);
-        }
-
-        private void SetEnvironment(LightResources lightResources)
-        {
-            environmentReflectionCube = TextureHandle.nullHandle;
-            environmentReflectionCubeHdr = Vector4.zero;
-            environmentIntensity = 1.0f;
-            environmentDiffuseMultiplier = 1.0f;
-            environmentValid = 0.0f;
-            hasEnvironmentReflectionCube = false;
-
-            if (lightResources == null)
-            {
-                return;
-            }
-
-            environmentIntensity = Mathf.Max(0.0f, lightResources.environment_intensity);
-            environmentDiffuseMultiplier = Mathf.Max(0.0f, lightResources.environment_diffuse_multiplier);
-            if (!lightResources.has_environment_reflection ||
-                !lightResources.environment_reflection_cube.IsValid() ||
-                environmentIntensity <= 0.0f ||
-                environmentDiffuseMultiplier <= 0.0f)
-            {
-                return;
-            }
-
-            environmentReflectionCube = lightResources.environment_reflection_cube;
-            environmentReflectionCubeHdr = lightResources.environment_reflection_cube_hdr;
-            hasEnvironmentReflectionCube = true;
-            environmentValid = 1.0f;
         }
 
         private static ProbeTraceIssue ValidateCapability()
@@ -526,11 +470,20 @@ namespace YutrelRP
             var c2 = 2.0f * u3 * cos2 * cos2 - 1.0f;
             var sc = 2.0f * u3 * sin2 * cos2;
 
+            var m11 = cos1 * c2 - sin1 * sc;
+            var m12 = sin1 * c2 + cos1 * sc;
+            var m13 = sq3 * cos2;
+            var m21 = cos1 * sc - sin1 * s2;
+            var m22 = sin1 * sc + cos1 * s2;
+            var m23 = sq3 * sin2;
+            var m31 = cos1 * (sq3 * cos2) - sin1 * (sq3 * sin2);
+            var m32 = sin1 * (sq3 * cos2) + cos1 * (sq3 * sin2);
+            var m33 = 1.0f - 2.0f * u3;
+
             return new ProbeRayRotation(
-                new Vector4(cos1 * c2 - sin1 * sc, sin1 * c2 + cos1 * sc, sq3 * cos2, 0.0f),
-                new Vector4(cos1 * sc - sin1 * s2, sin1 * sc + cos1 * s2, sq3 * sin2, 0.0f),
-                new Vector4(cos1 * (sq3 * cos2) - sin1 * (sq3 * sin2),
-                    sin1 * (sq3 * cos2) + cos1 * (sq3 * sin2), 1.0f - 2.0f * u3, 0.0f),
+                new Vector4(m11, m21, m31, 0.0f),
+                new Vector4(m12, m22, m32, 0.0f),
+                new Vector4(m13, m23, m33, 0.0f),
                 true,
                 fixedRaysEnabled,
                 skipFixedRaysForBlend);
@@ -761,52 +714,6 @@ namespace YutrelRP
             probeDistanceRT = null;
             probeDataRT = null;
             hasPersistentIdentity = false;
-        }
-
-        private static TextureHandle ImportFallbackEnvironmentReflection(RenderGraph renderGraph)
-        {
-            if (fallbackEnvironmentReflectionRT == null)
-            {
-                fallbackEnvironmentReflectionRT = RTHandles.Alloc(CoreUtils.blackCubeTexture);
-            }
-
-            return renderGraph.ImportTexture(fallbackEnvironmentReflectionRT);
-        }
-
-        private static TextureHandle CreateFallbackScreenTraceDebug(RenderGraph renderGraph)
-        {
-            var desc = new TextureDesc(1, 1)
-            {
-                colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
-                enableRandomWrite = true,
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-                clearBuffer = true,
-                clearColor = Color.black,
-                name = "DDGI Screen Trace Debug Fallback"
-            };
-            return renderGraph.CreateTexture(desc);
-        }
-
-        private static TextureHandle CreateFallbackScreenTraceDepth(RenderGraph renderGraph)
-        {
-            var desc = new TextureDesc(1, 1)
-            {
-                colorFormat = GraphicsFormat.R32_SFloat,
-                enableRandomWrite = false,
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-                clearBuffer = true,
-                clearColor = Color.clear,
-                name = "DDGI Screen Trace Depth Fallback"
-            };
-            return renderGraph.CreateTexture(desc);
-        }
-
-        private static void ReleaseFallbackEnvironmentReflection()
-        {
-            RTHandles.Release(fallbackEnvironmentReflectionRT);
-            fallbackEnvironmentReflectionRT = null;
         }
 
         private static ProbeTraceIssue BuildAccelerationStructure(YutrelRPSettings.DDGISettings settings)
@@ -1173,7 +1080,6 @@ namespace YutrelRP
             accelerationStructure?.Dispose();
             accelerationStructure = null;
             ReleasePersistentAtlases();
-            ReleaseFallbackEnvironmentReflection();
             DDGIProbeRelocationPass.Cleanup();
             DDGIProbeBlendPass.Cleanup();
             shader = null;

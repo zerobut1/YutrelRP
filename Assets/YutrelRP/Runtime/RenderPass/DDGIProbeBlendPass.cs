@@ -16,6 +16,7 @@ namespace YutrelRP
         private static readonly ProfilingSampler distanceSampler = new("DDGI Probe Distance Blend");
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
         private static readonly int probeRayDataFormatID = DDGIResources.probe_ray_data_format_ID;
+        private static readonly int probeRayRadianceMaxID = DDGIResources.probe_ray_radiance_max_ID;
         private static readonly int probeIrradianceHistoryID = Shader.PropertyToID("_DDGIProbeIrradianceHistory");
         private static readonly int probeDistanceID = DDGIResources.probe_distance_ID;
         private static readonly int probeRayRotationRow0ID = DDGIResources.probe_ray_rotation_row0_ID;
@@ -113,6 +114,7 @@ namespace YutrelRP
         private int probeBlendSlice;
         private Vector3Int probeCount;
         private int probeRayDataFormat;
+        private float probeRayRadianceMax;
         private Vector4 probeRayDataDimensions;
         private Vector4 probeIrradianceDimensions;
         private Vector4 probeDistanceDimensions;
@@ -170,6 +172,7 @@ namespace YutrelRP
         {
             pass.probeCount = resources.probe_count;
             pass.probeRayDataFormat = resources.probe_ray_data_format;
+            pass.probeRayRadianceMax = Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, resources.probe_ray_radiance_max);
             pass.probeRayDataDimensions = resources.ProbeRayDataDimensions;
             pass.probeIrradianceDimensions = resources.ProbeIrradianceDimensions;
             pass.probeDistanceDimensions = resources.ProbeDistanceDimensions;
@@ -196,6 +199,7 @@ namespace YutrelRP
             cmd.SetComputeVectorParam(computeShader, probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetComputeIntParam(computeShader, probeRayDataFormatID, probeRayDataFormat);
+            cmd.SetComputeFloatParam(computeShader, probeRayRadianceMaxID, probeRayRadianceMax);
             cmd.SetComputeVectorParam(computeShader, probeRayDataDimensionsID, probeRayDataDimensions);
             cmd.SetComputeVectorParam(computeShader, probeIrradianceDimensionsID, probeIrradianceDimensions);
             cmd.SetComputeVectorParam(computeShader, probeDistanceDimensionsID, probeDistanceDimensions);
@@ -221,6 +225,7 @@ namespace YutrelRP
             properties.SetVector(probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             properties.SetInteger(probeRayDataFormatID, probeRayDataFormat);
+            properties.SetFloat(probeRayRadianceMaxID, probeRayRadianceMax);
             properties.SetVector(probeRayDataDimensionsID, probeRayDataDimensions);
             properties.SetVector(probeIrradianceDimensionsID, probeIrradianceDimensions);
             properties.SetVector(probeDistanceDimensionsID, probeDistanceDimensions);

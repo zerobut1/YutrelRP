@@ -51,6 +51,7 @@ namespace YutrelRP
             pass.ddgi_probe_data_ID = DDGIResources.probe_data_ID;
             pass.ddgi_probe_data_dimensions_ID = DDGIResources.probe_data_dimensions_ID;
             pass.ddgi_probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
+            pass.ddgi_probe_ray_radiance_max_ID = DDGIResources.probe_ray_radiance_max_ID;
             pass.ddgi_probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
             pass.ddgi_volume_min_ws_ID = DDGIResources.volume_min_ws_ID;
             pass.ddgi_volume_max_ws_ID = DDGIResources.volume_max_ws_ID;
@@ -112,6 +113,9 @@ namespace YutrelRP
             pass.ddgi_probe_ray_data_max_distance = pass.has_DDGI_gather
                 ? Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance)
                 : 0.001f;
+            pass.ddgi_probe_ray_radiance_max = pass.has_DDGI_gather
+                ? Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, ddgi_resources.probe_ray_radiance_max)
+                : YutrelDDGIVolume.MinProbeRayRadianceMax;
             pass.ddgi_volume_min_ws = pass.has_DDGI_gather ? ddgi_resources.volume_min_ws : Vector3.zero;
             pass.ddgi_volume_max_ws = pass.has_DDGI_gather ? ddgi_resources.volume_max_ws : Vector3.zero;
             pass.ddgi_probe_spacing_ws = pass.has_DDGI_gather ? ddgi_resources.probe_spacing_ws : Vector3.zero;
@@ -164,6 +168,7 @@ namespace YutrelRP
             ddgi_probe_data_ID,
             ddgi_probe_data_dimensions_ID,
             ddgi_probe_ray_data_max_distance_ID,
+            ddgi_probe_ray_radiance_max_ID,
             ddgi_probe_count_ID,
             ddgi_volume_min_ws_ID,
             ddgi_volume_max_ws_ID,
@@ -200,6 +205,7 @@ namespace YutrelRP
         private Vector4 ddgi_probe_data_dimensions;
         private Vector3Int ddgi_probe_count;
         private float ddgi_probe_ray_data_max_distance;
+        private float ddgi_probe_ray_radiance_max;
         private Vector3 ddgi_volume_min_ws;
         private Vector3 ddgi_volume_max_ws;
         private Vector3 ddgi_probe_spacing_ws;
@@ -237,6 +243,7 @@ namespace YutrelRP
             property_block.SetVector(ddgi_probe_distance_dimensions_ID, ddgi_probe_distance_dimensions);
             property_block.SetVector(ddgi_probe_data_dimensions_ID, ddgi_probe_data_dimensions);
             property_block.SetFloat(ddgi_probe_ray_data_max_distance_ID, ddgi_probe_ray_data_max_distance);
+            property_block.SetFloat(ddgi_probe_ray_radiance_max_ID, ddgi_probe_ray_radiance_max);
             property_block.SetVector(ddgi_probe_count_ID,
                 new Vector4(ddgi_probe_count.x, ddgi_probe_count.y, ddgi_probe_count.z, 0.0f));
             property_block.SetVector(ddgi_volume_min_ws_ID, ddgi_volume_min_ws);

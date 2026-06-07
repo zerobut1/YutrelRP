@@ -1,27 +1,28 @@
 #ifndef YUTREL_DDGI_INCLUDED
 #define YUTREL_DDGI_INCLUDED
 
-static const float YUTREL_DDGI_GOLDEN_ANGLE                  = 2.39996322972865332f;
-static const float YUTREL_DDGI_TWO_PI                        = 6.28318530717958648f;
-static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA = 0.01f;
-static const float YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX       = 65504.0f;
-static const float YUTREL_DDGI_U32_IRRADIANCE_COMPENSATION   = 1.0989f;
-static const float YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX       = 1.0e30f;
-static const float YUTREL_DDGI_PROBE_RAY_MISS_DISTANCE       = 1.0e27f;
-static const float YUTREL_DDGI_PROBE_RAY_MISS_THRESHOLD      = 0.5e27f;
-static const float YUTREL_DDGI_PROBE_RAY_BACKFACE_SCALE      = 0.2f;
-static const float YUTREL_DDGI_PROBE_RAY_BACKFACE_RCP_SCALE  = 5.0f;
-static const float YUTREL_DDGI_PROBE_RAY_RADIANCE_THRESHOLD  = 1.0f / 255.0f;
-static const float YUTREL_DDGI_GATHER_MIN_VISIBILITY         = 0.05f;
-static const float YUTREL_DDGI_GATHER_CRUSH_THRESHOLD        = 0.2f;
-static const float YUTREL_DDGI_GATHER_MIN_WEIGHT             = 0.000001f;
-static const float YUTREL_DDGI_GATHER_MIN_TRILINEAR_WEIGHT   = 0.001f;
-static const int YUTREL_DDGI_PROBE_RAY_DATA_FORMAT_F32X2     = 5;
-static const int YUTREL_DDGI_PROBE_RAY_DATA_FORMAT_F32X4     = 6;
-static const int YUTREL_DDGI_IRRADIANCE_FORMAT_U32           = 0;
-static const uint YUTREL_DDGI_FIXED_RAY_COUNT                = 32u;
+static const float YUTREL_DDGI_TWO_PI                          = 6.28318530717958648f;
+static const float YUTREL_DDGI_MIN_IRRADIANCE_ENCODING_GAMMA   = 0.01f;
+static const float YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX         = 65504.0f;
+static const float YUTREL_DDGI_U32_IRRADIANCE_COMPENSATION     = 1.0989f;
+static const float YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX         = 1.0e30f;
+static const float YUTREL_DDGI_PROBE_RAY_RADIANCE_MAX_FALLBACK = 1.0f;
+static const float YUTREL_DDGI_PROBE_RAY_MISS_DISTANCE         = 1.0e27f;
+static const float YUTREL_DDGI_PROBE_RAY_MISS_THRESHOLD        = 0.5e27f;
+static const float YUTREL_DDGI_PROBE_RAY_BACKFACE_SCALE        = 0.2f;
+static const float YUTREL_DDGI_PROBE_RAY_BACKFACE_RCP_SCALE    = 5.0f;
+static const float YUTREL_DDGI_PROBE_RAY_RADIANCE_THRESHOLD    = 1.0f / 255.0f;
+static const float YUTREL_DDGI_GATHER_MIN_VISIBILITY           = 0.05f;
+static const float YUTREL_DDGI_GATHER_CRUSH_THRESHOLD          = 0.2f;
+static const float YUTREL_DDGI_GATHER_MIN_WEIGHT               = 0.000001f;
+static const float YUTREL_DDGI_GATHER_MIN_TRILINEAR_WEIGHT     = 0.001f;
+static const int YUTREL_DDGI_PROBE_RAY_DATA_FORMAT_F32X2       = 5;
+static const int YUTREL_DDGI_PROBE_RAY_DATA_FORMAT_F32X4       = 6;
+static const int YUTREL_DDGI_IRRADIANCE_FORMAT_U32             = 0;
+static const uint YUTREL_DDGI_FIXED_RAY_COUNT                  = 32u;
 
 int _DDGIProbeRayDataFormat;
+float _DDGIProbeRayRadianceMax;
 float _DDGIProbeIrradianceEncodingGamma;
 int _DDGIProbeIrradianceFormat;
 float4 _DDGIProbeRayRotationRow0;
@@ -183,6 +184,23 @@ float3 DDGISanitizeLinearEnergy(float3 value)
     return all(value == value) ? min(max(value, 0.0f.xxx), YUTREL_DDGI_LINEAR_ENERGY_VALUE_MAX.xxx) : 0.0f.xxx;
 }
 
+float DDGIProbeRayRadianceMax()
+{
+    return DDGIIsFinite(_DDGIProbeRayRadianceMax) && _DDGIProbeRayRadianceMax > 0.0f
+               ? _DDGIProbeRayRadianceMax
+               : YUTREL_DDGI_PROBE_RAY_RADIANCE_MAX_FALLBACK;
+}
+
+float3 DDGIProbeRayDataEncodeRadianceValue(float3 real_radiance)
+{
+    return saturate(DDGISanitizeLinearEnergy(real_radiance) / DDGIProbeRayRadianceMax());
+}
+
+float3 DDGIProbeRayDataDecodeRadianceValue(float3 encoded_radiance)
+{
+    return DDGISanitizeLinearEnergy(encoded_radiance) * DDGIProbeRayRadianceMax();
+}
+
 float3 DDGIClampTextureStoreValue(float3 value)
 {
     return min(DDGISanitizeLinearEnergy(value), YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX.xxx);
@@ -211,8 +229,9 @@ float3 DDGIApplyProbeIrradianceFormatCompensation(float3 irradiance)
 
 float3 DDGIEncodeProbeIrradiance(float3 linear_irradiance)
 {
-    float inverse_gamma = rcp(DDGIProbeIrradianceEncodingGamma());
-    float3 encoded      = pow(DDGISanitizeLinearEnergy(linear_irradiance), inverse_gamma.xxx);
+    float inverse_gamma          = rcp(DDGIProbeIrradianceEncodingGamma());
+    float3 normalized_irradiance = saturate(DDGISanitizeLinearEnergy(linear_irradiance) / DDGIProbeRayRadianceMax());
+    float3 encoded               = pow(normalized_irradiance, inverse_gamma.xxx);
     return DDGIClampTextureStoreValue(encoded);
 }
 
@@ -221,7 +240,9 @@ float3 DDGIDecodeProbeIrradiance(float3 encoded_irradiance)
     float gamma        = DDGIProbeIrradianceEncodingGamma();
     float3 irradiance  = DDGIClampProbeIrradianceSampleValue(encoded_irradiance);
     float3 sqrt_energy = pow(irradiance, (gamma * 0.5f).xxx);
-    return DDGIApplyProbeIrradianceFormatCompensation(DDGISanitizeLinearEnergy(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI));
+    float3 normalized_irradiance =
+        DDGIApplyProbeIrradianceFormatCompensation(DDGISanitizeLinearEnergy(sqrt_energy * sqrt_energy * YUTREL_DDGI_TWO_PI));
+    return DDGISanitizeLinearEnergy(normalized_irradiance * DDGIProbeRayRadianceMax());
 }
 
 struct DDGIProbeRayData
@@ -268,11 +289,6 @@ bool DDGIProbeRayDataFormatIsF32x4()
 float DDGIProbeRayDataEncodeMiss()
 {
     return YUTREL_DDGI_PROBE_RAY_MISS_DISTANCE;
-}
-
-float DDGIProbeRayDataEncodeTracePending()
-{
-    return DDGIProbeRayDataEncodeMiss();
 }
 
 float DDGIProbeRayDataEncodeFrontface(float distance)
@@ -326,14 +342,19 @@ bool DDGIProbeRayDataRawIsValid(float4 raw_ray_data)
     return DDGIProbeRayDataDistanceIsValid(signed_distance);
 }
 
-float3 DDGIProbeRayDataLoadRadiance(float4 raw_ray_data)
+float3 DDGIProbeRayDataLoadEncodedRadiance(float4 raw_ray_data)
 {
     if (DDGIProbeRayDataFormatIsF32x4())
     {
-        return DDGIClampTextureStoreValue(raw_ray_data.rgb);
+        return saturate(DDGISanitizeLinearEnergy(raw_ray_data.rgb));
     }
 
-    return DDGIClampTextureStoreValue(DDGIProbeRayDataDecodeRadiance(raw_ray_data.r));
+    return saturate(DDGISanitizeLinearEnergy(DDGIProbeRayDataDecodeRadiance(raw_ray_data.r)));
+}
+
+float3 DDGIProbeRayDataLoadRadiance(float4 raw_ray_data)
+{
+    return DDGIProbeRayDataDecodeRadianceValue(DDGIProbeRayDataLoadEncodedRadiance(raw_ray_data));
 }
 
 float DDGIProbeRayDataLoadDistance(float4 raw_ray_data)
@@ -351,11 +372,11 @@ DDGIProbeRayData DDGIProbeRayDataDecode(float4 raw_ray_data)
 
 float4 DDGIProbeRayDataEncodeMissValue(float3 radiance)
 {
-    float3 safe_radiance   = DDGIClampTextureStoreValue(radiance);
-    float encoded_distance = DDGIProbeRayDataEncodeMiss();
+    float3 encoded_radiance = DDGIProbeRayDataEncodeRadianceValue(radiance);
+    float encoded_distance  = DDGIProbeRayDataEncodeMiss();
     return DDGIProbeRayDataFormatIsF32x4()
-               ? float4(safe_radiance, encoded_distance)
-               : float4(DDGIProbeRayDataEncodeRadiance(saturate(safe_radiance)),
+               ? float4(encoded_radiance, encoded_distance)
+               : float4(DDGIProbeRayDataEncodeRadiance(encoded_radiance),
                         encoded_distance,
                         0.0f,
                         0.0f);
@@ -363,28 +384,27 @@ float4 DDGIProbeRayDataEncodeMissValue(float3 radiance)
 
 float4 DDGIProbeRayDataEncodeFrontfaceValue(float3 radiance, float distance)
 {
-    float3 safe_radiance   = DDGIClampTextureStoreValue(radiance);
-    float encoded_distance = DDGIProbeRayDataEncodeFrontface(distance);
+    float3 encoded_radiance = DDGIProbeRayDataEncodeRadianceValue(radiance);
+    float encoded_distance  = DDGIProbeRayDataEncodeFrontface(distance);
     if (DDGIProbeRayDataFormatIsF32x4())
     {
-        return float4(safe_radiance, encoded_distance);
+        return float4(encoded_radiance, encoded_distance);
     }
 
-    safe_radiance = saturate(safe_radiance);
-    if (max(safe_radiance.r, max(safe_radiance.g, safe_radiance.b)) <= YUTREL_DDGI_PROBE_RAY_RADIANCE_THRESHOLD)
+    if (max(encoded_radiance.r, max(encoded_radiance.g, encoded_radiance.b)) <= YUTREL_DDGI_PROBE_RAY_RADIANCE_THRESHOLD)
     {
-        safe_radiance = 0.0f.xxx;
+        encoded_radiance = 0.0f.xxx;
     }
 
-    return float4(DDGIProbeRayDataEncodeRadiance(safe_radiance),
+    return float4(DDGIProbeRayDataEncodeRadiance(encoded_radiance),
                   encoded_distance,
                   0.0f,
                   0.0f);
 }
 
-float4 DDGIProbeRayDataEncodeTracePendingValue()
+float4 DDGIProbeRayDataEncodeFrontfaceDistanceValue(float distance)
 {
-    float encoded_distance = DDGIProbeRayDataEncodeTracePending();
+    float encoded_distance = DDGIProbeRayDataEncodeFrontface(distance);
     return DDGIProbeRayDataFormatIsF32x4()
                ? float4(0.0f, 0.0f, 0.0f, encoded_distance)
                : float4(DDGIProbeRayDataEncodeRadiance(0.0f.xxx),
@@ -393,30 +413,18 @@ float4 DDGIProbeRayDataEncodeTracePendingValue()
                         0.0f);
 }
 
-float4 DDGIProbeRayDataSetFrontfaceDistanceOnly(float4 raw_ray_data, float distance)
+float4 DDGIProbeRayDataEncodeBackfaceValue(float distance)
 {
+    float encoded_distance = DDGIProbeRayDataEncodeBackface(distance);
     if (DDGIProbeRayDataFormatIsF32x4())
     {
-        raw_ray_data.a = DDGIProbeRayDataEncodeFrontface(distance);
+        return float4(0.0f, 0.0f, 0.0f, encoded_distance);
     }
-    else
-    {
-        raw_ray_data.g = DDGIProbeRayDataEncodeFrontface(distance);
-    }
-    return raw_ray_data;
-}
 
-float4 DDGIProbeRayDataSetBackfaceDistanceOnly(float4 raw_ray_data, float distance)
-{
-    if (DDGIProbeRayDataFormatIsF32x4())
-    {
-        raw_ray_data.a = DDGIProbeRayDataEncodeBackface(distance);
-    }
-    else
-    {
-        raw_ray_data.g = DDGIProbeRayDataEncodeBackface(distance);
-    }
-    return raw_ray_data;
+    return float4(DDGIProbeRayDataEncodeRadiance(0.0f.xxx),
+                  encoded_distance,
+                  0.0f,
+                  0.0f);
 }
 
 float2 DDGIOctahedralWrap(float2 value)
@@ -445,11 +453,13 @@ float3 DDGIOctahedralDecode(float2 encoded)
 
 float3 DDGIBuildProbeRayDirection(uint ray_index, uint ray_count)
 {
-    float normalized_index = (float(ray_index) + 0.5f) / max(float(ray_count), 1.0f);
-    float y                = 1.0f - 2.0f * normalized_index;
-    float radius           = sqrt(saturate(1.0f - y * y));
-    float phi              = float(ray_index) * YUTREL_DDGI_GOLDEN_ANGLE;
-    return DDGISafeNormalize(float3(cos(phi) * radius, y, sin(phi) * radius), float3(0.0f, 1.0f, 0.0f));
+    float sample_index = float(ray_index);
+    float sample_count = max(float(ray_count), 1.0f);
+    float b            = (sqrt(5.0f) * 0.5f + 0.5f) - 1.0f;
+    float phi          = YUTREL_DDGI_TWO_PI * frac(sample_index * b);
+    float cos_theta    = 1.0f - (2.0f * sample_index + 1.0f) / sample_count;
+    float sin_theta    = sqrt(saturate(1.0f - cos_theta * cos_theta));
+    return DDGISafeNormalize(float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta), float3(0.0f, 0.0f, 1.0f));
 }
 
 uint DDGIFixedRayCount()
@@ -464,13 +474,13 @@ bool DDGIUsesFixedProbeRays(bool fixed_rays_enabled, uint ray_count)
 
 uint DDGIProbeBlendRayStart(bool skip_fixed_rays, uint ray_count)
 {
-    return skip_fixed_rays && ray_count > DDGIFixedRayCount() ? DDGIFixedRayCount() : 0u;
+    return skip_fixed_rays ? min(DDGIFixedRayCount(), ray_count) : 0u;
 }
 
 uint DDGIProbeBlendRayCount(bool skip_fixed_rays, uint ray_count)
 {
     uint ray_start = DDGIProbeBlendRayStart(skip_fixed_rays, ray_count);
-    return ray_count > ray_start ? ray_count - ray_start : ray_count;
+    return ray_count > ray_start ? ray_count - ray_start : 0u;
 }
 
 float3 DDGIRotateProbeRayDirection(float3 direction)
@@ -484,7 +494,7 @@ float3 DDGIRotateProbeRayDirection(float3 direction)
 float3 DDGIProbeRayDirection(uint ray_index, uint ray_count, bool fixed_rays_enabled)
 {
     bool uses_fixed_rays = DDGIUsesFixedProbeRays(fixed_rays_enabled, ray_count);
-    uint fixed_ray_count = min(DDGIFixedRayCount(), max(ray_count, 1u));
+    uint fixed_ray_count = DDGIFixedRayCount();
     bool is_fixed_ray    = uses_fixed_rays && ray_index < fixed_ray_count;
     uint sample_index    = ray_index;
     uint sample_count    = max(ray_count, 1u);
@@ -544,7 +554,9 @@ float3 DDGISampleProbeIrradianceBlendValue(Texture2DArray atlas, SamplerState at
 
 float3 DDGIResolveProbeIrradianceBlendValue(float3 blend_value)
 {
-    return DDGIApplyProbeIrradianceFormatCompensation(DDGISanitizeLinearEnergy(blend_value * blend_value * YUTREL_DDGI_TWO_PI));
+    float3 normalized_irradiance =
+        DDGIApplyProbeIrradianceFormatCompensation(DDGISanitizeLinearEnergy(blend_value * blend_value * YUTREL_DDGI_TWO_PI));
+    return DDGISanitizeLinearEnergy(normalized_irradiance * DDGIProbeRayRadianceMax());
 }
 
 float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,

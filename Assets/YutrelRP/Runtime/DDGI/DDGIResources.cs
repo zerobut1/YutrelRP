@@ -23,6 +23,7 @@ namespace YutrelRP
             trace_albedo_ID = Shader.PropertyToID("_DDGITraceAlbedo"),
             screen_trace_debug_ID = Shader.PropertyToID("_DDGIScreenTraceDebug"),
             probe_ray_data_format_ID = Shader.PropertyToID("_DDGIProbeRayDataFormat"),
+            probe_ray_radiance_max_ID = Shader.PropertyToID("_DDGIProbeRayRadianceMax"),
             probe_ray_data_dimensions_ID = Shader.PropertyToID("_DDGIProbeRayDataDimensions"),
             probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0"),
             probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1"),
@@ -74,6 +75,7 @@ namespace YutrelRP
         public int probe_irradiance_interior_texels;
         public int probe_distance_interior_texels;
         public float probe_max_ray_distance;
+        public float probe_ray_radiance_max;
         public Vector3 volume_min_ws;
         public Vector3 volume_max_ws;
         public Vector3 probe_spacing_ws;
@@ -123,6 +125,7 @@ namespace YutrelRP
             probe_irradiance_interior_texels = 0;
             probe_distance_interior_texels = 0;
             probe_max_ray_distance = 0.0f;
+            probe_ray_radiance_max = YutrelDDGIVolume.MinProbeRayRadianceMax;
             volume_min_ws = Vector3.zero;
             volume_max_ws = Vector3.zero;
             probe_spacing_ws = Vector3.zero;
@@ -151,6 +154,7 @@ namespace YutrelRP
             probe_irradiance_interior_texels = volume.ProbeIrradianceInteriorTexels;
             probe_distance_interior_texels = volume.ProbeDistanceInteriorTexels;
             probe_max_ray_distance = volume.ProbeMaxRayDistance;
+            probe_ray_radiance_max = volume.ProbeRayRadianceMax;
             var bounds = volume.WorldBounds;
             volume_min_ws = bounds.min;
             volume_max_ws = bounds.max;
@@ -229,7 +233,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 14;
+            private const int AtlasSemanticVersion = 15;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
@@ -237,6 +241,7 @@ namespace YutrelRP
             public readonly int irradianceInteriorTexels;
             public readonly int distanceInteriorTexels;
             public readonly float irradianceEncodingGamma;
+            public readonly float probeRayRadianceMax;
             public readonly int semanticVersion;
 
             public Identity(YutrelDDGIVolume volume)
@@ -247,6 +252,7 @@ namespace YutrelRP
                 irradianceInteriorTexels = volume != null ? volume.ProbeIrradianceInteriorTexels : 0;
                 distanceInteriorTexels = volume != null ? volume.ProbeDistanceInteriorTexels : 0;
                 irradianceEncodingGamma = volume != null ? volume.IrradianceEncodingGamma : 0.0f;
+                probeRayRadianceMax = volume != null ? volume.ProbeRayRadianceMax : 0.0f;
                 semanticVersion = AtlasSemanticVersion;
             }
 
@@ -259,6 +265,7 @@ namespace YutrelRP
                        irradianceInteriorTexels == other.irradianceInteriorTexels &&
                        distanceInteriorTexels == other.distanceInteriorTexels &&
                        irradianceEncodingGamma.Equals(other.irradianceEncodingGamma) &&
+                       probeRayRadianceMax.Equals(other.probeRayRadianceMax) &&
                        semanticVersion == other.semanticVersion;
             }
 
@@ -272,6 +279,7 @@ namespace YutrelRP
                     hash = (hash * 397) ^ irradianceInteriorTexels;
                     hash = (hash * 397) ^ distanceInteriorTexels;
                     hash = (hash * 397) ^ irradianceEncodingGamma.GetHashCode();
+                    hash = (hash * 397) ^ probeRayRadianceMax.GetHashCode();
                     hash = (hash * 397) ^ semanticVersion;
                     return hash;
                 }
@@ -279,7 +287,7 @@ namespace YutrelRP
 
             public override string ToString()
             {
-                return $"volume={volumeKey}, probes={probeCount}, spacing={probeSpacingWS}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, irradianceGamma={irradianceEncodingGamma:0.###}, semantic={semanticVersion}";
+                return $"volume={volumeKey}, probes={probeCount}, spacing={probeSpacingWS}, irradiance={irradianceInteriorTexels}, distance={distanceInteriorTexels}, irradianceGamma={irradianceEncodingGamma:0.###}, rayRadianceMax={probeRayRadianceMax:0.###}, semantic={semanticVersion}";
             }
         }
     }

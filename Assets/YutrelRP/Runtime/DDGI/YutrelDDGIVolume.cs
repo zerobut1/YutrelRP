@@ -14,6 +14,7 @@ namespace YutrelRP
         public const int MaxRaysPerProbe = 1024;
         public const float MinProbePreviewRadius = 0.01f;
         public const float MinProbeMaxRayDistance = 0.001f;
+        public const float MinProbeRayRadianceMax = 0.001f;
         public const int MinProbeIrradianceInteriorTexels = 2;
         public const int MaxProbeIrradianceInteriorTexels = 32;
         public const int MinProbeDistanceInteriorTexels = 2;
@@ -33,6 +34,8 @@ namespace YutrelRP
         [SerializeField] private ProbeRayDataFormat probeRayDataFormat = ProbeRayDataFormat.F32x2;
         [Min(MinProbeMaxRayDistance)]
         [SerializeField] private float probeMaxRayDistance = 100.0f;
+        [Min(MinProbeRayRadianceMax)]
+        [SerializeField] private float probeRayRadianceMax = 50000.0f;
         // Persistent atlas identity: probeCount/atlas texel sizes rebuild DDGI history atlases.
         // Frame-only: raysPerProbe changes ProbeRayData dimensions/metadata without clearing persistent atlas history.
         // Constant-only: max ray distance, bias, hysteresis, gamma/exponent/thresholds update shader constants without clearing atlas history.
@@ -91,6 +94,12 @@ namespace YutrelRP
         {
             get => probeMaxRayDistance;
             set => probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, value);
+        }
+
+        public float ProbeRayRadianceMax
+        {
+            get => probeRayRadianceMax;
+            set => probeRayRadianceMax = Mathf.Max(MinProbeRayRadianceMax, value);
         }
 
         public int ProbeIrradianceInteriorTexels
@@ -244,6 +253,7 @@ namespace YutrelRP
             raysPerProbe = Mathf.Clamp(raysPerProbe, MinRaysPerProbe, MaxRaysPerProbe);
             probeRayDataFormat = IsValidRayDataFormat(probeRayDataFormat) ? probeRayDataFormat : ProbeRayDataFormat.F32x2;
             probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
+            probeRayRadianceMax = Mathf.Max(MinProbeRayRadianceMax, probeRayRadianceMax);
             probeIrradianceInteriorTexels = Mathf.Clamp(probeIrradianceInteriorTexels, MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels);
             probeDistanceInteriorTexels = Mathf.Clamp(probeDistanceInteriorTexels, MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels);
             probeHysteresis = Mathf.Clamp01(probeHysteresis);

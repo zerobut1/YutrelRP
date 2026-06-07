@@ -19,6 +19,7 @@ namespace YutrelRP
         private static readonly int probe_ray_data_format_ID = DDGIResources.probe_ray_data_format_ID;
         private static readonly int probe_ray_data_dimensions_ID = DDGIResources.probe_ray_data_dimensions_ID;
         private static readonly int probe_ray_data_max_distance_ID = DDGIResources.probe_ray_data_max_distance_ID;
+        private static readonly int probe_ray_radiance_max_ID = DDGIResources.probe_ray_radiance_max_ID;
         private static readonly int probe_irradiance_ID = DDGIResources.probe_irradiance_ID;
         private static readonly int probe_irradiance_dimensions_ID = DDGIResources.probe_irradiance_dimensions_ID;
         private static readonly int probe_irradiance_encoding_gamma_ID =
@@ -58,6 +59,9 @@ namespace YutrelRP
             pass.probe_ray_data_max_distance = ddgi_resources != null
                 ? Mathf.Max(0.001f, ddgi_resources.probe_max_ray_distance)
                 : 0.001f;
+            pass.probe_ray_radiance_max = ddgi_resources != null
+                ? Mathf.Max(YutrelDDGIVolume.MinProbeRayRadianceMax, ddgi_resources.probe_ray_radiance_max)
+                : YutrelDDGIVolume.MinProbeRayRadianceMax;
             pass.probe_ray_data_format = ddgi_resources != null
                 ? ddgi_resources.probe_ray_data_format
                 : DDGIResources.ProbeRayDataFormatF32x2;
@@ -202,6 +206,7 @@ namespace YutrelRP
         private Vector3Int probe_count;
         private float probe_radius;
         private float probe_ray_data_max_distance;
+        private float probe_ray_radiance_max;
         private int probe_ray_data_format;
         private Vector4 probe_ray_data_dimensions;
         private Vector4 probe_irradiance_dimensions;
@@ -222,6 +227,7 @@ namespace YutrelRP
             property_block.SetVector(probe_count_ID, new Vector4(probe_count.x, probe_count.y, probe_count.z, 0.0f));
             property_block.SetFloat(probe_radius_ID, probe_radius);
             property_block.SetFloat(probe_ray_data_max_distance_ID, probe_ray_data_max_distance);
+            property_block.SetFloat(probe_ray_radiance_max_ID, probe_ray_radiance_max);
             property_block.SetInteger(probe_ray_data_format_ID, probe_ray_data_format);
             property_block.SetVector(probe_ray_data_dimensions_ID, probe_ray_data_dimensions);
             property_block.SetVector(probe_irradiance_dimensions_ID, probe_irradiance_dimensions);

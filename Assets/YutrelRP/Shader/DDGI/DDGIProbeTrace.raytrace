@@ -15,8 +15,6 @@ Texture2DArray<float4> _DDGIProbeDistance;
 SamplerState sampler_DDGIProbeDistance;
 Texture2DArray<float4> _DDGIProbeData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
-TextureCube<float4> _EnvironmentReflectionCube;
-SamplerState sampler_EnvironmentReflectionCube;
 
 float3 _DDGIVolumeMinWS;
 float3 _DDGIVolumeMaxWS;
@@ -26,7 +24,6 @@ float _DDGIProbeViewBias;
 float4 _DDGIProbeCount;
 float4 _DDGIProbeIrradianceDimensions;
 float4 _DDGIProbeDistanceDimensions;
-float4 _DDGIProbeDataDimensions;
 float _DDGIProbeRelocationEnabled;
 int _DDGIProbeRaysPerProbe;
 float _DDGIProbeFixedRaysEnabled;
@@ -35,17 +32,12 @@ float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
 float _DDGIDirectionalLightVisibilityEnabled;
 float _DDGIDirectionalLightLambertEnabled;
-float4 _EnvironmentReflectionCube_HDR;
-float _EnvironmentIntensity;
-float _EnvironmentDiffuseMultiplier;
-float _DDGIEnvironmentValid;
 float4x4 _DDGIScreenTraceInvViewProjection;
 float3 _DDGIScreenTraceCameraPositionWS;
 int _DDGIScreenTraceReversedZ;
 int _DDGIScreenTraceProjectionFlipY;
 
 static const float DDGI_TRACE_FEEDBACK_GAIN             = 1.0f;
-static const float DDGI_TRACE_PROBE_RAY_DATA_STORE_MAX  = YUTREL_DDGI_TEXTURE_STORE_VALUE_MAX;
 static const uint DDGI_SCREEN_TRACE_STATUS_MISS = 0u;
 static const uint DDGI_SCREEN_TRACE_STATUS_INVALID_DEPTH = 6u;
 static const uint DDGI_SCREEN_TRACE_STATUS_BACKFACE = 4u;
@@ -54,11 +46,6 @@ static const uint DDGI_SCREEN_TRACE_STATUS_NOT_PARTICIPATING = 5u;
 float3 DDGITraceSanitizeRadiance(float3 radiance)
 {
     return DDGISanitizeLinearEnergy(radiance);
-}
-
-float3 DDGITraceClampProbeRayDataStore(float3 radiance)
-{
-    return min(DDGITraceSanitizeRadiance(radiance), DDGI_TRACE_PROBE_RAY_DATA_STORE_MAX.xxx);
 }
 
 float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float3 rayDirectionWS, float3 baseColor)
@@ -97,7 +84,7 @@ float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float
                                                         _DDGIProbeViewBias);
     float3 irradiance = DDGITraceSanitizeRadiance(gather.irradiance);
     float visibility  = saturate(gather.coverage * gather.visibility);
-    float3 albedo     = saturate(baseColor);
+    float3 albedo     = min(saturate(baseColor), 0.9f.xxx);
     return DDGITraceSanitizeRadiance(irradiance * albedo * 0.31830988618379067f * visibility * DDGI_TRACE_FEEDBACK_GAIN);
 }
 
@@ -123,15 +110,15 @@ float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 
     shadow_ray.TMax      = _DDGIProbeMaxRayDistance;
 
     DDGIProbeTracePayload shadow_payload;
-    shadow_payload.hitKind   = 0u;
-    shadow_payload.rayT      = -1.0f;
+    shadow_payload.hitKind   = 1u;
+    shadow_payload.rayT      = 0.0f;
     shadow_payload.normalWS  = normalized_normal;
     shadow_payload.geometricNormalWS = normalized_normal;
     shadow_payload.baseColor = 0.0f.xxx;
     shadow_payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
     TraceRay(_RaytracingAccelerationStructure,
-             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
              0xFF,
              0,
              1,
@@ -147,31 +134,27 @@ float3 DDGITraceDirectDiffuseRadiance(float3 positionWS,
                                       float3 visibilityNormalWS,
                                       float3 baseColor)
 {
-    float has_directional_light = _DDGIDirectionalLightDirectionWS.w;
-    float3 light_direction      = DDGISafeNormalize(_DDGIDirectionalLightDirectionWS.xyz, float3(0.0, 1.0, 0.0));
-    float raw_no_l              = saturate(dot(DDGISafeNormalize(shadingNormalWS, float3(0.0, 1.0, 0.0)), light_direction));
-    float no_l                  = _DDGIDirectionalLightLambertEnabled > 0.5f ? raw_no_l : 1.0f;
-    float illuminance           = max(_DDGIDirectionalLightColorIlluminance.w, 0.0);
-    float3 light_radiance       = max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0) * illuminance;
-    float visibility = no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, visibilityNormalWS, light_direction) : 0.0f;
+    float light_direction_length_sq = dot(_DDGIDirectionalLightDirectionWS.xyz, _DDGIDirectionalLightDirectionWS.xyz);
+    float has_directional_light =
+        _DDGIDirectionalLightDirectionWS.w > 0.5f && DDGIIsFinite(light_direction_length_sq) && light_direction_length_sq > 1.0e-10f ? 1.0f : 0.0f;
+    float3 light_direction = has_directional_light > 0.0f
+                                 ? _DDGIDirectionalLightDirectionWS.xyz * rsqrt(light_direction_length_sq)
+                                 : float3(0.0f, 1.0f, 0.0f);
+    float raw_no_l = saturate(dot(DDGISafeNormalize(shadingNormalWS, float3(0.0, 1.0, 0.0)), light_direction));
+    float no_l     = _DDGIDirectionalLightLambertEnabled > 0.5f ? raw_no_l : 1.0f;
+    float illuminance = DDGIIsFinite(_DDGIDirectionalLightColorIlluminance.w)
+                            ? max(_DDGIDirectionalLightColorIlluminance.w, 0.0f)
+                            : 0.0f;
+    float3 light_color    = DDGIIsFinite3(_DDGIDirectionalLightColorIlluminance.rgb) ? max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0f) : 0.0f.xxx;
+    float3 light_radiance = light_color * illuminance;
+    float visibility =
+        has_directional_light > 0.0f && no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, visibilityNormalWS, light_direction) : 0.0f;
     return max(baseColor, 0.0f) * 0.31830988618379067f * light_radiance * no_l * visibility * has_directional_light;
 }
 
 float3 DDGITraceEnvironmentRadiance(float3 directionWS)
 {
-    if (_DDGIEnvironmentValid <= 0.5f)
-    {
-        return 0.0f.xxx;
-    }
-
-    float3 direction = DDGISafeNormalize(directionWS, float3(0.0f, 1.0f, 0.0f));
-    float4 encoded  = _EnvironmentReflectionCube.SampleLevel(sampler_EnvironmentReflectionCube, direction, 0.0f);
-    float3 radiance = DecodeHDREnvironment(encoded, _EnvironmentReflectionCube_HDR) *
-                      max(_EnvironmentIntensity, 0.0f) * max(_EnvironmentDiffuseMultiplier, 0.0f);
-    radiance = float3(IsFinite(radiance.r) ? radiance.r : 0.0f,
-                      IsFinite(radiance.g) ? radiance.g : 0.0f,
-                      IsFinite(radiance.b) ? radiance.b : 0.0f);
-    return DDGITraceClampProbeRayDataStore(radiance);
+    return 0.0f.xxx;
 }
 
 [shader("miss")]
@@ -216,9 +199,6 @@ void RayGenDDGIProbeTrace()
     payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
 
     uint3 rayDataTexel = DDGIProbeRayDataTexel(rayIndex, probeCoord, probeCount);
-    _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeTracePendingValue();
-    _DDGITraceAlbedo[rayDataTexel] = float4(0.0, 0.0, 0.0, (float)DDGI_TRACE_ALBEDO_STATUS_MISS);
-
     TraceRay(_RaytracingAccelerationStructure,
              RAY_FLAG_NONE,
              0xFF,
@@ -231,27 +211,31 @@ void RayGenDDGIProbeTrace()
     if (payload.hitKind == 0)
     {
         _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeMissValue(DDGITraceEnvironmentRadiance(ray.Direction));
+        _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
+        return;
     }
-    else if (payload.hitKind != 1)
+
+    if (payload.hitKind != 1)
     {
-        _DDGIProbeRayData[rayDataTexel] =
-            DDGIProbeRayDataSetBackfaceDistanceOnly(_DDGIProbeRayData[rayDataTexel], payload.rayT);
+        _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeBackfaceValue(payload.rayT);
+        _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
+        return;
     }
-    else if (_DDGIProbeFixedRaysEnabled > 0.5f && rayIndex < DDGIFixedRayCount())
+
+    if (_DDGIProbeFixedRaysEnabled > 0.5f && rayIndex < DDGIFixedRayCount())
     {
-        _DDGIProbeRayData[rayDataTexel] =
-            DDGIProbeRayDataSetFrontfaceDistanceOnly(_DDGIProbeRayData[rayDataTexel], payload.rayT);
+        _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeFrontfaceDistanceValue(payload.rayT);
+        _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
+        return;
     }
-    else
-    {
-        float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
-        float3 direct_radiance =
-            DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.geometricNormalWS, payload.baseColor);
-        float3 feedback_radiance =
-            DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
-        float3 radiance = DDGITraceClampProbeRayDataStore(direct_radiance + feedback_radiance);
-        _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeFrontfaceValue(radiance, payload.rayT);
-    }
+
+    float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
+    float3 direct_radiance =
+        DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.geometricNormalWS, payload.baseColor);
+    float3 feedback_radiance =
+        DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
+    float3 radiance = DDGITraceSanitizeRadiance(direct_radiance + feedback_radiance);
+    _DDGIProbeRayData[rayDataTexel] = DDGIProbeRayDataEncodeFrontfaceValue(radiance, payload.rayT);
 
     _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
 }
