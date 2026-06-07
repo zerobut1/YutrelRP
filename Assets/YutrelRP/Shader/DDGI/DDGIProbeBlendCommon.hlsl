@@ -110,7 +110,7 @@ float DDGIProbeBlendIrradianceDirectionWeight(float3 atlas_direction, float3 ray
 float DDGIProbeBlendDistanceDirectionWeight(float3 atlas_direction, float3 ray_direction)
 {
     float cosine = saturate(dot(atlas_direction, ray_direction));
-    return pow(cosine, max(_DDGIProbeDistanceExponent, 0.01f)) + 0.0001f;
+    return pow(cosine, max(_DDGIProbeDistanceExponent, 0.01f));
 }
 
 float DDGIProbeBlendMaxDistance()
@@ -118,16 +118,12 @@ float DDGIProbeBlendMaxDistance()
     return max(length(max(abs(_DDGIProbeSpacingWS), 0.001f.xxx)) * 1.5f, 0.001f);
 }
 
-float3 DDGIProbeBlendDistanceMoments(DDGIProbeRayData ray_data)
+float2 DDGIProbeBlendDistanceMoments(DDGIProbeRayData ray_data)
 {
-    float ray_max_distance = max(_DDGIProbeRayDataMaxDistance, 0.001f);
-    float max_distance     = DDGIProbeBlendMaxDistance();
-    float signed_distance  = ray_data.distance;
-    bool miss              = DDGIProbeRayDataIsMiss(signed_distance);
-    bool backface          = DDGIProbeRayDataIsBackface(signed_distance);
-    float distance         = min(DDGIProbeRayDataDistance(signed_distance, ray_max_distance), max_distance);
-    float hit_weight       = miss ? 0.0f : (backface ? 0.15f : 1.0f);
-    return float3(distance, distance * distance, hit_weight);
+    float max_distance    = DDGIProbeBlendMaxDistance();
+    float signed_distance = ray_data.distance;
+    float distance        = min(abs(signed_distance), max_distance);
+    return float2(distance, distance * distance);
 }
 
 float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
@@ -166,16 +162,17 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
     return sum / max(2.0f * weight_sum, 0.0001f);
 }
 
-float3 DDGIProbeBlendDistance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
+float2 DDGIProbeBlendDistance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
 {
     uint rays_per_probe = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
     uint3 probe_count   = DDGIProbeBlendProbeCount();
     bool fixed_rays     = _DDGIProbeFixedRaysEnabled > 0.5f;
     bool skip_fixed     = _DDGIProbeSkipFixedRaysForBlend > 0.5f;
     uint ray_start      = DDGIProbeBlendRayStart(skip_fixed, rays_per_probe);
+    uint blend_rays     = DDGIProbeBlendRayCount(skip_fixed, rays_per_probe);
     float2 interior_uv  = DDGIAtlasInteriorUV(local_texel, interior_texels);
     float3 direction    = DDGIOctahedralDecode(interior_uv);
-    float3 sum          = float3(0.0f, 0.0f, 0.0f);
+    float2 sum          = float2(0.0f, 0.0f);
     float weight_sum    = 0.0f;
 
     [loop] for (uint ray_index = ray_start; ray_index < rays_per_probe; ray_index++)
@@ -187,7 +184,8 @@ float3 DDGIProbeBlendDistance(uint3 probe_coord, uint2 local_texel, uint interio
         weight_sum += weight;
     }
 
-    return sum / max(weight_sum, 0.0001f);
+    float epsilon = max((float)blend_rays * 1.0e-9f, 1.0e-9f);
+    return sum / (2.0f * max(weight_sum, epsilon));
 }
 
 #endif

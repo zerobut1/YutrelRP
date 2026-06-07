@@ -3,7 +3,13 @@
 
 #include "Assets/YutrelRP/Shader/DDGI/DDGIProbeBlendCommon.hlsl"
 
-RWTexture2DArray<float4> _DDGIProbeDistance;
+RWTexture2DArray<float2> _DDGIProbeDistance;
+
+float2 DDGIProbeBlendDistanceHistory(float2 history, float2 current_value)
+{
+    float history_weight = dot(history, history) > 0.0f ? saturate(_DDGIProbeHysteresis) : 0.0f;
+    return lerp(current_value, history, history_weight);
+}
 
 [numthreads(8, 8, 1)]
 void BlendDistance(uint3 dispatch_id : SV_DispatchThreadID)
@@ -16,9 +22,8 @@ void BlendDistance(uint3 dispatch_id : SV_DispatchThreadID)
         return;
     }
 
-    float3 distance_moments = DDGIProbeBlendDistance(probe_coord, local_texel, interior_texels);
-    float4 current          = float4(distance_moments, 1.0f);
-    _DDGIProbeDistance[dispatch_id] = DDGIProbeBlendHistory(_DDGIProbeDistance[dispatch_id], current);
+    float2 distance_moments = DDGIProbeBlendDistance(probe_coord, local_texel, interior_texels);
+    _DDGIProbeDistance[dispatch_id] = DDGIProbeBlendDistanceHistory(_DDGIProbeDistance[dispatch_id], distance_moments);
 }
 
 [numthreads(8, 8, 1)]

@@ -15,6 +15,7 @@ namespace YutrelRP
         private const string ShaderPassName = "DDGIRayTracing";
         private const int FixedRayCount = 32;
         private const GraphicsFormat ProbeIrradianceFormat = DDGIResources.ProbeIrradianceGraphicsFormat;
+        private const GraphicsFormat ProbeDistanceFormat = DDGIResources.ProbeDistanceGraphicsFormat;
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int accelerationStructureID = Shader.PropertyToID("_RaytracingAccelerationStructure");
@@ -389,6 +390,11 @@ namespace YutrelRP
                 return ProbeTraceIssue.UnsupportedProbeIrradianceFormat;
             }
 
+            if (!SupportsProbeDistanceFormat())
+            {
+                return ProbeTraceIssue.UnsupportedProbeDistanceFormat;
+            }
+
             return ProbeTraceIssue.None;
         }
 
@@ -429,6 +435,11 @@ namespace YutrelRP
             // usage query is also unreliable for this packed render texture, so do not use it as
             // a startup blocker; shader SRV binding is validated by actual RenderGraph usage.
             return SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Blend);
+        }
+
+        private static bool SupportsProbeDistanceFormat()
+        {
+            return SystemInfo.IsFormatSupported(ProbeDistanceFormat, GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore);
         }
 
         private static Matrix4x4 GetInverseViewProjection(Camera camera)
@@ -596,7 +607,9 @@ namespace YutrelRP
                 probeIrradianceHistoryRT.rt.graphicsFormat != ProbeIrradianceFormat ||
                 probeIrradianceWriteRT == null || probeIrradianceWriteRT.rt == null ||
                 probeIrradianceWriteRT.rt.graphicsFormat != ProbeIrradianceFormat ||
-                probeDistanceRT == null || probeDataRT == null)
+                probeDistanceRT == null || probeDistanceRT.rt == null ||
+                probeDistanceRT.rt.graphicsFormat != ProbeDistanceFormat ||
+                probeDataRT == null)
             {
                 ReleasePersistentAtlases();
                 try
@@ -621,7 +634,7 @@ namespace YutrelRP
                         volume.ProbeCount.x * (volume.ProbeDistanceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeDistanceInteriorTexels + 2),
                         volume.ProbeCount.y,
-                        GraphicsFormat.R16G16B16A16_SFloat,
+                        ProbeDistanceFormat,
                         "DDGI ProbeDistance",
                         FilterMode.Bilinear);
                     probeDataRT = AllocAtlasRT(
@@ -1014,6 +1027,8 @@ namespace YutrelRP
                     return "DDGI ProbeRayData requires the selected RTXGI F32x2/F32x4 GraphicsFormat with sample and load/store support";
                 case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
                     return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with render-target/blend support for RTXGI U32 parity (blend={SupportsProbeIrradianceRenderTargetFormat()}, render={SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Render)}, sampleQuery={SupportsProbeIrradianceSampleFormat()})";
+                case ProbeTraceIssue.UnsupportedProbeDistanceFormat:
+                    return $"DDGI ProbeDistance requires {ProbeDistanceFormat} ({DDGIResources.ProbeDistanceStorageFormatName}) with sample and load/store support for RTXGI F16x2 parity (supported={SupportsProbeDistanceFormat()})";
                 case ProbeTraceIssue.MissingVolume:
                     return "no active YutrelDDGIVolume was found";
                 case ProbeTraceIssue.InvalidVolume:
@@ -1100,7 +1115,8 @@ namespace YutrelRP
             FrameDebuggerActive = 9,
             ResourceAllocationFailed = 10,
             UnsupportedProbeRayDataFormat = 11,
-            UnsupportedProbeIrradianceFormat = 12
+            UnsupportedProbeIrradianceFormat = 12,
+            UnsupportedProbeDistanceFormat = 13
         }
     }
 }

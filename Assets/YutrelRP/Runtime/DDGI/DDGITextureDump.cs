@@ -26,6 +26,7 @@ namespace YutrelRP
         private const uint DdsFourCC = 0x4u;
         private const uint DdsResourceDimensionTexture2D = 3u;
         private const uint DdsAlphaModeUnknown = 0u;
+        private const uint DxgiFormatR16G16Float = 34u;
         private const uint DxgiFormatR16G16B16A16Float = 10u;
         private const uint DxgiFormatR32G32Float = 16u;
         private const uint DxgiFormatR32G32B32A32Float = 2u;
@@ -130,7 +131,7 @@ namespace YutrelRP
                 "raw RTXGI U32 ProbeIrradiance: R10G10B10A2 UNorm gamma-encoded irradiance, 1 texel border per probe tile, slice=probeY, decode separately with DDGI gamma/2 then square, 2PI, and U32 1.0989 compensation");
             recordedAny |= TryRecordPersistentCapture(resources.probe_distance_texture, "DDGIProbeDistance",
                 "probe-distance.dds", resources.ProbeDistanceDimensions,
-                "octahedral distance atlas with 1 texel border per probe tile; slice=probeY");
+                "raw RTXGI F16x2 ProbeDistance: R16G16_FLOAT half-scaled filtered distance mean / second moment, 1 texel border per probe tile, slice=probeY, gather multiplies RG by 2");
             recordedAny |= TryRecordPersistentCapture(resources.probe_data_texture, "DDGIProbeData",
                 "probe-data.dds", resources.ProbeDataDimensions,
                 "width=probeCount.x, height=probeCount.z, slice=probeY, rgba=offset.xyz/state");
@@ -493,7 +494,8 @@ namespace YutrelRP
 
         private static bool IsReadableFormat(GraphicsFormat format)
         {
-            return format == GraphicsFormat.R16G16B16A16_SFloat ||
+            return format == GraphicsFormat.R16G16_SFloat ||
+                   format == GraphicsFormat.R16G16B16A16_SFloat ||
                    format == GraphicsFormat.R32G32_SFloat ||
                    format == GraphicsFormat.R32G32B32A32_SFloat ||
                    format == DDGIResources.ProbeIrradianceGraphicsFormat;
@@ -611,6 +613,10 @@ namespace YutrelRP
                     probeIrradianceStorageFormat = DDGIResources.ProbeIrradianceStorageFormatName,
                     probeIrradianceGraphicsFormat = DDGIResources.ProbeIrradianceGraphicsFormat.ToString(),
                     probeDistanceInteriorTexels = resources.probe_distance_interior_texels,
+                    probeDistanceFormat = DDGIResources.ProbeDistanceFormatF16x2,
+                    probeDistanceRtxgiFormat = DDGIResources.ProbeDistanceRtxgiFormatName,
+                    probeDistanceStorageFormat = DDGIResources.ProbeDistanceStorageFormatName,
+                    probeDistanceGraphicsFormat = DDGIResources.ProbeDistanceGraphicsFormat.ToString(),
                     probeIrradianceEncodingGamma = resources.probe_irradiance_encoding_gamma,
                     probeDistanceExponent = resources.probe_distance_exponent,
                     probeRelocationEnabled = resources.probe_relocation_enabled,
@@ -744,6 +750,8 @@ namespace YutrelRP
             {
                 case GraphicsFormat.A2B10G10R10_UNormPack32:
                     return 4;
+                case GraphicsFormat.R16G16_SFloat:
+                    return 4;
                 case GraphicsFormat.R16G16B16A16_SFloat:
                 case GraphicsFormat.R32G32_SFloat:
                     return 8;
@@ -760,6 +768,8 @@ namespace YutrelRP
             {
                 case GraphicsFormat.A2B10G10R10_UNormPack32:
                     return DxgiFormatR10G10B10A2UNorm;
+                case GraphicsFormat.R16G16_SFloat:
+                    return DxgiFormatR16G16Float;
                 case GraphicsFormat.R16G16B16A16_SFloat:
                     return DxgiFormatR16G16B16A16Float;
                 case GraphicsFormat.R32G32_SFloat:
@@ -777,6 +787,8 @@ namespace YutrelRP
             {
                 case GraphicsFormat.A2B10G10R10_UNormPack32:
                     return "DXGI_FORMAT_R10G10B10A2_UNORM";
+                case GraphicsFormat.R16G16_SFloat:
+                    return "DXGI_FORMAT_R16G16_FLOAT";
                 case GraphicsFormat.R16G16B16A16_SFloat:
                     return "DXGI_FORMAT_R16G16B16A16_FLOAT";
                 case GraphicsFormat.R32G32_SFloat:
@@ -949,6 +961,10 @@ namespace YutrelRP
             public string probeIrradianceStorageFormat;
             public string probeIrradianceGraphicsFormat;
             public int probeDistanceInteriorTexels;
+            public int probeDistanceFormat;
+            public string probeDistanceRtxgiFormat;
+            public string probeDistanceStorageFormat;
+            public string probeDistanceGraphicsFormat;
             public float probeIrradianceEncodingGamma;
             public float probeDistanceExponent;
             public bool probeRelocationEnabled;

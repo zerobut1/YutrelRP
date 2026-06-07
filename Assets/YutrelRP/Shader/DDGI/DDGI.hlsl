@@ -562,8 +562,9 @@ float3 DDGIResolveProbeIrradianceBlendValue(float3 blend_value)
 float3 DDGISampleProbeDistance(Texture2DArray atlas, SamplerState atlas_sampler, uint3 probe_coord,
                                float3 sample_direction, uint interior_texels, float4 atlas_dimensions)
 {
-    float2 uv = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
-    return atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rgb;
+    float2 uv                = DDGIProbeAtlasUV(probe_coord, sample_direction, interior_texels, atlas_dimensions.xy);
+    float2 filtered_distance = atlas.SampleLevel(atlas_sampler, float3(uv, float(probe_coord.y)), 0.0f).rg;
+    return float3(2.0f * filtered_distance, 0.0f);
 }
 
 float3 DDGILoadProbeDataOffset(Texture2DArray probe_data, uint3 probe_coord, bool relocation_enabled)
@@ -640,12 +641,11 @@ float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float
 {
     distance_moments = DDGIIsFinite3(distance_moments) ? max(distance_moments, 0.0f.xxx) : float3(1.0f, 1.0f, 0.0f);
     float mean       = distance_moments.r;
-    float mean_sq    = max(distance_moments.g, mean * mean);
-    float hit_ratio  = saturate(distance_moments.b);
-    float variance   = max(mean_sq - mean * mean, max(min_variance, 0.000001f));
+    float mean_sq    = max(distance_moments.g, 0.0f);
+    float variance   = max(abs(mean * mean - mean_sq), max(min_variance, 0.000001f));
     float delta      = surface_distance - mean;
 
-    if (hit_ratio <= 0.001f || !DDGIIsFinite(surface_distance))
+    if (!DDGIIsFinite(surface_distance))
     {
         return 1.0f;
     }
@@ -657,7 +657,7 @@ float DDGIProbeVisibility(float3 distance_moments, float surface_distance, float
 
     float chebyshev = saturate(variance / max(variance + delta * delta, 1.0e-6f));
     chebyshev *= chebyshev * chebyshev;
-    return lerp(1.0f, max(YUTREL_DDGI_GATHER_MIN_VISIBILITY, chebyshev), hit_ratio);
+    return max(YUTREL_DDGI_GATHER_MIN_VISIBILITY, chebyshev);
 }
 
 float DDGIProbeSurfaceWeight(float3 position_WS, float3 normal_WS, float3 probe_position_WS)

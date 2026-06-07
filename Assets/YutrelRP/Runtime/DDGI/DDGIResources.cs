@@ -17,6 +17,10 @@ namespace YutrelRP
         public const string ProbeIrradianceRtxgiFormatName = "RTXGI_DDGI_VOLUME_TEXTURE_FORMAT_U32";
         public const string ProbeIrradianceStorageFormatName = "DXGI_FORMAT_R10G10B10A2_UNORM";
         public const GraphicsFormat ProbeIrradianceGraphicsFormat = GraphicsFormat.A2B10G10R10_UNormPack32;
+        public const int ProbeDistanceFormatF16x2 = 2;
+        public const string ProbeDistanceRtxgiFormatName = "RTXGI_DDGI_VOLUME_TEXTURE_FORMAT_F16x2";
+        public const string ProbeDistanceStorageFormatName = "DXGI_FORMAT_R16G16_FLOAT";
+        public const GraphicsFormat ProbeDistanceGraphicsFormat = GraphicsFormat.R16G16_SFloat;
 
         public static readonly int
             probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData"),
@@ -102,7 +106,8 @@ namespace YutrelRP
         // G=signed distance；F32x4: RGB=radiance, A=signed distance。
         // ProbeIrradiance: RTXGI U32/R10G10B10A2 UNorm，每个 probe 为带 1 texel border 的 octahedral tile，
         // RGB=gamma-encoded irradiance，A=1（2-bit alpha 为 3，当前不参与 irradiance）。
-        // ProbeDistance: 每个 probe 为带 1 texel border 的 octahedral tile，
+        // ProbeDistance: RTXGI F16x2/R16G16_FLOAT，每个 probe 为带 1 texel border 的 octahedral tile，
+        // RG=half-scaled filtered distance mean / second moment；gather 读取后乘 2，不使用 B/A 语义。
         // width=probeCountX*(interiorTexels+2), height=probeCountZ*(interiorTexels+2), slice=probeY。
         // ProbeData: width=probeCountX, height=probeCountZ, slice=probeY；rgba=offset.xyz/state，初始 offset=0,state=1(active)。
         public override void Reset()
@@ -233,7 +238,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 15;
+            private const int AtlasSemanticVersion = 16;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;

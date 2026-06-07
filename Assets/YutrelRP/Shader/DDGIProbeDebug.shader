@@ -105,12 +105,8 @@ Shader "YutrelRP/DDGIProbeDebug"
 				return DDGIProbeDebugInvalidColor();
 			}
 
-			float mean_distance = saturate(moments.r);
-			float mean_distance_sq = saturate(moments.g);
-			float hit_ratio = saturate(moments.b);
-			float max_ray_distance = max(_DDGIProbeRayDataMaxDistance, 0.001f);
-			float mean_distance_WS = mean_distance * max_ray_distance;
-			float mean_distance_sq_WS = mean_distance_sq * max_ray_distance * max_ray_distance;
+			float mean_distance_WS = max(moments.r, 0.0f);
+			float mean_distance_sq_WS = max(moments.g, mean_distance_WS * mean_distance_WS);
 			float variance_WS = max(mean_distance_sq_WS - mean_distance_WS * mean_distance_WS, 0.0f);
 
 			float useful_distance = DDGIProbeDebugMinProbeSpacing() * 2.0f;
@@ -126,7 +122,8 @@ Shader "YutrelRP/DDGIProbeDebug"
 			distance_color = lerp(distance_color, float3(1.0f, 0.08f, 0.9f), variance_ratio * 0.35f);
 
 			float3 miss_color = float3(0.02f, 0.02f, 0.02f);
-			return lerp(miss_color, distance_color, hit_ratio);
+			float valid_distance = mean_distance_WS > 0.0f ? 1.0f : 0.0f;
+			return lerp(miss_color, distance_color, valid_distance);
 		}
 
 		float3 DDGIProbeDebugRayQualityColor(uint3 probe_coord)
