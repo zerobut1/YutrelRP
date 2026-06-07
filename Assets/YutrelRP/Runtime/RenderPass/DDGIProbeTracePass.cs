@@ -421,7 +421,7 @@ namespace YutrelRP
 
         private static bool SupportsProbeIrradianceFormat()
         {
-            return SupportsProbeIrradianceRenderTargetFormat();
+            return SupportsProbeIrradianceRenderTargetFormat() && SupportsProbeIrradianceLoadStoreFormat();
         }
 
         private static bool SupportsProbeIrradianceSampleFormat()
@@ -436,6 +436,11 @@ namespace YutrelRP
             // usage query is also unreliable for this packed render texture, so do not use it as
             // a startup blocker; shader SRV binding is validated by actual RenderGraph usage.
             return SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Blend);
+        }
+
+        private static bool SupportsProbeIrradianceLoadStoreFormat()
+        {
+            return SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.LoadStore);
         }
 
         private static bool SupportsProbeDistanceFormat()
@@ -622,7 +627,7 @@ namespace YutrelRP
                         ProbeIrradianceFormat,
                         "DDGI ProbeIrradiance History",
                         FilterMode.Bilinear,
-                        false);
+                        true);
                     probeIrradianceWriteRT = AllocAtlasRT(
                         volume.ProbeCount.x * (volume.ProbeIrradianceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeIrradianceInteriorTexels + 2),
@@ -630,7 +635,7 @@ namespace YutrelRP
                         ProbeIrradianceFormat,
                         "DDGI ProbeIrradiance Write",
                         FilterMode.Bilinear,
-                        false);
+                        true);
                     probeDistanceRT = AllocAtlasRT(
                         volume.ProbeCount.x * (volume.ProbeDistanceInteriorTexels + 2),
                         volume.ProbeCount.z * (volume.ProbeDistanceInteriorTexels + 2),
@@ -1027,7 +1032,7 @@ namespace YutrelRP
                 case ProbeTraceIssue.UnsupportedProbeRayDataFormat:
                     return "DDGI ProbeRayData requires the selected RTXGI F32x2/F32x4 GraphicsFormat with sample and load/store support";
                 case ProbeTraceIssue.UnsupportedProbeIrradianceFormat:
-                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with render-target/blend support for RTXGI U32 parity (blend={SupportsProbeIrradianceRenderTargetFormat()}, render={SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Render)}, sampleQuery={SupportsProbeIrradianceSampleFormat()})";
+                    return $"DDGI ProbeIrradiance requires {ProbeIrradianceFormat} ({DDGIResources.ProbeIrradianceStorageFormatName}) with render-target/blend and load-store support for RTXGI U32 compute border parity (blend={SupportsProbeIrradianceRenderTargetFormat()}, loadStore={SupportsProbeIrradianceLoadStoreFormat()}, render={SystemInfo.IsFormatSupported(ProbeIrradianceFormat, GraphicsFormatUsage.Render)}, sampleQuery={SupportsProbeIrradianceSampleFormat()})";
                 case ProbeTraceIssue.UnsupportedProbeDistanceFormat:
                     return $"DDGI ProbeDistance requires {ProbeDistanceFormat} ({DDGIResources.ProbeDistanceStorageFormatName}) with sample and load/store support for RTXGI F16x2 parity (supported={SupportsProbeDistanceFormat()})";
                 case ProbeTraceIssue.MissingVolume:

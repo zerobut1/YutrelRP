@@ -6,18 +6,22 @@ namespace YutrelRP
 {
     internal sealed class DDGIProbeBlendPass
     {
-        private const string IrradianceShaderName = "YutrelRP/DDGIProbeIrradianceBlend";
+        private const string IrradianceKernelName = "BlendIrradiance";
+        private const string IrradianceBorderKernelName = "BlendIrradianceBorder";
         private const string DistanceKernelName = "BlendDistance";
         private const string DistanceBorderKernelName = "BlendDistanceBorder";
         private const int ThreadGroupSizeX = 8;
         private const int ThreadGroupSizeY = 8;
 
         private static readonly ProfilingSampler irradianceSampler = new("DDGI Probe Irradiance Blend");
+        private static readonly ProfilingSampler irradianceBorderSampler = new("DDGI Probe Irradiance Border Update");
         private static readonly ProfilingSampler distanceSampler = new("DDGI Probe Distance Blend");
+        private static readonly ProfilingSampler distanceBorderSampler = new("DDGI Probe Distance Border Update");
         private static readonly int probeRayDataID = DDGIResources.probe_ray_data_ID;
         private static readonly int probeRayDataFormatID = DDGIResources.probe_ray_data_format_ID;
         private static readonly int probeRayRadianceMaxID = DDGIResources.probe_ray_radiance_max_ID;
         private static readonly int probeIrradianceHistoryID = Shader.PropertyToID("_DDGIProbeIrradianceHistory");
+        private static readonly int probeIrradianceID = DDGIResources.probe_irradiance_ID;
         private static readonly int probeDistanceID = DDGIResources.probe_distance_ID;
         private static readonly int probeRayRotationRow0ID = DDGIResources.probe_ray_rotation_row0_ID;
         private static readonly int probeRayRotationRow1ID = DDGIResources.probe_ray_rotation_row1_ID;
@@ -40,11 +44,10 @@ namespace YutrelRP
         private static readonly int probeDistanceExponentID = Shader.PropertyToID("_DDGIProbeDistanceExponent");
         private static readonly int probeRandomRayBackfaceThresholdID =
             DDGIResources.probe_random_ray_backface_threshold_ID;
-        private static readonly int probeBlendSliceID = Shader.PropertyToID("_DDGIProbeBlendSlice");
 
         private static ComputeShader shader;
-        private static Material irradianceMaterial;
-        private static MaterialPropertyBlock propertyBlock;
+        private static int irradianceKernel = -1;
+        private static int irradianceBorderKernel = -1;
         private static int distanceKernel = -1;
         private static int distanceBorderKernel = -1;
         private static string lastStatusKey;
@@ -53,10 +56,6 @@ namespace YutrelRP
             YutrelRPSettings.DDGISettings settings, ref DDGIResources resources)
         {
             var issue = Validate(resources, volume);
-            if (issue == ProbeBlendIssue.None)
-            {
-                issue = ValidateIrradianceShaderResource();
-            }
             if (issue == ProbeBlendIssue.None)
             {
                 issue = ValidateComputeShaderResource(settings);
@@ -72,22 +71,33 @@ namespace YutrelRP
 
             resources.has_gather_data = true;
 
-            for (var slice = 0; slice < resources.probe_count.y; slice++)
+            using (var builder = renderGraph.AddComputePass<DDGIProbeBlendPass>(
+                       irradianceSampler.name, out var pass, irradianceSampler))
             {
-                using var builder = renderGraph.AddRasterRenderPass<DDGIProbeBlendPass>(
-                    $"{irradianceSampler.name} Slice {slice}", out var pass, irradianceSampler);
                 ConfigureCommonPassData(pass, volume, settings, resources);
                 pass.probeRayData = resources.probe_ray_data;
                 pass.probeIrradianceHistory = resources.probe_irradiance_history;
                 pass.probeIrradianceWrite = resources.probe_irradiance_write;
-                pass.material = irradianceMaterial;
-                pass.probeBlendSlice = slice;
+                pass.computeShader = shader;
 
                 builder.UseTexture(pass.probeRayData, AccessFlags.Read);
                 builder.UseTexture(pass.probeIrradianceHistory, AccessFlags.Read);
-                builder.SetRenderAttachment(pass.probeIrradianceWrite, 0, AccessFlags.WriteAll, 0, slice);
+                builder.UseTexture(pass.probeIrradianceWrite, AccessFlags.ReadWrite);
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc<DDGIProbeBlendPass>(static (pass, context) => pass.RenderIrradiance(context));
+            }
+
+            using (var builder = renderGraph.AddComputePass<DDGIProbeBlendPass>(
+                       irradianceBorderSampler.name, out var pass, irradianceBorderSampler))
+            {
+                ConfigureCommonPassData(pass, volume, settings, resources);
+                pass.probeIrradianceWrite = resources.probe_irradiance_write;
+                pass.computeShader = shader;
+
+                builder.UseTexture(pass.probeIrradianceWrite, AccessFlags.ReadWrite);
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc<DDGIProbeBlendPass>(
+                    static (pass, context) => pass.RenderIrradianceBorder(context));
             }
 
             using (var builder = renderGraph.AddComputePass<DDGIProbeBlendPass>(
@@ -103,6 +113,18 @@ namespace YutrelRP
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc<DDGIProbeBlendPass>(static (pass, context) => pass.RenderDistance(context));
             }
+
+            using (var builder = renderGraph.AddComputePass<DDGIProbeBlendPass>(
+                       distanceBorderSampler.name, out var pass, distanceBorderSampler))
+            {
+                ConfigureCommonPassData(pass, volume, settings, resources);
+                pass.probeDistance = resources.probe_distance;
+                pass.computeShader = shader;
+
+                builder.UseTexture(pass.probeDistance, AccessFlags.ReadWrite);
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc<DDGIProbeBlendPass>(static (pass, context) => pass.RenderDistanceBorder(context));
+            }
         }
 
         private TextureHandle probeRayData;
@@ -110,8 +132,6 @@ namespace YutrelRP
         private TextureHandle probeIrradianceWrite;
         private TextureHandle probeDistance;
         private ComputeShader computeShader;
-        private Material material;
-        private int probeBlendSlice;
         private Vector3Int probeCount;
         private int probeRayDataFormat;
         private float probeRayRadianceMax;
@@ -133,38 +153,43 @@ namespace YutrelRP
         private float probeFixedRaysEnabled;
         private float probeSkipFixedRaysForBlend;
 
-        private void RenderIrradiance(RasterGraphContext context)
+        private void RenderIrradiance(ComputeGraphContext context)
         {
-            if (propertyBlock == null)
-            {
-                propertyBlock = new MaterialPropertyBlock();
-            }
-            propertyBlock.Clear();
-            SetCommonMaterialParameters(propertyBlock);
-            propertyBlock.SetTexture(probeRayDataID, probeRayData);
-            propertyBlock.SetTexture(probeIrradianceHistoryID, probeIrradianceHistory);
-            propertyBlock.SetInteger(probeBlendSliceID, probeBlendSlice);
+            var cmd = context.cmd;
+            SetCommonComputeParameters(cmd, irradianceKernel);
+            cmd.SetComputeTextureParam(computeShader, irradianceKernel, probeIrradianceHistoryID,
+                probeIrradianceHistory);
+            cmd.SetComputeTextureParam(computeShader, irradianceKernel, probeIrradianceID, probeIrradianceWrite);
 
-            CoreUtils.DrawFullScreen(context.cmd, material, propertyBlock);
+            DispatchAtlas(cmd, irradianceKernel, probeIrradianceDimensions);
+        }
+
+        private void RenderIrradianceBorder(ComputeGraphContext context)
+        {
+            var cmd = context.cmd;
+            SetCommonComputeParameters(cmd, irradianceBorderKernel);
+            cmd.SetComputeTextureParam(computeShader, irradianceBorderKernel, probeIrradianceID,
+                probeIrradianceWrite);
+
+            DispatchAtlas(cmd, irradianceBorderKernel, probeIrradianceDimensions);
         }
 
         private void RenderDistance(ComputeGraphContext context)
         {
             var cmd = context.cmd;
             SetCommonComputeParameters(cmd, distanceKernel);
-            SetCommonComputeParameters(cmd, distanceBorderKernel);
             cmd.SetComputeTextureParam(computeShader, distanceKernel, probeDistanceID, probeDistance);
+
+            DispatchAtlas(cmd, distanceKernel, probeDistanceDimensions);
+        }
+
+        private void RenderDistanceBorder(ComputeGraphContext context)
+        {
+            var cmd = context.cmd;
+            SetCommonComputeParameters(cmd, distanceBorderKernel);
             cmd.SetComputeTextureParam(computeShader, distanceBorderKernel, probeDistanceID, probeDistance);
 
-            cmd.DispatchCompute(computeShader, distanceKernel,
-                DivRoundUp((int)probeDistanceDimensions.x, ThreadGroupSizeX),
-                DivRoundUp((int)probeDistanceDimensions.y, ThreadGroupSizeY),
-                Mathf.Max(1, (int)probeDistanceDimensions.z));
-
-            cmd.DispatchCompute(computeShader, distanceBorderKernel,
-                DivRoundUp((int)probeDistanceDimensions.x, ThreadGroupSizeX),
-                DivRoundUp((int)probeDistanceDimensions.y, ThreadGroupSizeY),
-                Mathf.Max(1, (int)probeDistanceDimensions.z));
+            DispatchAtlas(cmd, distanceBorderKernel, probeDistanceDimensions);
         }
 
         private static void ConfigureCommonPassData(DDGIProbeBlendPass pass, YutrelDDGIVolume volume,
@@ -195,7 +220,10 @@ namespace YutrelRP
 
         private void SetCommonComputeParameters(ComputeCommandBuffer cmd, int kernel)
         {
-            cmd.SetComputeTextureParam(computeShader, kernel, probeRayDataID, probeRayData);
+            if (probeRayData.IsValid())
+            {
+                cmd.SetComputeTextureParam(computeShader, kernel, probeRayDataID, probeRayData);
+            }
             cmd.SetComputeVectorParam(computeShader, probeCountID,
                 new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
             cmd.SetComputeIntParam(computeShader, probeRayDataFormatID, probeRayDataFormat);
@@ -218,32 +246,6 @@ namespace YutrelRP
             cmd.SetComputeFloatParam(computeShader, probeRandomRotationEnabledID, probeRandomRotationEnabled);
             cmd.SetComputeFloatParam(computeShader, probeFixedRaysEnabledID, probeFixedRaysEnabled);
             cmd.SetComputeFloatParam(computeShader, probeSkipFixedRaysForBlendID, probeSkipFixedRaysForBlend);
-        }
-
-        private void SetCommonMaterialParameters(MaterialPropertyBlock properties)
-        {
-            properties.SetVector(probeCountID,
-                new Vector4(probeCount.x, probeCount.y, probeCount.z, 0.0f));
-            properties.SetInteger(probeRayDataFormatID, probeRayDataFormat);
-            properties.SetFloat(probeRayRadianceMaxID, probeRayRadianceMax);
-            properties.SetVector(probeRayDataDimensionsID, probeRayDataDimensions);
-            properties.SetVector(probeIrradianceDimensionsID, probeIrradianceDimensions);
-            properties.SetVector(probeDistanceDimensionsID, probeDistanceDimensions);
-            properties.SetFloat(probeRayDataMaxDistanceID, probeMaxRayDistance);
-            properties.SetVector(probeSpacingWSID, probeSpacingWS);
-            properties.SetFloat(probeHysteresisID, probeHysteresis);
-            properties.SetFloat(probeIrradianceEncodingGammaID, probeIrradianceEncodingGamma);
-            properties.SetInteger(probeIrradianceFormatID, DDGIResources.ProbeIrradianceFormatU32);
-            properties.SetFloat(probeIrradianceThresholdID, probeIrradianceThreshold);
-            properties.SetFloat(probeBrightnessThresholdID, probeBrightnessThreshold);
-            properties.SetFloat(probeDistanceExponentID, probeDistanceExponent);
-            properties.SetFloat(probeRandomRayBackfaceThresholdID, probeRandomRayBackfaceThreshold);
-            properties.SetVector(probeRayRotationRow0ID, probeRayRotationRow0);
-            properties.SetVector(probeRayRotationRow1ID, probeRayRotationRow1);
-            properties.SetVector(probeRayRotationRow2ID, probeRayRotationRow2);
-            properties.SetFloat(probeRandomRotationEnabledID, probeRandomRotationEnabled);
-            properties.SetFloat(probeFixedRaysEnabledID, probeFixedRaysEnabled);
-            properties.SetFloat(probeSkipFixedRaysForBlendID, probeSkipFixedRaysForBlend);
         }
 
         private static ProbeBlendIssue Validate(DDGIResources resources, YutrelDDGIVolume volume)
@@ -277,32 +279,14 @@ namespace YutrelRP
             return ProbeBlendIssue.None;
         }
 
-        private static ProbeBlendIssue ValidateIrradianceShaderResource()
-        {
-            if (irradianceMaterial != null && irradianceMaterial.shader != null)
-            {
-                return ProbeBlendIssue.None;
-            }
-
-            CoreUtils.Destroy(irradianceMaterial);
-            irradianceMaterial = null;
-
-            var rasterShader = Shader.Find(IrradianceShaderName);
-            if (rasterShader == null)
-            {
-                return ProbeBlendIssue.MissingIrradianceShader;
-            }
-
-            irradianceMaterial = CoreUtils.CreateEngineMaterial(rasterShader);
-            return irradianceMaterial != null ? ProbeBlendIssue.None : ProbeBlendIssue.MissingIrradianceShader;
-        }
-
         private static ProbeBlendIssue ValidateComputeShaderResource(YutrelRPSettings.DDGISettings settings)
         {
             var configuredShader = settings?.probeBlendShader;
             if (shader != configuredShader)
             {
                 shader = configuredShader;
+                irradianceKernel = -1;
+                irradianceBorderKernel = -1;
                 distanceKernel = -1;
                 distanceBorderKernel = -1;
             }
@@ -312,24 +296,30 @@ namespace YutrelRP
                 return ProbeBlendIssue.MissingComputeShader;
             }
 
-            if (distanceKernel >= 0 && distanceBorderKernel >= 0)
+            if (irradianceKernel >= 0 && irradianceBorderKernel >= 0 &&
+                distanceKernel >= 0 && distanceBorderKernel >= 0)
             {
                 return ProbeBlendIssue.None;
             }
 
             try
             {
+                irradianceKernel = shader.FindKernel(IrradianceKernelName);
+                irradianceBorderKernel = shader.FindKernel(IrradianceBorderKernelName);
                 distanceKernel = shader.FindKernel(DistanceKernelName);
                 distanceBorderKernel = shader.FindKernel(DistanceBorderKernelName);
             }
             catch (System.Exception)
             {
+                irradianceKernel = -1;
+                irradianceBorderKernel = -1;
                 distanceKernel = -1;
                 distanceBorderKernel = -1;
                 return ProbeBlendIssue.MissingKernel;
             }
 
-            return distanceKernel >= 0 && distanceBorderKernel >= 0
+            return irradianceKernel >= 0 && irradianceBorderKernel >= 0 &&
+                   distanceKernel >= 0 && distanceBorderKernel >= 0
                 ? ProbeBlendIssue.None
                 : ProbeBlendIssue.MissingKernel;
         }
@@ -368,7 +358,6 @@ namespace YutrelRP
                 case ProbeBlendIssue.InvalidMetadata:
                     return "volume/metadata";
                 case ProbeBlendIssue.MissingComputeShader:
-                case ProbeBlendIssue.MissingIrradianceShader:
                 case ProbeBlendIssue.MissingKernel:
                     return "resource/loading";
                 case ProbeBlendIssue.MissingProbeRayData:
@@ -396,13 +385,19 @@ namespace YutrelRP
                     return "DDGI probe count, ray count, or atlas texel metadata is invalid";
                 case ProbeBlendIssue.MissingComputeShader:
                     return "YutrelRPAsset DDGI probeBlendShader is missing or invalid";
-                case ProbeBlendIssue.MissingIrradianceShader:
-                    return $"shader '{IrradianceShaderName}' is missing or invalid";
                 case ProbeBlendIssue.MissingKernel:
-                    return "DDGIProbeBlend compute shader is missing a required distance kernel";
+                    return "DDGIProbeBlend compute shader is missing a required irradiance or distance kernel";
                 default:
                     return "unknown failure";
             }
+        }
+
+        private void DispatchAtlas(ComputeCommandBuffer cmd, int kernel, Vector4 dimensions)
+        {
+            cmd.DispatchCompute(computeShader, kernel,
+                DivRoundUp((int)dimensions.x, ThreadGroupSizeX),
+                DivRoundUp((int)dimensions.y, ThreadGroupSizeY),
+                Mathf.Max(1, (int)dimensions.z));
         }
 
         private static int DivRoundUp(int value, int divisor)
@@ -413,9 +408,8 @@ namespace YutrelRP
         internal static void Cleanup()
         {
             shader = null;
-            CoreUtils.Destroy(irradianceMaterial);
-            irradianceMaterial = null;
-            propertyBlock = null;
+            irradianceKernel = -1;
+            irradianceBorderKernel = -1;
             distanceKernel = -1;
             distanceBorderKernel = -1;
             lastStatusKey = null;
@@ -430,8 +424,7 @@ namespace YutrelRP
             MissingAtlas = 4,
             InvalidMetadata = 5,
             MissingComputeShader = 6,
-            MissingIrradianceShader = 7,
-            MissingKernel = 8
+            MissingKernel = 7
         }
     }
 }

@@ -238,7 +238,7 @@ namespace YutrelRP
 
         internal readonly struct Identity
         {
-            private const int AtlasSemanticVersion = 16;
+            private const int AtlasSemanticVersion = 17;
 
             public readonly int volumeKey;
             public readonly Vector3Int probeCount;
