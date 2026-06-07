@@ -20,8 +20,9 @@ float _DDGIProbeSkipFixedRaysForBlend;
 float _DDGIProbeIrradianceThreshold;
 float _DDGIProbeBrightnessThreshold;
 
-static const uint DDGI_BLEND_THREAD_GROUP_SIZE_X = 8u;
-static const uint DDGI_BLEND_THREAD_GROUP_SIZE_Y = 8u;
+static const uint DDGI_BLEND_THREAD_GROUP_SIZE_X      = 8u;
+static const uint DDGI_BLEND_THREAD_GROUP_SIZE_Y      = 8u;
+static const float DDGI_IRRADIANCE_DARKENING_MIN_STEP = 1.0f / 1024.0f;
 
 uint3 DDGIProbeBlendProbeCount()
 {
@@ -81,14 +82,44 @@ float4 DDGIProbeBlendHistory(float4 history, float4 current_value)
     return lerp(current_value, history, history_weight);
 }
 
+float DDGIProbeBlendMaxComponent(float3 value)
+{
+    return max(value.x, max(value.y, value.z));
+}
+
+float DDGIProbeBlendLinearRGBToLuminance(float3 rgb)
+{
+    return dot(rgb, float3(0.2126f, 0.7152f, 0.0722f));
+}
+
 float4 DDGIProbeBlendIrradianceHistory(float4 history, float4 current_value)
 {
     float3 history_irradiance = DDGIClampProbeIrradianceSampleValue(history.rgb);
-    float3 current_irradiance = DDGIClampTextureStoreValue(current_value.rgb);
-    float history_weight      = history.a > 0.0f && dot(history_irradiance, history_irradiance) > 0.0f
-                                    ? saturate(_DDGIProbeHysteresis)
-                                    : 0.0f;
-    return DDGIProbeIrradianceStoreValue(lerp(current_irradiance, history_irradiance, history_weight));
+    float3 current_irradiance = DDGIClampProbeIrradianceSampleValue(current_value.rgb);
+    float hysteresis          = saturate(_DDGIProbeHysteresis);
+    if (dot(history_irradiance, history_irradiance) == 0.0f)
+    {
+        hysteresis = 0.0f;
+    }
+
+    float3 delta = current_irradiance - history_irradiance;
+    if (DDGIProbeBlendMaxComponent(history_irradiance - current_irradiance) > _DDGIProbeIrradianceThreshold)
+    {
+        hysteresis = max(0.0f, hysteresis - 0.75f);
+    }
+
+    if (DDGIProbeBlendLinearRGBToLuminance(delta) > _DDGIProbeBrightnessThreshold)
+    {
+        delta *= 0.25f;
+    }
+
+    float3 lerp_delta = (1.0f - hysteresis) * delta;
+    if (DDGIProbeBlendMaxComponent(current_irradiance) < DDGIProbeBlendMaxComponent(history_irradiance))
+    {
+        lerp_delta = min(max(DDGI_IRRADIANCE_DARKENING_MIN_STEP.xxx, abs(lerp_delta)), abs(delta)) * sign(lerp_delta);
+    }
+
+    return DDGIProbeIrradianceStoreValue(history_irradiance + lerp_delta);
 }
 
 DDGIProbeRayData DDGIProbeBlendLoadRayData(uint ray_index, uint3 probe_coord, uint3 probe_count)
