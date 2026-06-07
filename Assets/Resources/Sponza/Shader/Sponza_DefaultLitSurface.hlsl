@@ -39,6 +39,14 @@ float4 SampleSponzaDefaultLitBaseColorLOD(float2 uv, float lod)
            UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
 }
 
+float3 SampleSponzaDefaultLitNormalLOD(DefaultLitSurfaceInput input, float lod)
+{
+    float4 normal_ST     = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _NormalTex_ST);
+    float2 normal_uv     = TransformDefaultLitTextureUV(input.uv, normal_ST);
+    float4 packed_normal = SAMPLE_TEXTURE2D_LOD(_NormalTex, sampler_NormalTex, normal_uv, lod);
+    return DefaultLitTangentNormalToWorld(packed_normal, input);
+}
+
 DefaultLitAlphaClipData BuildSponzaDefaultLitAlphaClip(float alpha)
 {
     DefaultLitAlphaClipData alpha_clip;

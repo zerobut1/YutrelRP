@@ -42,14 +42,27 @@ float3 DDGITraceSanitizeBaseColor(float3 baseColor)
     return DDGIIsFinite3(baseColor) ? min(max(baseColor, 0.0f), 65504.0f) : DDGITraceFallbackBaseColor();
 }
 
-void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, uint albedoStatus, float3 geometricNormalWS)
+void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload,
+                               float3 baseColor,
+                               uint albedoStatus,
+                               float3 shadingNormalWS,
+                               float3 geometricNormalWS)
 {
+    float3 fallback_normal_WS  = DDGITraceFallbackNormalWS();
+    float3 geometric_normal_WS = DDGISafeNormalize(geometricNormalWS, fallback_normal_WS);
+    float3 shading_normal_WS   = DDGISafeNormalize(shadingNormalWS, geometric_normal_WS);
+
     payload.hitKind           = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? 1u : 2u;
     payload.rayT              = RayTCurrent();
-    payload.normalWS          = DDGITraceRayFacingNormalWS(geometricNormalWS);
-    payload.geometricNormalWS = DDGISafeNormalize(geometricNormalWS, payload.normalWS);
+    payload.normalWS          = DDGITraceRayFacingNormalWS(shading_normal_WS);
+    payload.geometricNormalWS = geometric_normal_WS;
     payload.baseColor         = DDGITraceSanitizeBaseColor(baseColor);
     payload.albedoStatus      = albedoStatus;
+}
+
+void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, uint albedoStatus, float3 geometricNormalWS)
+{
+    DDGITraceCommitClosestHit(payload, baseColor, albedoStatus, geometricNormalWS, geometricNormalWS);
 }
 
 void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, uint albedoStatus)

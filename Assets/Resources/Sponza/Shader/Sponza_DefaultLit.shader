@@ -69,11 +69,15 @@
 			{
 				bool uv_valid;
 				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
+				float3 geometric_normal_WS = DDGITraceMaterialGeometricNormalWS();
+				DefaultLitSurfaceInput surface_input =
+					DDGITraceMaterialBuildDefaultLitSurfaceInput(attributes, uv, geometric_normal_WS);
 				uint albedo_status = uv_valid ? DDGI_TRACE_ALBEDO_STATUS_SAMPLED : DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
 				float3 base_color = uv_valid
 					? SampleSponzaDefaultLitBaseColorLOD(uv, 0.0f).rgb
 					: DDGITraceFallbackBaseColor();
-				DDGITraceMaterialCommitClosestHit(payload, attributes, base_color, albedo_status);
+				float3 shading_normal_WS = uv_valid ? SampleSponzaDefaultLitNormalLOD(surface_input, 0.0f) : surface_input.normal_WS;
+				DDGITraceCommitClosestHit(payload, base_color, albedo_status, shading_normal_WS, geometric_normal_WS);
 			}
 			ENDHLSL
 		}

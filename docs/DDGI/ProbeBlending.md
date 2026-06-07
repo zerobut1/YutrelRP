@@ -49,9 +49,10 @@ weight = pow(saturate(dot(atlasDirection, rayDirection)), 24) + 0.0001
 ray contribution 通过 `DDGIProbeRayDataLoadRadiance` 从 `ProbeRayData` 解码：
 
 ```text
-miss           -> environment / fallback skylight radiance
-front-face hit -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance
-back-face hit  -> ray-facing normal 的 directional direct diffuse radiance + history feedback radiance，state 保留在 ProbeRayData signed distance
+miss                  -> environment / fallback skylight radiance
+front-face hit         -> ray-facing shading normal 的 directional direct diffuse radiance + history feedback radiance
+back-face hit          -> 保留 trace-pending radiance，只更新 ProbeRayData signed distance state
+fixed-ray front-face   -> 保留 trace-pending radiance，只更新 ProbeRayData signed distance state
 ```
 
 因此 irradiance atlas 能随当前帧方向光颜色、强度、方向和 skylight miss 输入变化。后续 gather 可以把它作为真实 radiance 数据流基线，但仍不能把它视为最终物理完整的 DDGI 结果。
@@ -67,7 +68,7 @@ EnvironmentLighting    = sample ProbeIrradiance 后乘 surface.diffuse_color、A
 
 history feedback 在 probe trace 阶段采样上一帧/上一轮 persistent atlas；本帧 trace 完成后，再由 blend pass 通过 `ProbeHysteresis` 写回同一 persistent atlas。atlas alpha 为 0 的初始化状态不会作为有效历史权重参与 blend，初始 history 为黑色，因此反馈会从 direct/miss 输入逐帧积累。反馈采样沿用 `DDGISampleTrilinearGather` 的 volume coverage、distance visibility、normal/view bias 与 atlas layout 语义，避免绕过已有 gather 约束。
 
-当前 trace 对 front/back hit 都按双面几何处理并使用 ray-facing normal 着色。这样可以避免导入资源 winding 或室内可见面被 RTAS 判定为 backface 时，把实际可见亮墙写成黑色。front/back 状态仍通过 `ProbeRayData` signed distance 保留给 distance/debug。
+当前 trace 的 front/back 状态仍只来自 `HitKind()` 和几何命中；front-face radiance 则使用材质 shading normal。DefaultLit 会使用插值顶点法线，并在 `_USE_NORMAL_TEX` 时采样法线贴图；Sponza trace pass 总是按其材质约定采样法线贴图。几何法线继续保留在 payload 中，供状态判定、回退和后续调试使用。
 
 ## Distance 语义
 

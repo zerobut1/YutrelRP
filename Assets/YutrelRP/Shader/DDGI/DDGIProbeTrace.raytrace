@@ -142,15 +142,18 @@ float DDGITraceDirectionalVisibility(float3 positionWS, float3 normalWS, float3 
     return shadow_payload.hitKind == 0u ? 1.0f : 0.0f;
 }
 
-float3 DDGITraceDirectDiffuseRadiance(float3 positionWS, float3 normalWS, float3 baseColor)
+float3 DDGITraceDirectDiffuseRadiance(float3 positionWS,
+                                      float3 shadingNormalWS,
+                                      float3 visibilityNormalWS,
+                                      float3 baseColor)
 {
     float has_directional_light = _DDGIDirectionalLightDirectionWS.w;
     float3 light_direction      = DDGISafeNormalize(_DDGIDirectionalLightDirectionWS.xyz, float3(0.0, 1.0, 0.0));
-    float raw_no_l              = saturate(dot(DDGISafeNormalize(normalWS, float3(0.0, 1.0, 0.0)), light_direction));
+    float raw_no_l              = saturate(dot(DDGISafeNormalize(shadingNormalWS, float3(0.0, 1.0, 0.0)), light_direction));
     float no_l                  = _DDGIDirectionalLightLambertEnabled > 0.5f ? raw_no_l : 1.0f;
     float illuminance           = max(_DDGIDirectionalLightColorIlluminance.w, 0.0);
     float3 light_radiance       = max(_DDGIDirectionalLightColorIlluminance.rgb, 0.0) * illuminance;
-    float visibility            = no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, normalWS, light_direction) : 0.0f;
+    float visibility = no_l > 0.0f ? DDGITraceDirectionalVisibility(positionWS, visibilityNormalWS, light_direction) : 0.0f;
     return max(baseColor, 0.0f) * 0.31830988618379067f * light_radiance * no_l * visibility * has_directional_light;
 }
 
@@ -242,7 +245,8 @@ void RayGenDDGIProbeTrace()
     else
     {
         float3 hit_position_WS = probePositionWS + ray.Direction * payload.rayT;
-        float3 direct_radiance = DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.geometricNormalWS, payload.baseColor);
+        float3 direct_radiance =
+            DDGITraceDirectDiffuseRadiance(hit_position_WS, payload.normalWS, payload.geometricNormalWS, payload.baseColor);
         float3 feedback_radiance =
             DDGITraceHistoryDiffuseRadiance(hit_position_WS, payload.normalWS, ray.Direction, payload.baseColor);
         float3 radiance = DDGITraceClampProbeRayDataStore(direct_radiance + feedback_radiance);

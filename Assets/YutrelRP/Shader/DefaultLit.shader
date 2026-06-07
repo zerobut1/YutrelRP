@@ -88,6 +88,7 @@
 			#pragma target 5.0
 			#pragma multi_compile_instancing
 			#pragma shader_feature_local _USE_BASECOLOR_TEX
+			#pragma shader_feature_local _USE_NORMAL_TEX
 			#pragma raytracing DDGIRayTracing
 			#include "Assets/YutrelRP/Shader/DDGI/DDGITraceMaterial.hlsl"
 
@@ -97,6 +98,9 @@
 			{
 				bool uv_valid;
 				float2 uv = DDGITraceMaterialHitUV(attributes, uv_valid);
+				float3 geometric_normal_WS = DDGITraceMaterialGeometricNormalWS();
+				DefaultLitSurfaceInput surface_input =
+					DDGITraceMaterialBuildDefaultLitSurfaceInput(attributes, uv, geometric_normal_WS);
 				uint albedo_status = DDGI_TRACE_ALBEDO_STATUS_FALLBACK;
 				float3 base_color = GetStandardDefaultLitBaseColor().rgb;
 #if defined(_USE_BASECOLOR_TEX)
@@ -110,7 +114,15 @@
 					albedo_status = DDGI_TRACE_ALBEDO_STATUS_INVALID_UV;
 				}
 #endif
-				DDGITraceMaterialCommitClosestHit(payload, attributes, base_color, albedo_status);
+
+				float3 shading_normal_WS = surface_input.normal_WS;
+#if defined(_USE_NORMAL_TEX)
+				if (uv_valid)
+				{
+					shading_normal_WS = SampleStandardDefaultLitNormalLOD(surface_input, 0.0f);
+				}
+#endif
+				DDGITraceCommitClosestHit(payload, base_color, albedo_status, shading_normal_WS, geometric_normal_WS);
 			}
 			ENDHLSL
 		}
