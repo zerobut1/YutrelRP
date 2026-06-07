@@ -9,7 +9,7 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new("Shadow Pass");
 
-        public static void Record(RenderGraph render_graph, ShadowResources shadow_resources, ShadowSettings settings)
+        public static void Record(RenderGraph render_graph, ShadowResources shadow_resources, ResolvedShadowSettings settings)
         {
             if (shadow_resources.shadowed_directional_light_count <= 0)
             {
@@ -21,6 +21,7 @@ namespace YutrelRP
             pass.cascade_count = settings.directional.cascade_count;
             pass.tile_size = (int)settings.directional.atlas_tile_size;
             pass.render_infos = shadow_resources.directional_render_info;
+            pass.slope_scale_bias = shadow_resources.GetDirectionalSlopeScaleBias(0);
 
             builder.SetRenderAttachmentDepth(shadow_resources.directional_atlas);
 
@@ -36,6 +37,7 @@ namespace YutrelRP
         // data
         private int cascade_count;
         private int tile_size;
+        private float slope_scale_bias;
         private ShadowResources.RenderInfo[] render_infos;
 
         private void Render(RasterGraphContext context)
@@ -44,7 +46,7 @@ namespace YutrelRP
 
             cmd.ClearRenderTarget(true, false, Color.clear);
 
-            cmd.SetGlobalDepthBias(0.0f, 2.0f);
+            cmd.SetGlobalDepthBias(0.0f, slope_scale_bias);
 
             for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
             {

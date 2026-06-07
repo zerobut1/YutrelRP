@@ -17,6 +17,9 @@ MonoBehaviour:
     shadowSettings:
       max_distance: 100
       distance_fade: 0.1
+      directional_depth_bits: 32
+      conservative_enclosing_sphere: 1
+      num_iterations_enclosing_sphere: 64
       directional:
         atlas_tile_size: 2048
         soft_shadow_quality: 3

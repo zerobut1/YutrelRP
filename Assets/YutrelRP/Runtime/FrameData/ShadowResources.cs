@@ -22,6 +22,7 @@ namespace YutrelRP
         public struct ShadowedDirectionalLight
         {
             public int visible_light_index;
+            public float slope_scale_bias;
             public float near_plane_offset;
         }
 
@@ -46,14 +47,27 @@ namespace YutrelRP
 
         public struct DirectionalShadowCascadeData
         {
-            public const int stride = 4 * 4 * 1;
+            public const int stride = 4 * 4 * 2;
 
             public Vector4 culling_sphere;
+            public Vector4 data; // x: inverse squared culling sphere radius, y: normal bias scale
 
             public DirectionalShadowCascadeData(
-                Vector4 culling_sphere)
+                Vector4 culling_sphere,
+                float tile_size,
+                float filter_size)
             {
+                float texel_size = 2.0f * Mathf.Max(culling_sphere.w, 0.0f) / Mathf.Max(tile_size, 1.0f);
+                float filter_world_size = texel_size * Mathf.Max(filter_size, 1.0f);
+                culling_sphere.w = Mathf.Max(0.0f, culling_sphere.w - filter_world_size);
+                float radius_sqr = culling_sphere.w * culling_sphere.w;
+                culling_sphere.w = radius_sqr;
                 this.culling_sphere = culling_sphere;
+                data = new Vector4(
+                    radius_sqr > 0.0f ? 1.0f / radius_sqr : 0.0f,
+                    filter_world_size * 1.4142136f,
+                    0.0f,
+                    0.0f);
             }
         }
 
@@ -100,6 +114,7 @@ namespace YutrelRP
                 shadowed_directional_Lights[shadowed_directional_light_count] = new ShadowedDirectionalLight
                 {
                     visible_light_index = visible_light_index,
+                    slope_scale_bias = SanitizeNonNegative(light.shadowBias),
                     near_plane_offset = light.shadowNearPlane
                 };
                 directional_soft_shadow = light.shadows == LightShadows.Soft;
@@ -107,15 +122,15 @@ namespace YutrelRP
                 return new Vector4(
                     shadowed_directional_light_count++,
                     directional_soft_shadow ? 1.0f : 0.0f,
-                    0.0f,
-                    0.0f);
+                    SanitizeNonNegative(light.shadowStrength),
+                    SanitizeNonNegative(light.shadowNormalBias));
             }
 
             return new Vector4(-1, 0, 0, 0);
         }
 
         public void Setup(RenderGraph render_graph, IComputeRenderGraphBuilder builder, CullingResults culling_results,
-            ShadowSettings settings, ScriptableRenderContext context)
+            ResolvedShadowSettings settings, ScriptableRenderContext context)
         {
             directional_atlas_tile_size = (int)settings.directional.atlas_tile_size;
 
@@ -123,7 +138,7 @@ namespace YutrelRP
             var desc = new TextureDesc(directional_atlas_tile_size,
                 directional_atlas_tile_size * settings.directional.cascade_count)
             {
-                depthBufferBits = DepthBits.Depth16,
+                depthBufferBits = settings.directional_depth_bits,
                 isShadowMap = true,
                 name = "Directional Shadow Atlas",
             };
@@ -171,7 +186,7 @@ namespace YutrelRP
         }
 
         private void BuildRendererList(RenderGraph render_graph, IComputeRenderGraphBuilder builder,
-            CullingResults culling_results, ShadowSettings settings)
+            CullingResults culling_results, ResolvedShadowSettings settings)
         {
             if (shadowed_directional_light_count > 0)
             {
@@ -183,7 +198,7 @@ namespace YutrelRP
         }
 
         private void BuildDirectionalRendererList(int index, RenderGraph render_graph,
-            IComputeRenderGraphBuilder builder, CullingResults culling_results, ShadowSettings settings)
+            IComputeRenderGraphBuilder builder, CullingResults culling_results, ResolvedShadowSettings settings)
         {
             ShadowedDirectionalLight light = shadowed_directional_Lights[index];
             var shadow_settings = new ShadowDrawingSettings(
@@ -196,6 +211,10 @@ namespace YutrelRP
             var cascade_count = settings.directional.cascade_count;
             Vector3 cascade_ratios = settings.directional.cascade_ratios;
             float cascade_blend_culling_factor = Mathf.Max(0.0f, 0.8f - settings.directional.cascade_fade);
+            var soft_shadow_quality = directional_soft_shadow
+                ? settings.directional.soft_shadow_quality
+                : ShadowSettings.Directional.SoftShadowQuality.None;
+            float filter_size = GetDirectionalFilterSize(soft_shadow_quality);
             int split_buffer_offset = light.visible_light_index * max_cascades;
 
             for (int cascade_index = 0; cascade_index < cascade_count; cascade_index++)
@@ -216,7 +235,10 @@ namespace YutrelRP
                 if (index == 0)
                 {
                     directional_cascade_data[cascade_index] =
-                        new DirectionalShadowCascadeData(split_data.cullingSphere);
+                        new DirectionalShadowCascadeData(
+                            split_data.cullingSphere,
+                            directional_atlas_tile_size,
+                            filter_size);
                 }
 
                 split_buffer[split_buffer_offset + cascade_index] = split_data;
@@ -229,6 +251,31 @@ namespace YutrelRP
                 projectionType = BatchCullingProjectionType.Orthographic,
                 splitRange = new RangeInt(split_buffer_offset, cascade_count)
             };
+        }
+
+        public float GetDirectionalSlopeScaleBias(int index)
+        {
+            return index >= 0 && index < shadowed_directional_light_count
+                ? shadowed_directional_Lights[index].slope_scale_bias
+                : 0.0f;
+        }
+
+        private static float GetDirectionalFilterSize(ShadowSettings.Directional.SoftShadowQuality quality)
+        {
+            return quality switch
+            {
+                ShadowSettings.Directional.SoftShadowQuality.Low => 3.0f,
+                ShadowSettings.Directional.SoftShadowQuality.Medium => 5.0f,
+                ShadowSettings.Directional.SoftShadowQuality.High => 7.0f,
+                _ => 1.0f
+            };
+        }
+
+        private static float SanitizeNonNegative(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value)
+                ? Mathf.Max(0.0f, value)
+                : 0.0f;
         }
     };
 }

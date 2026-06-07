@@ -61,13 +61,16 @@ DebugViewShadowData GetDebugViewShadowData(float3 position_WS, float depth)
 
     for (int cascade_index = 0; cascade_index < _DirectionalShadowCascadeCount; cascade_index++)
     {
-        float4 sphere = _DirectionalShadowCascadeDatas[cascade_index].culling_sphere;
-        float dist    = distance(position_WS, sphere.xyz);
-        if (dist < sphere.w)
+        float4 sphere  = _DirectionalShadowCascadeDatas[cascade_index].culling_sphere;
+        float dist_sqr = DistanceSquared(position_WS, sphere.xyz);
+        if (dist_sqr < sphere.w)
         {
             if (cascade_index == _DirectionalShadowCascadeCount - 1)
             {
-                out_data.strength *= DebugViewFadedShadowStrength(dist, 1.0f / sphere.w, _DirectionalShadowDistanceFade.z);
+                out_data.strength *= DebugViewFadedShadowStrength(
+                    dist_sqr,
+                    _DirectionalShadowCascadeDatas[cascade_index].data.x,
+                    _DirectionalShadowDistanceFade.z);
             }
 
             out_data.cascade_index = cascade_index;

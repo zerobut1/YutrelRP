@@ -15,7 +15,7 @@ namespace YutrelRP
         private static Material material;
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, LightResources light_resources,
-            ShadowResources shadow_resources, ShadowSettings shadow_settings, Vector2Int attachment_size)
+            ShadowResources shadow_resources, ResolvedShadowSettings shadow_settings, Vector2Int attachment_size)
         {
             if (light_resources.directional_light_count == 0) return;
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ShadowMask"));
@@ -42,6 +42,7 @@ namespace YutrelRP
             pass.directional_shadow_atlas_texel_size_ID = ShadowResources.directional_atlas_texel_size_ID;
             pass.directional_shadow_atlas_ID = ShadowResources.directional_shadow_atlas_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
+            pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
             pass.directional_light_data_ID = LightResources.directional_light_data_ID;
             pass.directional_shadow_vp_matrices_ID = ShadowResources.directional_vp_matrices_ID;
             pass.directional_shadow_cascade_data_ID = ShadowResources.directional_cascade_data_ID;
@@ -56,23 +57,21 @@ namespace YutrelRP
                     directional_atlas_width,
                     directional_atlas_height);
             pass.directional_shadow_distance_fade =
-                new Vector4(
-                    1.0f / shadow_settings.max_distance,
-                    1.0f / shadow_settings.distance_fade,
-                    1.0f / shadow_settings.directional.cascade_fade,
-                    0.0f);
+                GetDirectionalShadowDistanceFade(shadow_settings);
             pass.soft_shadow_quality = GetEffectiveSoftShadowQuality(
                 shadow_settings.directional.soft_shadow_quality,
                 shadow_resources.directional_soft_shadow);
 
             pass.directional_shadow_atlas = shadow_resources.directional_atlas;
             pass.scene_depth = textures.scene_depth;
+            pass.GBuffer_B = textures.GBuffer_B;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
             pass.directional_shadow_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
             pass.directional_shadow_cascade_data_buffer = shadow_resources.directional_cascade_data_buffer;
 
             builder.UseTexture(pass.directional_shadow_atlas);
             builder.UseTexture(pass.scene_depth);
+            builder.UseTexture(pass.GBuffer_B);
             builder.UseBuffer(pass.directional_light_data_buffer);
             builder.UseBuffer(pass.directional_shadow_vp_matrices_buffer);
             builder.UseBuffer(pass.directional_shadow_cascade_data_buffer);
@@ -88,6 +87,7 @@ namespace YutrelRP
             directional_shadow_atlas_texel_size_ID,
             directional_shadow_atlas_ID,
             scene_depth_ID,
+            GBuffer_B_ID,
             directional_light_data_ID,
             directional_shadow_vp_matrices_ID,
             directional_shadow_cascade_data_ID;
@@ -99,7 +99,8 @@ namespace YutrelRP
 
         private TextureHandle
             directional_shadow_atlas,
-            scene_depth;
+            scene_depth,
+            GBuffer_B;
 
         private BufferHandle
             directional_light_data_buffer,
@@ -115,6 +116,7 @@ namespace YutrelRP
             material.SetVector(directional_shadow_atlas_texel_size_ID, directional_shadow_atlas_texel_size);
             material.SetTexture(directional_shadow_atlas_ID, directional_shadow_atlas);
             material.SetTexture(scene_depth_ID, scene_depth);
+            material.SetTexture(GBuffer_B_ID, GBuffer_B);
             material.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
             material.SetBuffer(directional_shadow_vp_matrices_ID, directional_shadow_vp_matrices_buffer);
             material.SetBuffer(directional_shadow_cascade_data_ID, directional_shadow_cascade_data_buffer);
@@ -127,6 +129,17 @@ namespace YutrelRP
             ShadowSettings.Directional.SoftShadowQuality quality, bool light_uses_soft_shadows)
         {
             return light_uses_soft_shadows ? quality : ShadowSettings.Directional.SoftShadowQuality.None;
+        }
+
+        internal static Vector4 GetDirectionalShadowDistanceFade(ResolvedShadowSettings shadow_settings)
+        {
+            float cascade_fade = Mathf.Clamp(shadow_settings.directional.cascade_fade, ShadowSettings.MinCascadeFade, 1.0f);
+            float one_minus_fade = 1.0f - cascade_fade;
+            return new Vector4(
+                1.0f / shadow_settings.max_distance,
+                1.0f / shadow_settings.distance_fade,
+                1.0f / Mathf.Max(ShadowSettings.MinCascadeFade, 1.0f - one_minus_fade * one_minus_fade),
+                0.0f);
         }
 
         private static void SetSoftShadowQualityKeywords(ShadowSettings.Directional.SoftShadowQuality quality)

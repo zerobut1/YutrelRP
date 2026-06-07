@@ -46,9 +46,16 @@ namespace YutrelRP
             }
 #endif
 
+            VolumeManager.instance.Update(camera.transform, ~0);
+            var shadow_settings = YutrelShadowSettings.Resolve(settings.shadowSettings, VolumeManager.instance.stack);
+            var post_process_settings =
+                YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
+
             // culling
             if (!camera.TryGetCullingParameters(out var culling_parameters)) return;
-            culling_parameters.shadowDistance = Mathf.Min(settings.shadowSettings.max_distance, camera.farClipPlane);
+            culling_parameters.shadowDistance = Mathf.Min(shadow_settings.max_distance, camera.farClipPlane);
+            culling_parameters.conservativeEnclosingSphere = shadow_settings.conservative_enclosing_sphere;
+            culling_parameters.numIterationsEnclosingSphere = shadow_settings.num_iterations_enclosing_sphere;
             var culling_results = context.Cull(ref culling_parameters);
 
             // render graph
@@ -81,20 +88,17 @@ namespace YutrelRP
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
                     ddgi_resources.Reset();
                     shadow_resources.Reset();
-                    VolumeManager.instance.Update(camera.transform, ~0);
-                    var post_process_settings =
-                        YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
 
-                    SetupLightPass.Record(render_graph, context, camera, culling_results, settings, ref light_resources,
+                    SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
                         ref shadow_resources);
 
-                    ShadowPass.Record(render_graph, shadow_resources, settings.shadowSettings);
+                    ShadowPass.Record(render_graph, shadow_resources, shadow_settings);
 
                     SetupPass.Record(render_graph, camera, ref textures, attachment_size, post_process_settings);
 
                     BasePass.Record(render_graph, camera, culling_results, textures);
 
-                    ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_resources, settings.shadowSettings,
+                    ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_resources, shadow_settings,
                         attachment_size);
 
                     DirectionalLightPass.Record(render_graph, textures, light_resources);
@@ -124,7 +128,7 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
-                        settings.shadowSettings, ddgi_resources, settings.debugViewMode,
+                        shadow_settings, ddgi_resources, settings.debugViewMode,
                         settings.ddgiSettings, attachment_size);
 
                     DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, settings.debugViewMode,

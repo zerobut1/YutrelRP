@@ -38,11 +38,12 @@ ShadowData GetShadowData(float3 position_WS, float depth)
 
     for (int cascade_index = 0; cascade_index < _DirectionalShadowCascadeCount; cascade_index++)
     {
-        float4 sphere = _DirectionalShadowCascadeDatas[cascade_index].culling_sphere;
-        float dist    = distance(position_WS, sphere.xyz);
-        if (dist < sphere.w)
+        float4 sphere  = _DirectionalShadowCascadeDatas[cascade_index].culling_sphere;
+        float dist_sqr = DistanceSquared(position_WS, sphere.xyz);
+        if (dist_sqr < sphere.w)
         {
-            float cascade_fade = FadedShadowStrength(dist, 1.0f / sphere.w, _DirectionalShadowDistanceFade.z);
+            float cascade_fade =
+                FadedShadowStrength(dist_sqr, _DirectionalShadowCascadeDatas[cascade_index].data.x, _DirectionalShadowDistanceFade.z);
             if (cascade_index == _DirectionalShadowCascadeCount - 1)
             {
                 out_data.strength *= cascade_fade;
@@ -97,8 +98,12 @@ float FilterDirectionalShadowAtlas(float3 shadow_uv, int cascade_index)
 #endif
 }
 
-float GetCascadeShadow(int cascade_index, float3 position_WS)
+float GetCascadeShadow(DirectionalLightShadowData light_shadow_data, int cascade_index, float3 position_WS,
+                       float3 normal_WS)
 {
+    float normal_bias_scale = _DirectionalShadowCascadeDatas[cascade_index].data.y;
+    position_WS += normal_WS * max(light_shadow_data.normal_bias, 0.0f) * normal_bias_scale;
+
     float3 shadow_uv = mul(_DirectionalShadowVPMatrices[cascade_index], float4(position_WS, 1.0));
     if (shadow_uv.z > 0.0f && shadow_uv.z < 1.0f)
     {
@@ -108,7 +113,7 @@ float GetCascadeShadow(int cascade_index, float3 position_WS)
 }
 
 float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, ShadowData fragment_shadow_data,
-                        float3 position_WS)
+                        float3 position_WS, float3 normal_WS)
 {
     float shadow = 0.0f;
 
@@ -119,25 +124,25 @@ float GetCascadedShadow(DirectionalLightShadowData light_shadow_data, ShadowData
         return shadow;
     }
 
-    shadow = GetCascadeShadow(cascade_index, position_WS);
+    shadow = GetCascadeShadow(light_shadow_data, cascade_index, position_WS, normal_WS);
 
     if (fragment_shadow_data.cascade_blend < 0.999f && cascade_index + 1 < _DirectionalShadowCascadeCount)
     {
-        float next_shadow = GetCascadeShadow(cascade_index + 1, position_WS);
+        float next_shadow = GetCascadeShadow(light_shadow_data, cascade_index + 1, position_WS, normal_WS);
         shadow            = lerp(next_shadow, shadow, fragment_shadow_data.cascade_blend);
     }
 
-    shadow *= shadow_strength;
+    shadow *= shadow_strength * saturate(light_shadow_data.strength);
 
     return shadow;
 }
 
 float GetDirectionalShadowAttenuation(DirectionalLightShadowData light_shadow_data, ShadowData fragment_shadow_data,
-                                      float3 position_WS)
+                                      float3 position_WS, float3 normal_WS)
 {
     float shadow = 0.0;
 
-    shadow = GetCascadedShadow(light_shadow_data, fragment_shadow_data, position_WS);
+    shadow = GetCascadedShadow(light_shadow_data, fragment_shadow_data, position_WS, normal_WS);
 
     return shadow;
 }
@@ -145,12 +150,14 @@ float GetDirectionalShadowAttenuation(DirectionalLightShadowData light_shadow_da
 float4 ShadowMaskPassFragment(FullScreenVaryings input) : SV_Target
 {
     float scene_depth  = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, input.uv).r;
+    float3 normal_WS   = normalize(SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, input.uv).xyz * 2.0f - 1.0f);
     float3 position_WS = ComputeWorldSpacePositionFromFullScreenUV(input.uv, scene_depth);
     float linear_depth = LinearEyeDepth(position_WS, UNITY_MATRIX_V);
 
     float directional_shadow = GetDirectionalShadowAttenuation(GetDirectionalLightShadowData(0),
                                                                GetShadowData(position_WS, linear_depth),
-                                                               position_WS);
+                                                               position_WS,
+                                                               normal_WS);
 
     return float4(1.0f - directional_shadow, 1.0, 1.0, 1.0);
 }

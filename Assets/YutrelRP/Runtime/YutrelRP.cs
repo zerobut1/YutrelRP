@@ -40,6 +40,7 @@ namespace YutrelRP
             profile.name = "YutrelRP Default Volume Profile";
             profile.hideFlags = HideFlags.HideAndDontSave;
             profile.Add<YutrelSceneRenderSettings>();
+            profile.Add<YutrelShadowSettings>();
             return profile;
         }
 

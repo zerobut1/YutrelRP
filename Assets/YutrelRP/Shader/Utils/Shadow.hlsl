@@ -7,7 +7,8 @@ struct DirectionalLightShadowData
 {
     float index;
     float soft_shadow;
-    float2 _padding;
+    float strength;
+    float normal_bias;
 };
 
 TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
@@ -25,6 +26,7 @@ StructuredBuffer<float4x4> _DirectionalShadowVPMatrices;
 struct DirectionalShadowCascadeData
 {
     float4 culling_sphere;
+    float4 data;
 };
 
 StructuredBuffer<DirectionalShadowCascadeData> _DirectionalShadowCascadeDatas;

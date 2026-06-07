@@ -50,7 +50,7 @@ namespace YutrelRP
         private static Material material;
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
-            LightResources light_resources, ShadowResources shadow_resources, ShadowSettings shadow_settings,
+            LightResources light_resources, ShadowResources shadow_resources, ResolvedShadowSettings shadow_settings,
             DDGIResources ddgi_resources, YutrelRPSettings.DebugViewMode mode,
             YutrelRPSettings.DDGISettings ddgi_settings, Vector2Int attachment_size)
         {
@@ -134,11 +134,8 @@ namespace YutrelRP
                 pass.directional_shadow_vp_matrices_buffer = shadow_resources.directional_vp_matrices_buffer;
                 pass.directional_shadow_cascade_data_buffer = shadow_resources.directional_cascade_data_buffer;
                 pass.directional_shadow_cascade_count = shadow_settings.directional.cascade_count;
-                pass.directional_shadow_distance_fade = new Vector4(
-                    1.0f / shadow_settings.max_distance,
-                    1.0f / shadow_settings.distance_fade,
-                    1.0f / shadow_settings.directional.cascade_fade,
-                    0.0f);
+                pass.directional_shadow_distance_fade =
+                    ShadowMaskPass.GetDirectionalShadowDistanceFade(shadow_settings);
 
                 builder.UseTexture(pass.scene_depth);
                 builder.UseBuffer(pass.directional_shadow_vp_matrices_buffer);
@@ -280,7 +277,7 @@ namespace YutrelRP
         }
 
         private static Issue ValidateSources(YutrelRPSettings.DebugViewMode mode, LightResources light_resources,
-            ShadowResources shadow_resources, ShadowSettings shadow_settings, RenderTargets textures,
+            ShadowResources shadow_resources, ResolvedShadowSettings shadow_settings, RenderTargets textures,
             DDGIResources ddgi_resources)
         {
             Issue issue = Issue.None;

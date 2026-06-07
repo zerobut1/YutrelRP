@@ -37,7 +37,7 @@ namespace YutrelRP
             // Directional Light.intensity is interpreted as illuminance in lux.
             public float illuminance;
             public Vector4 direction;
-            public Vector4 shadow_data; // x: shadow index, y: 1 when Unity light uses soft shadows
+            public Vector4 shadow_data; // x: shadow index, y: 1 when Unity light uses soft shadows, z: strength, w: normal bias
 
             public DirectionalLightData(VisibleLight visible_light, Vector4 shadow_data)
             {
