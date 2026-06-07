@@ -157,7 +157,7 @@ float2 DDGIProbeBlendDistanceMoments(DDGIProbeRayData ray_data)
     return float2(distance, distance * distance);
 }
 
-float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint interior_texels)
+bool DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint interior_texels, out float3 irradiance)
 {
     uint rays_per_probe = (uint)max(_DDGIProbeRayDataDimensions.x, 1.0f);
     uint3 probe_count   = DDGIProbeBlendProbeCount();
@@ -170,6 +170,9 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
     float3 sum          = float3(0.0f, 0.0f, 0.0f);
     float weight_sum    = 0.0f;
     uint backface_count = 0u;
+    uint max_backfaces  = (uint)(float(blend_rays) * saturate(_DDGIProbeRandomRayBackfaceThreshold));
+
+    irradiance = 0.0f.xxx;
 
     [loop] for (uint ray_index = ray_start; ray_index < rays_per_probe; ray_index++)
     {
@@ -179,18 +182,19 @@ float3 DDGIProbeBlendIrradiance(uint3 probe_coord, uint2 local_texel, uint inter
         if (DDGIProbeRayDataIsBackface(ray_data.distance))
         {
             backface_count++;
+            if (backface_count >= max_backfaces)
+            {
+                return false;
+            }
             continue;
         }
         sum += ray_data.radiance * weight;
         weight_sum += weight;
     }
 
-    if ((float)backface_count / max((float)blend_rays, 1.0f) > saturate(_DDGIProbeRandomRayBackfaceThreshold))
-    {
-        return 0.0f.xxx;
-    }
-
-    return sum / max(2.0f * weight_sum, 0.0001f);
+    float epsilon = (float)blend_rays * 1.0e-9f;
+    irradiance    = sum / (2.0f * max(weight_sum, epsilon));
+    return true;
 }
 
 float2 DDGIProbeBlendDistance(uint3 probe_coord, uint2 local_texel, uint interior_texels)

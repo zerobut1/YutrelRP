@@ -11,10 +11,16 @@ RWTexture2DArray<float2> _DDGIProbeDistance;
 
 void DDGIProbeBlendStoreIrradiance(uint3 dispatch_id, uint3 probe_coord, uint2 local_texel, uint interior_texels)
 {
-    float3 irradiance         = DDGIProbeBlendIrradiance(probe_coord, local_texel, interior_texels);
+    float4 history            = _DDGIProbeIrradianceHistory.Load(uint4(dispatch_id, 0u));
+    float3 irradiance;
+    if (!DDGIProbeBlendIrradiance(probe_coord, local_texel, interior_texels, irradiance))
+    {
+        _DDGIProbeIrradiance[dispatch_id] = history;
+        return;
+    }
+
     float3 encoded_irradiance = DDGIEncodeProbeIrradiance(irradiance);
     float4 current            = DDGIProbeIrradianceStoreValue(encoded_irradiance);
-    float4 history            = _DDGIProbeIrradianceHistory.Load(uint4(dispatch_id, 0u));
     _DDGIProbeIrradiance[dispatch_id] = DDGIProbeBlendIrradianceHistory(history, current);
 }
 
