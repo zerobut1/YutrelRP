@@ -191,8 +191,22 @@ namespace YutrelRP
             }
             else
             {
-                screenTraceDebugOutput = TextureHandle.nullHandle;
-                screenTraceDepth = TextureHandle.nullHandle;
+                var dummyScreenTraceDesc = new TextureDesc(1, 1)
+                {
+                    colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                    enableRandomWrite = true,
+                    filterMode = FilterMode.Point,
+                    wrapMode = TextureWrapMode.Clamp,
+                    clearBuffer = true,
+                    clearColor = Color.black,
+                    name = "DDGI Screen Trace Debug Dummy UAV"
+                };
+                screenTraceDebugOutput = renderGraph.CreateTexture(dummyScreenTraceDesc);
+
+                dummyScreenTraceDesc.colorFormat = GraphicsFormat.R32_SFloat;
+                dummyScreenTraceDesc.enableRandomWrite = false;
+                dummyScreenTraceDesc.name = "DDGI Screen Trace Depth Dummy SRV";
+                screenTraceDepth = renderGraph.CreateTexture(dummyScreenTraceDesc);
             }
 
             using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
@@ -239,11 +253,8 @@ namespace YutrelRP
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.UseTexture(traceAlbedo, AccessFlags.Write);
-                if (writesScreenTraceDebug)
-                {
-                    builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
-                    builder.UseTexture(screenTraceDepth, AccessFlags.Read);
-                }
+                builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
+                builder.UseTexture(screenTraceDepth, AccessFlags.Read);
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
                 builder.UseTexture(pass.probeData, AccessFlags.Read);
@@ -307,10 +318,10 @@ namespace YutrelRP
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
+            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
+            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
             if (writesScreenTraceDebug)
             {
-                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
-                cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
                 cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
                 cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
                 cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
