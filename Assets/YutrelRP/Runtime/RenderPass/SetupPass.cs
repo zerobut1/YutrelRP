@@ -135,14 +135,11 @@ namespace YutrelRP
                 ? BuiltinRenderTextureType.CameraTarget
                 : new RenderTargetIdentifier(camera_target_texture);
 
-            var clear_backbuffer_on_first_use = !render_graph.nativeRenderPassesEnabled;
-            var discard_color_backbuffer_on_last_use = !render_graph.nativeRenderPassesEnabled;
-
             var import_backbuffer_color_params = new ImportResourceParams
             {
-                clearOnFirstUse = clear_backbuffer_on_first_use,
+                clearOnFirstUse = false,
                 clearColor = camera.clearFlags == CameraClearFlags.Color ? camera.backgroundColor.linear : Color.clear,
-                discardOnLastUse = discard_color_backbuffer_on_last_use
+                discardOnLastUse = false
             };
 
             var is_rt_color_sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear;

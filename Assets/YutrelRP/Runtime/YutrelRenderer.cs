@@ -68,8 +68,7 @@ namespace YutrelRP
                 commandBuffer = command_buffer,
                 executionId = camera.GetEntityId(),
                 generateDebugData = RenderGraph.isRenderGraphViewerActive,
-                currentFrameIndex = Time.frameCount,
-                rendererListCulling = true
+                currentFrameIndex = Time.frameCount
             };
 
             try
