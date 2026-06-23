@@ -8,12 +8,82 @@ using NameAndTooltip = UnityEngine.Rendering.DebugUI.Widget.NameAndTooltip;
 
 namespace YutrelRP
 {
+    internal sealed class YutrelRPDebugSettings
+    {
+        internal DebugViewMode debug_view_mode = DebugViewMode.Disabled;
+        internal int debug_probe_ray_data_slice;
+        internal int debug_probe_irradiance_atlas_slice;
+        internal int debug_probe_distance_atlas_slice;
+        internal int debug_probe_data_slice;
+
+        internal void Reset()
+        {
+            debug_view_mode = DebugViewMode.Disabled;
+            debug_probe_ray_data_slice = 0;
+            debug_probe_irradiance_atlas_slice = 0;
+            debug_probe_distance_atlas_slice = 0;
+            debug_probe_data_slice = 0;
+        }
+
+        internal enum DebugViewMode
+        {
+            [InspectorName("None/Disabled")]
+            Disabled = 0,
+            [InspectorName("GBuffer/Base Color")]
+            GBufferBaseColor = 1,
+            [InspectorName("GBuffer/Roughness")]
+            GBufferRoughness = 2,
+            [InspectorName("GBuffer/Metallic")]
+            GBufferMetallic = 3,
+            [InspectorName("GBuffer/Specular")]
+            GBufferSpecular = 4,
+            [InspectorName("GBuffer/World Space Normal")]
+            GBufferWorldSpaceNormal = 5,
+            [InspectorName("Scene & Lighting/Scene Depth")]
+            SceneDepth = 6,
+            [InspectorName("Scene & Lighting/Shadow Only")]
+            ShadowOnly = 7,
+            [InspectorName("Scene & Lighting/CSM Cascade Levels")]
+            CSMCascadeLevels = 8,
+            [InspectorName("Scene & Lighting/Ambient Occlusion")]
+            AmbientOcclusion = 9,
+            [InspectorName("Ray Tracing/Ray Gen Smoke Test")]
+            RayTracingSmokeTestRayGen = 10,
+            [InspectorName("Ray Tracing/RTAS Hit Miss Smoke Test")]
+            RayTracingSmokeTestRTASHitMiss = 11,
+            [InspectorName("DDGI Texture/Probe Ray Data")]
+            DDGIProbeRayData = 12,
+            [InspectorName("DDGI Texture/Probe Irradiance Atlas")]
+            DDGIProbeIrradianceAtlas = 13,
+            [InspectorName("DDGI Texture/Probe Distance Atlas")]
+            DDGIProbeDistanceAtlas = 14,
+            [InspectorName("DDGI Texture/Probe Data")]
+            DDGIProbeData = 15,
+            [InspectorName("DDGI Surface/Diffuse Only")]
+            DDGIDiffuseOnly = 16,
+            [InspectorName("DDGI Surface/Coverage")]
+            DDGICoverage = 17,
+            [InspectorName("DDGI Surface/Visibility Coverage")]
+            DDGIVisibilityCoverage = 18,
+            [InspectorName("DDGI Probe Scene/Probe Irradiance")]
+            DDGIProbeIrradianceScene = 19,
+            [InspectorName("DDGI Probe Scene/Probe Ray Data Quality")]
+            DDGIProbeRayDataQualityScene = 20,
+            [InspectorName("DDGI Probe Scene/Probe Distance")]
+            DDGIProbeDistanceScene = 21,
+            [InspectorName("DDGI Texture/Trace Albedo")]
+            DDGITraceAlbedo = 22,
+            [InspectorName("DDGI Texture/Screen Trace")]
+            DDGIScreenTrace = 23,
+        }
+    }
+
     internal sealed class YutrelRPDebugDisplaySettings : IDebugDisplaySettings
     {
         private readonly List<IDebugDisplaySettingsData> settings_data = new();
         private readonly YutrelRPDebugViewSettings debug_view_settings;
 
-        internal YutrelRPDebugDisplaySettings(YutrelRPSettings settings)
+        internal YutrelRPDebugDisplaySettings(YutrelRPDebugSettings settings)
         {
             debug_view_settings = new YutrelRPDebugViewSettings(settings);
             settings_data.Add(debug_view_settings);
@@ -52,15 +122,15 @@ namespace YutrelRP
 
     internal sealed class YutrelRPDebugViewSettings : IDebugDisplaySettingsData
     {
-        private readonly YutrelRPSettings settings;
+        private readonly YutrelRPDebugSettings settings;
 
-        internal YutrelRPDebugViewSettings(YutrelRPSettings settings)
+        internal YutrelRPDebugViewSettings(YutrelRPDebugSettings settings)
         {
             this.settings = settings;
         }
 
         public bool AreAnySettingsActive => settings != null &&
-                                            settings.debugViewMode != YutrelRPSettings.DebugViewMode.Disabled;
+                                            settings.debug_view_mode != YutrelRPDebugSettings.DebugViewMode.Disabled;
 
         public bool IsPostProcessingAllowed => true;
 
@@ -80,112 +150,105 @@ namespace YutrelRP
                 return;
             }
 
-            settings.debugViewMode = YutrelRPSettings.DebugViewMode.Disabled;
-            if (settings.ddgiSettings != null)
-            {
-                settings.ddgiSettings.debugProbeRayDataSlice = 0;
-                settings.ddgiSettings.debugProbeIrradianceAtlasSlice = 0;
-                settings.ddgiSettings.debugProbeDistanceAtlasSlice = 0;
-                settings.ddgiSettings.debugProbeDataSlice = 0;
-            }
+            settings.Reset();
             RequestRepaint();
         }
 
-        internal YutrelRPSettings.DebugViewMode DebugViewMode
+        internal YutrelRPDebugSettings.DebugViewMode DebugViewMode
         {
-            get => settings != null ? settings.debugViewMode : YutrelRPSettings.DebugViewMode.Disabled;
+            get => settings != null ? settings.debug_view_mode : YutrelRPDebugSettings.DebugViewMode.Disabled;
             set
             {
-                if (settings == null || settings.debugViewMode == value)
+                if (settings == null || settings.debug_view_mode == value)
                 {
                     return;
                 }
 
-                settings.debugViewMode = value;
+                settings.debug_view_mode = value;
                 RequestRepaint();
             }
         }
 
         internal int DebugProbeRayDataSlice
         {
-            get => settings?.ddgiSettings != null ? settings.ddgiSettings.debugProbeRayDataSlice : 0;
+            get => settings != null ? settings.debug_probe_ray_data_slice : 0;
             set
             {
-                if (settings?.ddgiSettings == null)
+                if (settings == null)
                 {
                     return;
                 }
 
                 var clamped_value = Math.Max(0, value);
-                if (settings.ddgiSettings.debugProbeRayDataSlice == clamped_value)
+                if (settings.debug_probe_ray_data_slice == clamped_value)
                 {
                     return;
                 }
 
-                settings.ddgiSettings.debugProbeRayDataSlice = clamped_value;
+                settings.debug_probe_ray_data_slice = clamped_value;
                 RequestRepaint();
             }
         }
 
         internal int DebugProbeIrradianceAtlasSlice
         {
-            get => settings?.ddgiSettings != null ? settings.ddgiSettings.debugProbeIrradianceAtlasSlice : 0;
+            get => settings != null ? settings.debug_probe_irradiance_atlas_slice : 0;
             set
             {
-                if (settings?.ddgiSettings == null)
+                if (settings == null)
                 {
                     return;
                 }
 
                 var clamped_value = Math.Max(0, value);
-                if (settings.ddgiSettings.debugProbeIrradianceAtlasSlice == clamped_value)
+                if (settings.debug_probe_irradiance_atlas_slice == clamped_value)
                 {
                     return;
                 }
 
-                settings.ddgiSettings.debugProbeIrradianceAtlasSlice = clamped_value;
+                settings.debug_probe_irradiance_atlas_slice = clamped_value;
                 RequestRepaint();
             }
         }
 
         internal int DebugProbeDistanceAtlasSlice
         {
-            get => settings?.ddgiSettings != null ? settings.ddgiSettings.debugProbeDistanceAtlasSlice : 0;
+            get => settings != null ? settings.debug_probe_distance_atlas_slice : 0;
             set
             {
-                if (settings?.ddgiSettings == null)
+                if (settings == null)
                 {
                     return;
                 }
 
                 var clamped_value = Math.Max(0, value);
-                if (settings.ddgiSettings.debugProbeDistanceAtlasSlice == clamped_value)
+                if (settings.debug_probe_distance_atlas_slice == clamped_value)
                 {
                     return;
                 }
 
-                settings.ddgiSettings.debugProbeDistanceAtlasSlice = clamped_value;
+                settings.debug_probe_distance_atlas_slice = clamped_value;
                 RequestRepaint();
             }
         }
 
         internal int DebugProbeDataSlice
         {
-            get => settings?.ddgiSettings != null ? settings.ddgiSettings.debugProbeDataSlice : 0;
+            get => settings != null ? settings.debug_probe_data_slice : 0;
             set
             {
-                if (settings?.ddgiSettings == null)
+                if (settings == null)
                 {
                     return;
                 }
 
                 var clamped_value = Math.Max(0, value);
-                if (settings.ddgiSettings.debugProbeDataSlice == clamped_value)
+                if (settings.debug_probe_data_slice == clamped_value)
                 {
                     return;
                 }
 
-                settings.ddgiSettings.debugProbeDataSlice = clamped_value;
+                settings.debug_probe_data_slice = clamped_value;
                 RequestRepaint();
             }
         }
@@ -200,8 +263,6 @@ namespace YutrelRP
     [DisplayInfo(name = "YutrelRP", order = 100)]
     internal sealed class YutrelRPDebugViewPanel : DebugDisplaySettingsPanel<YutrelRPDebugViewSettings>
     {
-        private const int other_category_value = -1;
-
         public YutrelRPDebugViewPanel(YutrelRPDebugViewSettings data)
             : base(data)
         {
@@ -220,7 +281,7 @@ namespace YutrelRP
                     new DebugUI.Button
                     {
                         displayName = "Disable Debug View",
-                        action = () => data.DebugViewMode = YutrelRPSettings.DebugViewMode.Disabled
+                        action = () => data.DebugViewMode = YutrelRPDebugSettings.DebugViewMode.Disabled
                     }
                 }
             });
@@ -232,11 +293,11 @@ namespace YutrelRP
                 children =
                 {
                     CreateModeGroupField(data, "Mode", "Select a GBuffer debug view.",
-                        new ModeOption(YutrelRPSettings.DebugViewMode.GBufferBaseColor, "Base Color"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.GBufferRoughness, "Roughness"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.GBufferMetallic, "Metallic"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.GBufferSpecular, "Specular"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.GBufferWorldSpaceNormal, "World Space Normal"))
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferBaseColor, "Base Color"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferRoughness, "Roughness"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferMetallic, "Metallic"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferSpecular, "Specular"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferWorldSpaceNormal, "World Space Normal"))
                 }
             });
 
@@ -247,10 +308,10 @@ namespace YutrelRP
                 children =
                 {
                     CreateModeGroupField(data, "Mode", "Select a scene or lighting debug view.",
-                        new ModeOption(YutrelRPSettings.DebugViewMode.SceneDepth, "Scene Depth"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.ShadowOnly, "Shadow Only"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.CSMCascadeLevels, "CSM Cascade Levels"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.AmbientOcclusion, "Ambient Occlusion"))
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.SceneDepth, "Scene Depth"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.ShadowOnly, "Shadow Only"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.CSMCascadeLevels, "CSM Cascade Levels"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.AmbientOcclusion, "Ambient Occlusion"))
                 }
             });
 
@@ -261,8 +322,8 @@ namespace YutrelRP
                 children =
                 {
                     CreateModeGroupField(data, "Smoke Test", "Select a ray tracing smoke test debug view.",
-                        new ModeOption(YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRayGen, "Ray Gen"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss, "RTAS Hit Miss"))
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRayGen, "Ray Gen"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss, "RTAS Hit Miss"))
                 }
             });
 
@@ -273,15 +334,15 @@ namespace YutrelRP
                 children =
                 {
                     CreateModeGroupField(data, "Mode", "Select a DDGI texture, trace, or surface debug view.",
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeRayData, "Probe Ray Data"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceAtlas, "Probe Irradiance Atlas"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeDistanceAtlas, "Probe Distance Atlas"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeData, "Probe Data"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGITraceAlbedo, "Trace Albedo"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIScreenTrace, "Screen Trace"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIDiffuseOnly, "Diffuse Only"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGICoverage, "Coverage"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIVisibilityCoverage, "Visibility Coverage")),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayData, "Probe Ray Data"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceAtlas, "Probe Irradiance Atlas"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceAtlas, "Probe Distance Atlas"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeData, "Probe Data"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGITraceAlbedo, "Trace Albedo"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIScreenTrace, "Screen Trace"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIDiffuseOnly, "Diffuse Only"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGICoverage, "Coverage"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIVisibilityCoverage, "Visibility Coverage")),
                     CreateIntField("Probe Ray Data Slice", "Y slice for DDGI probe ray data and trace albedo debug views.",
                         () => data.DebugProbeRayDataSlice,
                         value => data.DebugProbeRayDataSlice = value),
@@ -304,9 +365,9 @@ namespace YutrelRP
                 children =
                 {
                     CreateModeGroupField(data, "Mode", "Select a Scene View probe visualization.",
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene, "Probe Irradiance"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene, "Probe Ray Data Quality"),
-                        new ModeOption(YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene, "Probe Distance"))
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceScene, "Probe Irradiance"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayDataQualityScene, "Probe Ray Data Quality"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceScene, "Probe Distance"))
                 }
             });
         }
@@ -320,31 +381,28 @@ namespace YutrelRP
                     name = "All Modes",
                     tooltip = "Select any YutrelRP debug view."
                 },
-                autoEnum = typeof(YutrelRPSettings.DebugViewMode),
+                autoEnum = typeof(YutrelRPDebugSettings.DebugViewMode),
                 getter = () => (int)data.DebugViewMode,
-                setter = value => data.DebugViewMode = (YutrelRPSettings.DebugViewMode)value,
+                setter = value => data.DebugViewMode = (YutrelRPDebugSettings.DebugViewMode)value,
                 getIndex = () => (int)data.DebugViewMode,
-                setIndex = value => data.DebugViewMode = (YutrelRPSettings.DebugViewMode)value
+                setIndex = value => data.DebugViewMode = (YutrelRPDebugSettings.DebugViewMode)value
             };
         }
 
         private static DebugUI.EnumField CreateModeGroupField(YutrelRPDebugViewSettings data, string displayName,
             string tooltip, params ModeOption[] options)
         {
-            var enum_names = new GUIContent[options.Length + 2];
-            var enum_values = new int[options.Length + 2];
+            var enum_names = new GUIContent[options.Length + 1];
+            var enum_values = new int[options.Length + 1];
 
             enum_names[0] = new GUIContent("Disabled");
-            enum_values[0] = (int)YutrelRPSettings.DebugViewMode.Disabled;
+            enum_values[0] = (int)YutrelRPDebugSettings.DebugViewMode.Disabled;
 
             for (var i = 0; i < options.Length; ++i)
             {
                 enum_names[i + 1] = new GUIContent(options[i].display_name);
                 enum_values[i + 1] = (int)options[i].mode;
             }
-
-            enum_names[enum_names.Length - 1] = new GUIContent("Other Category");
-            enum_values[enum_values.Length - 1] = other_category_value;
 
             return new DebugUI.EnumField
             {
@@ -356,19 +414,13 @@ namespace YutrelRP
                 enumNames = enum_names,
                 enumValues = enum_values,
                 getter = () => GetGroupValue(data.DebugViewMode, options),
-                setter = value =>
-                {
-                    if (value != other_category_value)
-                    {
-                        data.DebugViewMode = (YutrelRPSettings.DebugViewMode)value;
-                    }
-                },
+                setter = value => data.DebugViewMode = (YutrelRPDebugSettings.DebugViewMode)value,
                 getIndex = () => GetGroupIndex(data.DebugViewMode, options),
                 setIndex = value =>
                 {
-                    if (value >= 0 && value < enum_values.Length && enum_values[value] != other_category_value)
+                    if (value >= 0 && value < enum_values.Length)
                     {
-                        data.DebugViewMode = (YutrelRPSettings.DebugViewMode)enum_values[value];
+                        data.DebugViewMode = (YutrelRPDebugSettings.DebugViewMode)enum_values[value];
                     }
                 }
             };
@@ -392,11 +444,11 @@ namespace YutrelRP
             };
         }
 
-        private static int GetGroupValue(YutrelRPSettings.DebugViewMode mode, ModeOption[] options)
+        private static int GetGroupValue(YutrelRPDebugSettings.DebugViewMode mode, ModeOption[] options)
         {
-            if (mode == YutrelRPSettings.DebugViewMode.Disabled)
+            if (mode == YutrelRPDebugSettings.DebugViewMode.Disabled)
             {
-                return (int)YutrelRPSettings.DebugViewMode.Disabled;
+                return (int)YutrelRPDebugSettings.DebugViewMode.Disabled;
             }
 
             for (var i = 0; i < options.Length; ++i)
@@ -407,12 +459,12 @@ namespace YutrelRP
                 }
             }
 
-            return other_category_value;
+            return (int)YutrelRPDebugSettings.DebugViewMode.Disabled;
         }
 
-        private static int GetGroupIndex(YutrelRPSettings.DebugViewMode mode, ModeOption[] options)
+        private static int GetGroupIndex(YutrelRPDebugSettings.DebugViewMode mode, ModeOption[] options)
         {
-            if (mode == YutrelRPSettings.DebugViewMode.Disabled)
+            if (mode == YutrelRPDebugSettings.DebugViewMode.Disabled)
             {
                 return 0;
             }
@@ -425,20 +477,20 @@ namespace YutrelRP
                 }
             }
 
-            return options.Length + 1;
+            return 0;
         }
 
-        private static string GetModeLabel(YutrelRPSettings.DebugViewMode mode)
+        private static string GetModeLabel(YutrelRPDebugSettings.DebugViewMode mode)
         {
             return ObjectNames.NicifyVariableName(mode.ToString());
         }
 
         private readonly struct ModeOption
         {
-            internal readonly YutrelRPSettings.DebugViewMode mode;
+            internal readonly YutrelRPDebugSettings.DebugViewMode mode;
             internal readonly string display_name;
 
-            internal ModeOption(YutrelRPSettings.DebugViewMode mode, string displayName)
+            internal ModeOption(YutrelRPDebugSettings.DebugViewMode mode, string displayName)
             {
                 this.mode = mode;
                 display_name = displayName;

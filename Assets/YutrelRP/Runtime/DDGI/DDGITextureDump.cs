@@ -630,10 +630,6 @@ namespace YutrelRP
             {
                 metadata.debug = new DebugMetadata
                 {
-                    debugProbeRayDataSlice = settings.debugProbeRayDataSlice,
-                    debugProbeIrradianceAtlasSlice = settings.debugProbeIrradianceAtlasSlice,
-                    debugProbeDistanceAtlasSlice = settings.debugProbeDistanceAtlasSlice,
-                    debugProbeDataSlice = settings.debugProbeDataSlice,
                     diffuseIntensity = settings.diffuseIntensity
                 };
             }
@@ -976,10 +972,6 @@ namespace YutrelRP
         [Serializable]
         private sealed class DebugMetadata
         {
-            public int debugProbeRayDataSlice;
-            public int debugProbeIrradianceAtlasSlice;
-            public int debugProbeDistanceAtlasSlice;
-            public int debugProbeDataSlice;
             public float diffuseIntensity;
         }
 

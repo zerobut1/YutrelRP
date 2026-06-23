@@ -66,14 +66,9 @@ MonoBehaviour:
       probeMaxRelocationOffset: 0.45
       traceDirectionalVisibility: 1
       traceDirectionalLambert: 1
-      debugProbeRayDataSlice: 0
-      debugProbeIrradianceAtlasSlice: 0
-      debugProbeDistanceAtlasSlice: 0
-      debugProbeDataSlice: 0
       diffuseIntensity: 1
     rayTracingSmokeTestSettings:
       enabled: 0
       mode: 1
       rayGenShader: {fileID: 4800000, guid: b920493ffe156d741acc3335c2dd7bee, type: 3}
       rtasShader: {fileID: 4800000, guid: 9f58d9f55cba41908442952ace07cc8e, type: 3}
-    debugViewMode: 0

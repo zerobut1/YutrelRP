@@ -11,6 +11,9 @@ namespace YutrelRP
         }
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings settings,
+#if UNITY_EDITOR
+            YutrelRPDebugSettings debugSettings,
+#endif
             LightResources lightResources, RenderTargets textures, Vector2Int attachmentSize,
             ref DDGIResources resources)
         {
@@ -22,7 +25,8 @@ namespace YutrelRP
             }
 
 #if UNITY_EDITOR
-            var screenTraceDebug = settings.debugViewMode == YutrelRPSettings.DebugViewMode.DDGIScreenTrace;
+            var screenTraceDebug = debugSettings != null &&
+                                   debugSettings.debug_view_mode == YutrelRPDebugSettings.DebugViewMode.DDGIScreenTrace;
 #else
             const bool screenTraceDebug = false;
 #endif

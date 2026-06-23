@@ -5,7 +5,11 @@ namespace YutrelRP
 {
     internal static class RayTracingSmokeTest
     {
+#if UNITY_EDITOR
+        internal static bool IsEnabled(YutrelRPSettings settings, YutrelRPDebugSettings debugSettings)
+#else
         internal static bool IsEnabled(YutrelRPSettings settings)
+#endif
         {
             if (settings == null)
             {
@@ -13,10 +17,10 @@ namespace YutrelRP
             }
 
 #if UNITY_EDITOR
-            switch (settings.debugViewMode)
+            switch (debugSettings != null ? debugSettings.debug_view_mode : YutrelRPDebugSettings.DebugViewMode.Disabled)
             {
-                case YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRayGen:
-                case YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss:
+                case YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRayGen:
+                case YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss:
                     return true;
             }
 #endif
@@ -24,10 +28,19 @@ namespace YutrelRP
                    settings.rayTracingSmokeTestSettings.enabled;
         }
 
+#if UNITY_EDITOR
+        internal static void Record(RenderGraph renderGraph, Camera camera, ref RenderTargets textures,
+            YutrelRPSettings settings, YutrelRPDebugSettings debugSettings, Vector2Int attachmentSize)
+#else
         internal static void Record(RenderGraph renderGraph, Camera camera, ref RenderTargets textures,
             YutrelRPSettings settings, Vector2Int attachmentSize)
+#endif
         {
-            var smokeTestSettings = GetSettings(settings);
+            var smokeTestSettings = GetSettings(settings
+#if UNITY_EDITOR
+                , debugSettings
+#endif
+            );
             if (smokeTestSettings == null || !smokeTestSettings.enabled)
             {
                 return;
@@ -41,7 +54,12 @@ namespace YutrelRP
             RayTracingSmokeTestPass.Cleanup();
         }
 
+#if UNITY_EDITOR
+        internal static YutrelRPSettings.RayTracingSmokeTestSettings GetSettings(YutrelRPSettings settings,
+            YutrelRPDebugSettings debugSettings)
+#else
         internal static YutrelRPSettings.RayTracingSmokeTestSettings GetSettings(YutrelRPSettings settings)
+#endif
         {
             if (settings == null)
             {
@@ -49,15 +67,15 @@ namespace YutrelRP
             }
 
 #if UNITY_EDITOR
-            switch (settings.debugViewMode)
+            switch (debugSettings != null ? debugSettings.debug_view_mode : YutrelRPDebugSettings.DebugViewMode.Disabled)
             {
-                case YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRayGen:
+                case YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRayGen:
                     return new YutrelRPSettings.RayTracingSmokeTestSettings
                     {
                         enabled = true,
                         mode = YutrelRPSettings.RayTracingSmokeTestMode.RayGenOnly
                     };
-                case YutrelRPSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss:
+                case YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss:
                     return new YutrelRPSettings.RayTracingSmokeTestSettings
                     {
                         enabled = true,

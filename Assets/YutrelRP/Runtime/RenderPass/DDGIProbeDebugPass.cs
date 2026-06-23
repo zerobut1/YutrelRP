@@ -39,9 +39,12 @@ namespace YutrelRP
         private static readonly HashSet<string> warned_issues = new();
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
-            DDGIResources ddgi_resources, YutrelRPSettings.DebugViewMode mode,
+            DDGIResources ddgi_resources, YutrelRPDebugSettings debug_settings,
             YutrelRPSettings.DDGISettings ddgi_settings)
         {
+            var mode = debug_settings != null
+                ? debug_settings.debug_view_mode
+                : YutrelRPDebugSettings.DebugViewMode.Disabled;
             if (!IsProbeSceneMode(mode)) return;
             if (camera.cameraType != CameraType.SceneView) return;
             if (!textures.final_color.IsValid() || !textures.scene_depth.IsValid()) return;
@@ -79,9 +82,9 @@ namespace YutrelRP
                     ? 1.0f
                     : 0.0f;
             pass.instance_count = pass.probe_count.x * pass.probe_count.y * pass.probe_count.z;
-            pass.reads_probe_ray_data = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene;
-            pass.reads_probe_irradiance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene;
-            pass.reads_probe_distance = pass.issue == Issue.None && mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene;
+            pass.reads_probe_ray_data = pass.issue == Issue.None && mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayDataQualityScene;
+            pass.reads_probe_irradiance = pass.issue == Issue.None && mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceScene;
+            pass.reads_probe_distance = pass.issue == Issue.None && mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceScene;
             pass.reads_probe_data = pass.issue == Issue.None;
 
             if (pass.reads_probe_data)
@@ -114,14 +117,14 @@ namespace YutrelRP
             builder.SetRenderFunc<DDGIProbeDebugPass>(static (pass, context) => pass.Render(context));
         }
 
-        private static bool IsProbeSceneMode(YutrelRPSettings.DebugViewMode mode)
+        private static bool IsProbeSceneMode(YutrelRPDebugSettings.DebugViewMode mode)
         {
-            return mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene ||
-                   mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene ||
-                   mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene;
+            return mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceScene ||
+                   mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayDataQualityScene ||
+                   mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceScene;
         }
 
-        private static Issue ValidateSources(YutrelRPSettings.DebugViewMode mode, DDGIResources ddgi_resources)
+        private static Issue ValidateSources(YutrelRPDebugSettings.DebugViewMode mode, DDGIResources ddgi_resources)
         {
             Issue issue = Issue.None;
             if (ddgi_resources == null ||
@@ -131,17 +134,17 @@ namespace YutrelRP
             {
                 issue = Issue.MissingVolume;
             }
-            else if (mode == YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene &&
+            else if (mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceScene &&
                      !ddgi_resources.probe_irradiance.IsValid())
             {
                 issue = Issue.MissingIrradiance;
             }
-            else if (mode == YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene &&
+            else if (mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceScene &&
                      !ddgi_resources.probe_distance.IsValid())
             {
                 issue = Issue.MissingDistance;
             }
-            else if (mode == YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene &&
+            else if (mode == YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayDataQualityScene &&
                      !ddgi_resources.probe_ray_data.IsValid())
             {
                 issue = Issue.MissingRayData;
@@ -163,7 +166,7 @@ namespace YutrelRP
             return Mathf.Max(0.02f, min_spacing * 0.08f);
         }
 
-        private static void WarnOnce(YutrelRPSettings.DebugViewMode mode, Issue issue)
+        private static void WarnOnce(YutrelRPDebugSettings.DebugViewMode mode, Issue issue)
         {
             if (issue == Issue.None) return;
 
@@ -196,7 +199,7 @@ namespace YutrelRP
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
         private TextureHandle probe_data;
-        private YutrelRPSettings.DebugViewMode mode;
+        private YutrelRPDebugSettings.DebugViewMode mode;
         private Issue issue;
         private bool reads_probe_ray_data;
         private bool reads_probe_irradiance;
@@ -269,15 +272,15 @@ namespace YutrelRP
             context.cmd.DrawMeshInstancedProcedural(sphere_mesh, 0, material, 0, instance_count, property_block);
         }
 
-        private static int GetShaderDebugMode(YutrelRPSettings.DebugViewMode mode)
+        private static int GetShaderDebugMode(YutrelRPDebugSettings.DebugViewMode mode)
         {
             switch (mode)
             {
-                case YutrelRPSettings.DebugViewMode.DDGIProbeIrradianceScene:
+                case YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceScene:
                     return 1;
-                case YutrelRPSettings.DebugViewMode.DDGIProbeRayDataQualityScene:
+                case YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayDataQualityScene:
                     return 2;
-                case YutrelRPSettings.DebugViewMode.DDGIProbeDistanceScene:
+                case YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceScene:
                     return 3;
                 default:
                     return 0;

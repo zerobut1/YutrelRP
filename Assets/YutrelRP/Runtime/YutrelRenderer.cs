@@ -8,12 +8,23 @@ namespace YutrelRP
     public class YutrelRenderer
     {
         private readonly YutrelRPSettings settings;
+#if UNITY_EDITOR
+        private readonly YutrelRPDebugSettings debug_settings;
+#endif
         private readonly ContextContainer frame_data = new();
 
+#if UNITY_EDITOR
+        internal YutrelRenderer(YutrelRPSettings settings, YutrelRPDebugSettings debug_settings)
+        {
+            this.settings = settings;
+            this.debug_settings = debug_settings;
+        }
+#else
         public YutrelRenderer(YutrelRPSettings settings)
         {
             this.settings = settings;
         }
+#endif
 
         public void Dispose()
         {
@@ -105,8 +116,11 @@ namespace YutrelRP
                     ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
                         attachment_size);
 
-                    DDGIProbeTrace.Record(render_graph, camera, settings, light_resources, textures, attachment_size,
-                        ref ddgi_resources);
+                    DDGIProbeTrace.Record(render_graph, camera, settings,
+#if UNITY_EDITOR
+                        debug_settings,
+#endif
+                        light_resources, textures, attachment_size, ref ddgi_resources);
 
                     EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources);
 
@@ -120,17 +134,27 @@ namespace YutrelRP
 
                     ToneMappingPass.Record(render_graph, textures, post_process_settings);
 
-                    if (RayTracingSmokeTest.IsEnabled(settings))
+#if UNITY_EDITOR
+                    var ray_tracing_smoke_test_enabled = RayTracingSmokeTest.IsEnabled(settings, debug_settings);
+#else
+                    var ray_tracing_smoke_test_enabled = RayTracingSmokeTest.IsEnabled(settings);
+#endif
+                    if (ray_tracing_smoke_test_enabled)
                     {
+#if UNITY_EDITOR
+                        RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings,
+                            debug_settings,
+                            attachment_size);
+#else
                         RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings, attachment_size);
+#endif
                     }
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
-                        shadow_settings, ddgi_resources, settings.debugViewMode,
-                        settings.ddgiSettings, attachment_size);
+                        shadow_settings, ddgi_resources, debug_settings, attachment_size);
 
-                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, settings.debugViewMode,
+                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, debug_settings,
                         settings.ddgiSettings);
 
                     GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,

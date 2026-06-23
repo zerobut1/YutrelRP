@@ -17,6 +17,7 @@ namespace YutrelRP
         private readonly YutrelRPSettings settings;
 #if UNITY_EDITOR
         private readonly DebugDisplaySettingsUI debug_display_settings_ui = new();
+        private readonly YutrelRPDebugSettings debug_settings = new();
         private readonly YutrelRPDebugDisplaySettings debug_display_settings;
 #endif
 
@@ -26,10 +27,12 @@ namespace YutrelRP
             GraphicsSettings.useScriptableRenderPipelineBatching = settings.useSRPBatcher;
             default_volume_profile = CreateDefaultVolumeProfile();
             VolumeManager.instance.Initialize(default_volume_profile);
-            renderer = new YutrelRenderer(this.settings);
 #if UNITY_EDITOR
-            debug_display_settings = new YutrelRPDebugDisplaySettings(this.settings);
+            renderer = new YutrelRenderer(this.settings, debug_settings);
+            debug_display_settings = new YutrelRPDebugDisplaySettings(debug_settings);
             debug_display_settings_ui.RegisterDebug(debug_display_settings);
+#else
+            renderer = new YutrelRenderer(this.settings);
 #endif
         }
 
