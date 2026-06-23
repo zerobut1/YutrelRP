@@ -67,8 +67,3 @@ MonoBehaviour:
       traceDirectionalVisibility: 1
       traceDirectionalLambert: 1
       diffuseIntensity: 1
-    rayTracingSmokeTestSettings:
-      enabled: 0
-      mode: 1
-      rayGenShader: {fileID: 4800000, guid: b920493ffe156d741acc3335c2dd7bee, type: 3}
-      rtasShader: {fileID: 4800000, guid: 9f58d9f55cba41908442952ace07cc8e, type: 3}

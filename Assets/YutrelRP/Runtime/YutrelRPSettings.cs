@@ -36,23 +36,6 @@ namespace YutrelRP
             [Min(0.0f)] public float diffuseIntensity = 1.0f;
         }
 
-        public RayTracingSmokeTestSettings rayTracingSmokeTestSettings = new();
-
-        [System.Serializable]
-        public class RayTracingSmokeTestSettings
-        {
-            public bool enabled = false;
-            public RayTracingSmokeTestMode mode = RayTracingSmokeTestMode.RayGenOnly;
-            public RayTracingShader rayGenShader;
-            public RayTracingShader rtasShader;
-        }
-
-        public enum RayTracingSmokeTestMode
-        {
-            RayGenOnly = 0,
-            RTASHitMiss = 1
-        }
-
     }
 
     [System.Serializable]

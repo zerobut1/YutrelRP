@@ -47,10 +47,6 @@ namespace YutrelRP
             CSMCascadeLevels = 8,
             [InspectorName("Scene & Lighting/Ambient Occlusion")]
             AmbientOcclusion = 9,
-            [InspectorName("Ray Tracing/Ray Gen Smoke Test")]
-            RayTracingSmokeTestRayGen = 10,
-            [InspectorName("Ray Tracing/RTAS Hit Miss Smoke Test")]
-            RayTracingSmokeTestRTASHitMiss = 11,
             [InspectorName("DDGI Texture/Probe Ray Data")]
             DDGIProbeRayData = 12,
             [InspectorName("DDGI Texture/Probe Irradiance Atlas")]
@@ -312,18 +308,6 @@ namespace YutrelRP
                         new ModeOption(YutrelRPDebugSettings.DebugViewMode.ShadowOnly, "Shadow Only"),
                         new ModeOption(YutrelRPDebugSettings.DebugViewMode.CSMCascadeLevels, "CSM Cascade Levels"),
                         new ModeOption(YutrelRPDebugSettings.DebugViewMode.AmbientOcclusion, "Ambient Occlusion"))
-                }
-            });
-
-            AddWidget(new DebugUI.Foldout
-            {
-                displayName = "Ray Tracing",
-                opened = false,
-                children =
-                {
-                    CreateModeGroupField(data, "Smoke Test", "Select a ray tracing smoke test debug view.",
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRayGen, "Ray Gen"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss, "RTAS Hit Miss"))
                 }
             });
 

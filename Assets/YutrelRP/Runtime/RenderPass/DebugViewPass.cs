@@ -57,8 +57,7 @@ namespace YutrelRP
                 ? debug_settings.debug_view_mode
                 : YutrelRPDebugSettings.DebugViewMode.Disabled;
 
-            if (mode == YutrelRPDebugSettings.DebugViewMode.Disabled || IsRayTracingSmokeTestMode(mode) ||
-                IsDDGIProbeSceneMode(mode))
+            if (mode == YutrelRPDebugSettings.DebugViewMode.Disabled || IsDDGIProbeSceneMode(mode))
             {
                 return;
             }
@@ -254,12 +253,6 @@ namespace YutrelRP
             builder.SetRenderFunc<DebugViewPass>(static (pass, context) => { pass.Render(context); });
 
             textures.final_color = debug_color;
-        }
-
-        private static bool IsRayTracingSmokeTestMode(YutrelRPDebugSettings.DebugViewMode mode)
-        {
-            return mode == YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRayGen ||
-                   mode == YutrelRPDebugSettings.DebugViewMode.RayTracingSmokeTestRTASHitMiss;
         }
 
         private static bool IsDDGIProbeSceneMode(YutrelRPDebugSettings.DebugViewMode mode)

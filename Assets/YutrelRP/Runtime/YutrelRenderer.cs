@@ -31,7 +31,6 @@ namespace YutrelRP
             DDGIProbeTrace.Cleanup();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
-            RayTracingSmokeTest.Cleanup();
             ScreenSpaceAmbientOcclusionPass.Cleanup();
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
@@ -133,22 +132,6 @@ namespace YutrelRP
 #endif
 
                     ToneMappingPass.Record(render_graph, textures, post_process_settings);
-
-#if UNITY_EDITOR
-                    var ray_tracing_smoke_test_enabled = RayTracingSmokeTest.IsEnabled(settings, debug_settings);
-#else
-                    var ray_tracing_smoke_test_enabled = RayTracingSmokeTest.IsEnabled(settings);
-#endif
-                    if (ray_tracing_smoke_test_enabled)
-                    {
-#if UNITY_EDITOR
-                        RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings,
-                            debug_settings,
-                            attachment_size);
-#else
-                        RayTracingSmokeTest.Record(render_graph, camera, ref textures, settings, attachment_size);
-#endif
-                    }
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
