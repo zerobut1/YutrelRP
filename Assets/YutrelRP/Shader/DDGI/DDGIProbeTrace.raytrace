@@ -1,18 +1,15 @@
 #pragma max_recursion_depth 1
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/GlobalSamplers.hlsl"
 #include "Assets/YutrelRP/Shader/DDGI/DDGI.hlsl"
 #include "Assets/YutrelRP/Shader/DDGI/DDGIProbeTraceCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
 
 RWTexture2DArray<float4> _DDGIProbeRayData;
 RWTexture2DArray<float4> _DDGITraceAlbedo;
-RWTexture2D<float4> _DDGIScreenTraceDebug;
-Texture2D<float> _DDGIScreenTraceDepth;
 Texture2DArray<float4> _DDGIProbeIrradiance;
-SamplerState sampler_DDGIProbeIrradiance;
 Texture2DArray<float4> _DDGIProbeDistance;
-SamplerState sampler_DDGIProbeDistance;
 Texture2DArray<float4> _DDGIProbeData;
 RaytracingAccelerationStructure _RaytracingAccelerationStructure;
 
@@ -32,16 +29,7 @@ float4 _DDGIDirectionalLightColorIlluminance;
 float4 _DDGIDirectionalLightDirectionWS;
 float _DDGIDirectionalLightVisibilityEnabled;
 float _DDGIDirectionalLightLambertEnabled;
-float4x4 _DDGIScreenTraceInvViewProjection;
-float3 _DDGIScreenTraceCameraPositionWS;
-int _DDGIScreenTraceReversedZ;
-int _DDGIScreenTraceProjectionFlipY;
-
 static const float DDGI_TRACE_FEEDBACK_GAIN             = 1.0f;
-static const uint DDGI_SCREEN_TRACE_STATUS_MISS = 0u;
-static const uint DDGI_SCREEN_TRACE_STATUS_INVALID_DEPTH = 6u;
-static const uint DDGI_SCREEN_TRACE_STATUS_BACKFACE = 4u;
-static const uint DDGI_SCREEN_TRACE_STATUS_NOT_PARTICIPATING = 5u;
 
 float3 DDGITraceSanitizeRadiance(float3 radiance)
 {
@@ -63,9 +51,9 @@ float3 DDGITraceHistoryDiffuseRadiance(float3 positionWS, float3 normalWS, float
     float3 view_direction  = DDGISafeNormalize(-rayDirectionWS, normal);
 
     DDGIGatherSample gather = DDGISampleTrilinearGather(_DDGIProbeIrradiance,
-                                                        sampler_DDGIProbeIrradiance,
+                                                        sampler_LinearClamp,
                                                         _DDGIProbeDistance,
-                                                        sampler_DDGIProbeDistance,
+                                                        sampler_LinearClamp,
                                                         _DDGIProbeData,
                                                         _DDGIProbeRelocationEnabled > 0.5f,
                                                         positionWS,
@@ -240,111 +228,3 @@ void RayGenDDGIProbeTrace()
     _DDGITraceAlbedo[rayDataTexel] = float4(payload.baseColor, (float)payload.albedoStatus);
 }
 
-bool DDGIScreenTraceDepthIsValid(float rawDepth)
-{
-    return _DDGIScreenTraceReversedZ != 0 ? rawDepth > 0.0f : rawDepth < 1.0f;
-}
-
-float4 DDGIScreenTraceClipPosition(uint2 pixel, uint2 dimensions, float deviceDepth)
-{
-    float2 uv           = (float2(pixel) + 0.5f) / max(float2(dimensions), 1.0f.xx);
-    float2 position_NDC = uv;
-#if UNITY_UV_STARTS_AT_TOP
-    position_NDC.y = 1.0f - position_NDC.y;
-#endif
-    if (_DDGIScreenTraceProjectionFlipY != 0)
-    {
-        position_NDC.y = 1.0f - position_NDC.y;
-    }
-
-    float2 clipXY = position_NDC * 2.0f - 1.0f;
-    return float4(clipXY, deviceDepth, 1.0f);
-}
-
-float3 DDGIScreenTraceUnproject(uint2 pixel, uint2 dimensions, float deviceDepth)
-{
-    float4 positionWS = mul(_DDGIScreenTraceInvViewProjection, DDGIScreenTraceClipPosition(pixel, dimensions, deviceDepth));
-    float safeW       = abs(positionWS.w) > 1.0e-6f ? positionWS.w : (positionWS.w < 0.0f ? -1.0e-6f : 1.0e-6f);
-    return positionWS.xyz / safeW;
-}
-
-float DDGIScreenTraceNearDepth()
-{
-    return _DDGIScreenTraceReversedZ != 0 ? 1.0f : 0.0f;
-}
-
-float DDGIScreenTraceFarDepth()
-{
-    return _DDGIScreenTraceReversedZ != 0 ? 0.0f : 1.0f;
-}
-
-uint DDGIScreenTraceStatus(DDGIProbeTracePayload payload)
-{
-    if (payload.hitKind == 0u)
-    {
-        return DDGI_SCREEN_TRACE_STATUS_MISS;
-    }
-
-    if (payload.hitKind != 1u)
-    {
-        return DDGI_SCREEN_TRACE_STATUS_BACKFACE;
-    }
-
-    return payload.albedoStatus;
-}
-
-[shader("raygeneration")]
-void RayGenDDGIScreenTrace()
-{
-    uint3 launchIndex      = DispatchRaysIndex();
-    uint3 launchDimensions = DispatchRaysDimensions();
-    uint2 pixel            = launchIndex.xy;
-    uint2 dimensions       = launchDimensions.xy;
-    float rawDepth         = _DDGIScreenTraceDepth.Load(int3(pixel, 0));
-
-    if (!DDGIScreenTraceDepthIsValid(rawDepth))
-    {
-        _DDGIScreenTraceDebug[pixel] = float4(rawDepth.xxx, (float)DDGI_SCREEN_TRACE_STATUS_INVALID_DEPTH);
-        return;
-    }
-
-    float3 nearWS    = DDGIScreenTraceUnproject(pixel, dimensions, DDGIScreenTraceNearDepth());
-    float3 farWS     = DDGIScreenTraceUnproject(pixel, dimensions, DDGIScreenTraceFarDepth());
-    float3 surfaceWS = DDGIScreenTraceUnproject(pixel, dimensions, rawDepth);
-    float3 rayVector = farWS - nearWS;
-    float rayLength  = max(length(rayVector), 0.001f);
-    float3 rayDir    = DDGISafeNormalize(rayVector, DDGISafeNormalize(farWS - _DDGIScreenTraceCameraPositionWS, float3(0.0f, 0.0f, 1.0f)));
-    float surfaceT   = dot(surfaceWS - nearWS, rayDir);
-
-    RayDesc ray;
-    ray.Origin    = nearWS;
-    ray.Direction = rayDir;
-    ray.TMin      = 0.001f;
-    ray.TMax      = rayLength;
-
-    DDGIProbeTracePayload payload;
-    payload.hitKind      = 0u;
-    payload.rayT         = -1.0f;
-    payload.normalWS     = float3(0.0f, 1.0f, 0.0f);
-    payload.geometricNormalWS = float3(0.0f, 1.0f, 0.0f);
-    payload.baseColor    = float3(0.8f, 0.8f, 0.8f);
-    payload.albedoStatus = DDGI_TRACE_ALBEDO_STATUS_MISS;
-
-    TraceRay(_RaytracingAccelerationStructure,
-             RAY_FLAG_NONE,
-             0xFF,
-             0,
-             1,
-             0,
-             ray,
-             payload);
-
-    float tolerance = max(0.02f, abs(surfaceT) * 0.002f);
-    if (payload.hitKind == 0u || abs(payload.rayT - surfaceT) > tolerance)
-    {
-        _DDGIScreenTraceDebug[pixel] = float4(0.0f, 0.0f, 0.0f, (float)DDGI_SCREEN_TRACE_STATUS_NOT_PARTICIPATING);
-        return;
-    }
-
-    _DDGIScreenTraceDebug[pixel] = float4(payload.baseColor, (float)DDGIScreenTraceStatus(payload));
-}

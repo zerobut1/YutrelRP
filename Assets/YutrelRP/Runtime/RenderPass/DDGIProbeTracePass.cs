@@ -11,7 +11,6 @@ namespace YutrelRP
     internal sealed class DDGIProbeTracePass
     {
         private const string RayGenName = "RayGenDDGIProbeTrace";
-        private const string ScreenTraceRayGenName = "RayGenDDGIScreenTrace";
         private const string ShaderPassName = "DDGIRayTracing";
         private const int FixedRayCount = 32;
         private const GraphicsFormat ProbeIrradianceFormat = DDGIResources.ProbeIrradianceGraphicsFormat;
@@ -48,12 +47,6 @@ namespace YutrelRP
         private static readonly int directionalLightVisibilityEnabledID = Shader.PropertyToID("_DDGIDirectionalLightVisibilityEnabled");
         private static readonly int directionalLightLambertEnabledID = Shader.PropertyToID("_DDGIDirectionalLightLambertEnabled");
         private static readonly int traceAlbedoID = DDGIResources.trace_albedo_ID;
-        private static readonly int screenTraceDebugID = DDGIResources.screen_trace_debug_ID;
-        private static readonly int screenTraceDepthID = Shader.PropertyToID("_DDGIScreenTraceDepth");
-        private static readonly int screenTraceInvViewProjectionID = Shader.PropertyToID("_DDGIScreenTraceInvViewProjection");
-        private static readonly int screenTraceCameraPositionWSID = Shader.PropertyToID("_DDGIScreenTraceCameraPositionWS");
-        private static readonly int screenTraceReversedZID = Shader.PropertyToID("_DDGIScreenTraceReversedZ");
-        private static readonly int screenTraceProjectionFlipYID = Shader.PropertyToID("_DDGIScreenTraceProjectionFlipY");
 
         private static RayTracingShader shader;
         private static RayTracingAccelerationStructure accelerationStructure;
@@ -69,6 +62,9 @@ namespace YutrelRP
             LightResources lightResources, bool screenTraceDebug, TextureHandle sceneDepth,
             Vector2Int attachmentSize, ref DDGIResources resources)
         {
+            _ = screenTraceDebug;
+            _ = sceneDepth;
+            _ = attachmentSize;
             resources.Reset();
 
             if (settings == null || !settings.enabled)
@@ -168,56 +164,10 @@ namespace YutrelRP
                 probeRayRotation.randomRotationEnabled, probeRayRotation.fixedRaysEnabled,
                 probeRayRotation.skipFixedRaysForBlend);
 
-            TextureHandle screenTraceDebugOutput = TextureHandle.nullHandle;
-            TextureHandle screenTraceDepth = TextureHandle.nullHandle;
-            var writesScreenTraceDebug = screenTraceDebug && sceneDepth.IsValid() &&
-                                         attachmentSize.x > 0 && attachmentSize.y > 0;
-            if (writesScreenTraceDebug)
-            {
-                screenTraceDepth = DDGIScreenTraceDepthCopyPass.Record(renderGraph, sceneDepth, attachmentSize);
-
-                var screenTraceDesc = new TextureDesc(attachmentSize.x, attachmentSize.y)
-                {
-                    colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
-                    enableRandomWrite = true,
-                    filterMode = FilterMode.Point,
-                    wrapMode = TextureWrapMode.Clamp,
-                    clearBuffer = true,
-                    clearColor = Color.black,
-                    name = "DDGI Screen Trace Debug"
-                };
-                screenTraceDebugOutput = renderGraph.CreateTexture(screenTraceDesc);
-                resources.screen_trace_debug = screenTraceDebugOutput;
-            }
-            else
-            {
-                var dummyScreenTraceDesc = new TextureDesc(1, 1)
-                {
-                    colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
-                    enableRandomWrite = true,
-                    filterMode = FilterMode.Point,
-                    wrapMode = TextureWrapMode.Clamp,
-                    clearBuffer = true,
-                    clearColor = Color.black,
-                    name = "DDGI Screen Trace Debug Dummy UAV"
-                };
-                screenTraceDebugOutput = renderGraph.CreateTexture(dummyScreenTraceDesc);
-
-                dummyScreenTraceDesc.colorFormat = GraphicsFormat.R32_SFloat;
-                dummyScreenTraceDesc.enableRandomWrite = false;
-                dummyScreenTraceDesc.name = "DDGI Screen Trace Depth Dummy SRV";
-                screenTraceDepth = renderGraph.CreateTexture(dummyScreenTraceDesc);
-            }
-
             using (var builder = renderGraph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler))
             {
                 pass.probeRayData = probeRayData;
                 pass.traceAlbedo = traceAlbedo;
-                pass.screenTraceDebug = screenTraceDebugOutput;
-                pass.screenTraceDepth = screenTraceDepth;
-                pass.writesScreenTraceDebug = writesScreenTraceDebug;
-                pass.screenTraceWidth = attachmentSize.x;
-                pass.screenTraceHeight = attachmentSize.y;
                 pass.rayTracingShader = shader;
                 pass.rayTracingAccelerationStructure = accelerationStructure;
                 pass.probeIrradiance = resources.probe_irradiance;
@@ -243,18 +193,12 @@ namespace YutrelRP
                 pass.probeRayRotationRow2 = resources.probe_ray_rotation_row2;
                 pass.probeRandomRotationEnabled = resources.probe_random_rotation_enabled;
                 pass.probeFixedRaysEnabled = resources.probe_fixed_rays_enabled ? 1.0f : 0.0f;
-                pass.inverseViewProjection = GetInverseViewProjection(camera);
-                pass.cameraPositionWS = camera.transform.position;
-                pass.reversedZ = SystemInfo.usesReversedZBuffer ? 1 : 0;
-                pass.projectionFlipY = GetProjectionFlipY(camera);
                 pass.directionalLightVisibilityEnabled = settings.traceDirectionalVisibility ? 1.0f : 0.0f;
                 pass.directionalLightLambertEnabled = settings.traceDirectionalLambert ? 1.0f : 0.0f;
                 pass.SetDirectionalLight(lightResources);
 
                 builder.UseTexture(probeRayData, AccessFlags.Write);
                 builder.UseTexture(traceAlbedo, AccessFlags.Write);
-                builder.UseTexture(screenTraceDebugOutput, AccessFlags.Write);
-                builder.UseTexture(screenTraceDepth, AccessFlags.Read);
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
                 builder.UseTexture(pass.probeData, AccessFlags.Read);
@@ -273,8 +217,6 @@ namespace YutrelRP
 
         private TextureHandle probeRayData;
         private TextureHandle traceAlbedo;
-        private TextureHandle screenTraceDebug;
-        private TextureHandle screenTraceDepth;
         private TextureHandle probeIrradiance;
         private TextureHandle probeDistance;
         private TextureHandle probeData;
@@ -300,17 +242,10 @@ namespace YutrelRP
         private Vector4 probeRayRotationRow2;
         private float probeRandomRotationEnabled;
         private float probeFixedRaysEnabled;
-        private Matrix4x4 inverseViewProjection;
-        private Vector3 cameraPositionWS;
-        private int reversedZ;
-        private int projectionFlipY;
-        private int screenTraceWidth;
-        private int screenTraceHeight;
         private Vector4 directionalLightColorIlluminance;
         private Vector4 directionalLightDirectionWS;
         private float directionalLightVisibilityEnabled;
         private float directionalLightLambertEnabled;
-        private bool writesScreenTraceDebug;
 
         private void Render(ComputeGraphContext context)
         {
@@ -318,15 +253,6 @@ namespace YutrelRP
             cmd.SetRayTracingShaderPass(rayTracingShader, ShaderPassName);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeRayDataID, probeRayData);
             cmd.SetRayTracingTextureParam(rayTracingShader, traceAlbedoID, traceAlbedo);
-            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDebugID, screenTraceDebug);
-            cmd.SetRayTracingTextureParam(rayTracingShader, screenTraceDepthID, screenTraceDepth);
-            if (writesScreenTraceDebug)
-            {
-                cmd.SetRayTracingMatrixParam(rayTracingShader, screenTraceInvViewProjectionID, inverseViewProjection);
-                cmd.SetRayTracingVectorParam(rayTracingShader, screenTraceCameraPositionWSID, cameraPositionWS);
-                cmd.SetRayTracingIntParam(rayTracingShader, screenTraceReversedZID, reversedZ);
-                cmd.SetRayTracingIntParam(rayTracingShader, screenTraceProjectionFlipYID, projectionFlipY);
-            }
             cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDataID, probeData);
@@ -362,11 +288,6 @@ namespace YutrelRP
                 directionalLightLambertEnabled);
             cmd.DispatchRays(rayTracingShader, RayGenName, (uint)raysPerProbe, (uint)planeProbeCount,
                 (uint)probeCount.y, null);
-            if (writesScreenTraceDebug)
-            {
-                cmd.DispatchRays(rayTracingShader, ScreenTraceRayGenName,
-                    (uint)Mathf.Max(screenTraceWidth, 1), (uint)Mathf.Max(screenTraceHeight, 1), 1, null);
-            }
         }
 
         private void SetDirectionalLight(LightResources lightResources)
@@ -457,19 +378,6 @@ namespace YutrelRP
         private static bool SupportsProbeDistanceFormat()
         {
             return SystemInfo.IsFormatSupported(ProbeDistanceFormat, GraphicsFormatUsage.Sample | GraphicsFormatUsage.LoadStore);
-        }
-
-        private static Matrix4x4 GetInverseViewProjection(Camera camera)
-        {
-            var view = camera.worldToCameraMatrix;
-            var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
-            return (projection * view).inverse;
-        }
-
-        private static int GetProjectionFlipY(Camera camera)
-        {
-            var projection = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
-            return projection.m11 < 0.0f ? 1 : 0;
         }
 
         private static ProbeRayRotation ComputeProbeRayRotation(YutrelDDGIVolume volume,
