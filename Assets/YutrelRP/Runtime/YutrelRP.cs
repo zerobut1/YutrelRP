@@ -15,6 +15,10 @@ namespace YutrelRP
         private readonly VolumeProfile default_volume_profile;
         private readonly YutrelRenderer renderer;
         private readonly YutrelRPSettings settings;
+#if UNITY_EDITOR
+        private readonly DebugDisplaySettingsUI debug_display_settings_ui = new();
+        private readonly YutrelRPDebugDisplaySettings debug_display_settings;
+#endif
 
         public YutrelRP(YutrelRPSettings settings)
         {
@@ -23,11 +27,18 @@ namespace YutrelRP
             default_volume_profile = CreateDefaultVolumeProfile();
             VolumeManager.instance.Initialize(default_volume_profile);
             renderer = new YutrelRenderer(this.settings);
+#if UNITY_EDITOR
+            debug_display_settings = new YutrelRPDebugDisplaySettings(this.settings);
+            debug_display_settings_ui.RegisterDebug(debug_display_settings);
+#endif
         }
 
         protected override void Dispose(bool is_disposing)
         {
             base.Dispose(is_disposing);
+#if UNITY_EDITOR
+            debug_display_settings_ui.UnregisterDebug();
+#endif
             renderer.Dispose();
             VolumeManager.instance.Deinitialize();
             DestroyDefaultVolumeProfile();

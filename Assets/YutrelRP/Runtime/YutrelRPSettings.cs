@@ -62,29 +62,53 @@ namespace YutrelRP
 
         public enum DebugViewMode
         {
+            [InspectorName("None/Disabled")]
             Disabled = 0,
+            [InspectorName("GBuffer/Base Color")]
             GBufferBaseColor = 1,
+            [InspectorName("GBuffer/Roughness")]
             GBufferRoughness = 2,
+            [InspectorName("GBuffer/Metallic")]
             GBufferMetallic = 3,
+            [InspectorName("GBuffer/Specular")]
             GBufferSpecular = 4,
+            [InspectorName("GBuffer/World Space Normal")]
             GBufferWorldSpaceNormal = 5,
+            [InspectorName("Scene & Lighting/Scene Depth")]
             SceneDepth = 6,
+            [InspectorName("Scene & Lighting/Shadow Only")]
             ShadowOnly = 7,
+            [InspectorName("Scene & Lighting/CSM Cascade Levels")]
             CSMCascadeLevels = 8,
+            [InspectorName("Scene & Lighting/Ambient Occlusion")]
             AmbientOcclusion = 9,
+            [InspectorName("Ray Tracing/Ray Gen Smoke Test")]
             RayTracingSmokeTestRayGen = 10,
+            [InspectorName("Ray Tracing/RTAS Hit Miss Smoke Test")]
             RayTracingSmokeTestRTASHitMiss = 11,
+            [InspectorName("DDGI Texture/Probe Ray Data")]
             DDGIProbeRayData = 12,
+            [InspectorName("DDGI Texture/Probe Irradiance Atlas")]
             DDGIProbeIrradianceAtlas = 13,
+            [InspectorName("DDGI Texture/Probe Distance Atlas")]
             DDGIProbeDistanceAtlas = 14,
+            [InspectorName("DDGI Texture/Probe Data")]
             DDGIProbeData = 15,
+            [InspectorName("DDGI Surface/Diffuse Only")]
             DDGIDiffuseOnly = 16,
+            [InspectorName("DDGI Surface/Coverage")]
             DDGICoverage = 17,
+            [InspectorName("DDGI Surface/Visibility Coverage")]
             DDGIVisibilityCoverage = 18,
+            [InspectorName("DDGI Probe Scene/Probe Irradiance")]
             DDGIProbeIrradianceScene = 19,
+            [InspectorName("DDGI Probe Scene/Probe Ray Data Quality")]
             DDGIProbeRayDataQualityScene = 20,
+            [InspectorName("DDGI Probe Scene/Probe Distance")]
             DDGIProbeDistanceScene = 21,
+            [InspectorName("DDGI Texture/Trace Albedo")]
             DDGITraceAlbedo = 22,
+            [InspectorName("DDGI Texture/Screen Trace")]
             DDGIScreenTrace = 23,
         }
 #endif
