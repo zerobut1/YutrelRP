@@ -201,6 +201,8 @@ namespace YutrelRP
                 builder.UseTexture(pass.probeIrradiance, AccessFlags.Read);
                 builder.UseTexture(pass.probeDistance, AccessFlags.Read);
                 builder.UseTexture(pass.probeData, AccessFlags.Read);
+                // RTAS build is recorded by YutrelRayTracingSceneManager.PrepareDDGI before this pass.
+                // Keep this ray tracing consumer ordered after that resource-preparation pass.
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
@@ -255,7 +257,6 @@ namespace YutrelRP
             cmd.SetRayTracingTextureParam(rayTracingShader, probeIrradianceID, probeIrradiance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDistanceID, probeDistance);
             cmd.SetRayTracingTextureParam(rayTracingShader, probeDataID, probeData);
-            cmd.BuildRayTracingAccelerationStructure(rayTracingAccelerationStructure);
             cmd.SetRayTracingAccelerationStructure(rayTracingShader, accelerationStructureID, rayTracingAccelerationStructure);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMinWSID, volumeMinWS);
             cmd.SetRayTracingVectorParam(rayTracingShader, volumeMaxWSID, volumeMaxWS);
@@ -518,9 +519,15 @@ namespace YutrelRP
         {
             if (rayTracingResources == null ||
                 !rayTracingResources.has_ddgi_acceleration_structure ||
-                rayTracingResources.ddgi_acceleration_structure == null)
+                rayTracingResources.ddgi_acceleration_structure == null ||
+                !rayTracingResources.ddgi_acceleration_structure_handle.IsValid())
             {
                 return ProbeTraceIssue.NoContributors;
+            }
+
+            if (!rayTracingResources.ddgi_acceleration_structure_build_scheduled)
+            {
+                return ProbeTraceIssue.AccelerationStructureBuildNotRecorded;
             }
 
             return rayTracingResources.ddgi_contributor_count > 0
@@ -707,6 +714,7 @@ namespace YutrelRP
                     return "resource/loading";
                 case ProbeTraceIssue.NoContributors:
                 case ProbeTraceIssue.EmptyAccelerationStructure:
+                case ProbeTraceIssue.AccelerationStructureBuildNotRecorded:
                     return "acceleration-structure/geometry";
                 case ProbeTraceIssue.ResourceTooLarge:
                     return "resource/dimensions";
@@ -780,6 +788,8 @@ namespace YutrelRP
                     return "no enabled opaque MeshRenderer with RayTracingMode enabled and a DDGIRayTracing material pass was found";
                 case ProbeTraceIssue.EmptyAccelerationStructure:
                     return "DDGI RTAS build produced no instances";
+                case ProbeTraceIssue.AccelerationStructureBuildNotRecorded:
+                    return "DDGI RTAS build pass was not recorded before DDGI ProbeTrace";
                 case ProbeTraceIssue.ResourceTooLarge:
                     return "DDGI texture dimensions exceed platform texture limits";
                 case ProbeTraceIssue.ResourceAllocationFailed:
@@ -868,7 +878,8 @@ namespace YutrelRP
             ResourceAllocationFailed = 10,
             UnsupportedProbeRayDataFormat = 11,
             UnsupportedProbeIrradianceFormat = 12,
-            UnsupportedProbeDistanceFormat = 13
+            UnsupportedProbeDistanceFormat = 13,
+            AccelerationStructureBuildNotRecorded = 14
         }
     }
 }

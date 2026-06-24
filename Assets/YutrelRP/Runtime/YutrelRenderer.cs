@@ -121,7 +121,8 @@ namespace YutrelRP
 
                     if (DDGIProbeTrace.IsEnabled(settings))
                     {
-                        ray_tracing_scene_manager.PrepareDDGI(settings.ddgiSettings, ray_tracing_resources);
+                        ray_tracing_scene_manager.PrepareDDGI(render_graph, settings.ddgiSettings,
+                            ray_tracing_resources);
                     }
                     else
                     {

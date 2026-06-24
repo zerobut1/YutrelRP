@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.SceneManagement;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -13,6 +14,7 @@ namespace YutrelRP
     internal sealed class YutrelRayTracingSceneManager : IDisposable
     {
         private const string DDGIShaderPassName = "DDGIRayTracing";
+        private static readonly ProfilingSampler ddgiBuildSampler = new("DDGI RTAS Build");
 
         private readonly List<RendererRecord> rendererRecords = new();
         private readonly List<ContributorRecord> contributorRecords = new();
@@ -30,7 +32,8 @@ namespace YutrelRP
 #endif
         }
 
-        public void PrepareDDGI(YutrelRPSettings.DDGISettings settings, RayTracingResources resources)
+        public void PrepareDDGI(RenderGraph renderGraph, YutrelRPSettings.DDGISettings settings,
+            RayTracingResources resources)
         {
             if (resources == null)
             {
@@ -40,6 +43,12 @@ namespace YutrelRP
             if (disposed)
             {
                 resources.SetDDGIDiagnostic("DDGI RTAS manager has been disposed.");
+                return;
+            }
+
+            if (renderGraph == null)
+            {
+                resources.SetDDGIDiagnostic("DDGI RTAS build requires an active RenderGraph.");
                 return;
             }
 
@@ -70,7 +79,9 @@ namespace YutrelRP
                 return;
             }
 
-            resources.SetDDGIAccelerationStructure(ddgiAccelerationStructure, contributorRecords.Count);
+            var handle = renderGraph.ImportRayTracingAccelerationStructure(ddgiAccelerationStructure, "DDGI RTAS");
+            resources.SetDDGIAccelerationStructure(ddgiAccelerationStructure, handle, contributorRecords.Count);
+            RecordDDGIBuildPass(renderGraph, resources);
         }
 
         public void ReleaseDDGI()
@@ -206,6 +217,43 @@ namespace YutrelRP
                 catch (Exception exception)
                 {
                     Debug.LogWarning($"YutrelRP DDGI RTAS Manager AddInstance failed for '{renderer.name}': {exception.Message}");
+                }
+            }
+        }
+
+        private static void RecordDDGIBuildPass(RenderGraph renderGraph, RayTracingResources resources)
+        {
+            if (renderGraph == null ||
+                resources == null ||
+                !resources.has_ddgi_acceleration_structure ||
+                !resources.ddgi_acceleration_structure_handle.IsValid())
+            {
+                resources?.SetDDGIDiagnostic("DDGI RTAS build pass was not recorded.");
+                return;
+            }
+
+            using var builder = renderGraph.AddComputePass<DDGIBuildAccelerationStructurePass>(
+                ddgiBuildSampler.name, out var pass, ddgiBuildSampler);
+            pass.accelerationStructure = resources.ddgi_acceleration_structure;
+
+            // Current compute builder API does not expose public RTAS read/write declarations.
+            // This pass is recorded immediately before DDGI consumers and is kept non-cullable and ordered.
+            builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
+            builder.SetRenderFunc<DDGIBuildAccelerationStructurePass>(
+                static (pass, context) => pass.Render(context));
+            resources.MarkDDGIAccelerationStructureBuildScheduled();
+        }
+
+        private sealed class DDGIBuildAccelerationStructurePass
+        {
+            public RayTracingAccelerationStructure accelerationStructure;
+
+            public void Render(ComputeGraphContext context)
+            {
+                if (accelerationStructure != null)
+                {
+                    context.cmd.BuildRayTracingAccelerationStructure(accelerationStructure);
                 }
             }
         }
