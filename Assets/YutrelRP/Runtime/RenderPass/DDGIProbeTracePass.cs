@@ -49,7 +49,6 @@ namespace YutrelRP
         private static readonly int traceAlbedoID = DDGIResources.trace_albedo_ID;
 
         private static RayTracingShader shader;
-        private static RayTracingAccelerationStructure accelerationStructure;
         private static RTHandle probeIrradianceHistoryRT;
         private static RTHandle probeIrradianceWriteRT;
         private static RTHandle probeDistanceRT;
@@ -59,7 +58,8 @@ namespace YutrelRP
         private static string lastStatusKey;
 
         internal static void Record(RenderGraph renderGraph, Camera camera, YutrelRPSettings.DDGISettings settings,
-            LightResources lightResources, bool screenTraceDebug, TextureHandle sceneDepth,
+            LightResources lightResources, bool screenTraceDebug, RayTracingResources rayTracingResources,
+            TextureHandle sceneDepth,
             Vector2Int attachmentSize, ref DDGIResources resources)
         {
             _ = screenTraceDebug;
@@ -104,10 +104,15 @@ namespace YutrelRP
                 issue = ValidateResourceDimensions(volume);
             }
 
+            if (issue == ProbeTraceIssue.None)
+            {
+                issue = ValidateRayTracingResources(rayTracingResources);
+            }
+
             if (issue != ProbeTraceIssue.None)
             {
                 ReleasePersistentAtlases();
-                SetDiagnostic(ref resources, issue);
+                SetDiagnostic(ref resources, issue, rayTracingResources);
                 LogStatus(issue, volume);
                 return;
             }
@@ -117,18 +122,12 @@ namespace YutrelRP
             {
                 ReleasePersistentAtlases();
                 resources.Reset();
-                SetDiagnostic(ref resources, issue);
+                SetDiagnostic(ref resources, issue, rayTracingResources);
                 LogStatus(issue, volume);
                 return;
             }
 
-            issue = BuildAccelerationStructure(settings);
             LogStatus(issue, volume);
-            if (issue != ProbeTraceIssue.None)
-            {
-                SetDiagnostic(ref resources, issue);
-                return;
-            }
 
             var probeCount = volume.ProbeCount;
             var raysPerProbe = volume.RaysPerProbe;
@@ -169,7 +168,7 @@ namespace YutrelRP
                 pass.probeRayData = probeRayData;
                 pass.traceAlbedo = traceAlbedo;
                 pass.rayTracingShader = shader;
-                pass.rayTracingAccelerationStructure = accelerationStructure;
+                pass.rayTracingAccelerationStructure = rayTracingResources.ddgi_acceleration_structure;
                 pass.probeIrradiance = resources.probe_irradiance;
                 pass.probeDistance = resources.probe_distance;
                 pass.probeData = resources.probe_data;
@@ -515,6 +514,20 @@ namespace YutrelRP
             return ProbeTraceIssue.None;
         }
 
+        private static ProbeTraceIssue ValidateRayTracingResources(RayTracingResources rayTracingResources)
+        {
+            if (rayTracingResources == null ||
+                !rayTracingResources.has_ddgi_acceleration_structure ||
+                rayTracingResources.ddgi_acceleration_structure == null)
+            {
+                return ProbeTraceIssue.NoContributors;
+            }
+
+            return rayTracingResources.ddgi_contributor_count > 0
+                ? ProbeTraceIssue.None
+                : ProbeTraceIssue.NoContributors;
+        }
+
 
         private static bool ValidateAtlasDimensions(Vector3Int count, int tileSize)
         {
@@ -654,203 +667,6 @@ namespace YutrelRP
             hasPersistentIdentity = false;
         }
 
-        private static ProbeTraceIssue BuildAccelerationStructure(YutrelRPSettings.DDGISettings settings)
-        {
-            if (accelerationStructure == null)
-            {
-                accelerationStructure = new RayTracingAccelerationStructure();
-            }
-            else
-            {
-                accelerationStructure.ClearInstances();
-            }
-
-            var renderers = Object.FindObjectsByType<MeshRenderer>();
-            var instanceCount = 0;
-
-            foreach (var renderer in renderers)
-            {
-                if (!TryGetEligibleRenderer(renderer, out var reason))
-                {
-                    LogSkippedRenderer(settings, renderer, reason);
-                    continue;
-                }
-
-                if (!TryBuildSubMeshFlags(renderer, settings, out var subMeshFlags))
-                {
-                    LogSkippedRenderer(settings, renderer, "no submesh has a material with DDGIRayTracing pass");
-                    continue;
-                }
-
-                try
-                {
-                    var handle = accelerationStructure.AddInstance(renderer, subMeshFlags: subMeshFlags,
-                        enableTriangleCulling: false, frontTriangleCounterClockwise: false, mask: 0xFF,
-                        id: (uint)instanceCount);
-                    if (handle == 0)
-                    {
-                        LogSkippedRenderer(settings, renderer, "RTAS AddInstance returned an invalid handle");
-                        continue;
-                    }
-
-                    instanceCount++;
-                }
-                catch (System.Exception exception)
-                {
-                    Debug.LogWarning($"YutrelRP DDGI ProbeTrace RTAS AddInstance failed for '{renderer.name}': {exception.Message}");
-                }
-            }
-
-            return instanceCount > 0 ? ProbeTraceIssue.None : ProbeTraceIssue.NoContributors;
-        }
-
-        private static Material GetSubMeshMaterial(Renderer renderer, int subMeshIndex)
-        {
-            var materials = renderer.sharedMaterials;
-            if (materials == null || materials.Length == 0)
-            {
-                return null;
-            }
-
-            var materialIndex = Mathf.Clamp(subMeshIndex, 0, materials.Length - 1);
-            return materials[materialIndex];
-        }
-
-        private static bool TryGetSupportedTraceMaterial(Material material, out string reason)
-        {
-            reason = null;
-            if (material == null)
-            {
-                reason = "material is missing";
-                return false;
-            }
-
-            if (material.FindPass(ShaderPassName) < 0)
-            {
-                var shaderName = material.shader != null ? material.shader.name : "<missing shader>";
-                reason = $"material '{material.name}' shader '{shaderName}' has no '{ShaderPassName}' ray tracing pass";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool TryBuildSubMeshFlags(MeshRenderer renderer, YutrelRPSettings.DDGISettings settings,
-            out RayTracingSubMeshFlags[] subMeshFlags)
-        {
-            var subMeshCount = GetRendererSubMeshCount(renderer);
-            subMeshFlags = new RayTracingSubMeshFlags[Mathf.Max(1, subMeshCount)];
-            var supportedSubMeshCount = 0;
-
-            for (var subMesh = 0; subMesh < subMeshFlags.Length; subMesh++)
-            {
-                var material = GetSubMeshMaterial(renderer, subMesh);
-                if (TryGetSupportedTraceMaterial(material, out var reason))
-                {
-                    subMeshFlags[subMesh] = RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.ClosestHitOnly;
-                    supportedSubMeshCount++;
-                }
-                else
-                {
-                    subMeshFlags[subMesh] = RayTracingSubMeshFlags.Disabled;
-                    LogSkippedSubMesh(settings, renderer, subMesh, reason);
-                }
-            }
-
-            return supportedSubMeshCount > 0;
-        }
-
-        private static bool TryGetEligibleRenderer(MeshRenderer renderer, out string reason)
-        {
-            reason = null;
-
-            if (renderer == null)
-            {
-                reason = "renderer is missing";
-                return false;
-            }
-
-            if (!renderer.enabled || !renderer.gameObject.activeInHierarchy)
-            {
-                reason = "renderer is disabled or inactive";
-                return false;
-            }
-
-            if (!renderer.TryGetComponent<MeshFilter>(out var meshFilter) || meshFilter.sharedMesh == null)
-            {
-                reason = "MeshRenderer has no shared mesh";
-                return false;
-            }
-
-            if (renderer.rayTracingMode == RayTracingMode.Off)
-            {
-                reason = "renderer RayTracingMode is Off";
-                return false;
-            }
-
-            if (HasTransparentMaterial(renderer))
-            {
-                reason = "transparent materials are not part of first-stage DDGI capture";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static int GetRendererSubMeshCount(MeshRenderer renderer)
-        {
-            if (renderer == null ||
-                !renderer.TryGetComponent<MeshFilter>(out var meshFilter) ||
-                meshFilter.sharedMesh == null)
-            {
-                return 0;
-            }
-
-            return Mathf.Max(1, meshFilter.sharedMesh.subMeshCount);
-        }
-
-        private static void LogSkippedRenderer(YutrelRPSettings.DDGISettings settings, Renderer renderer, string reason)
-        {
-            if (settings == null || !settings.logDiagnostics)
-            {
-                return;
-            }
-
-            var rendererName = renderer != null ? renderer.name : "<missing renderer>";
-            Debug.LogWarning($"YutrelRP DDGI ProbeTrace skipped renderer '{rendererName}': {reason}.");
-        }
-
-        private static void LogSkippedSubMesh(YutrelRPSettings.DDGISettings settings, Renderer renderer,
-            int subMeshIndex, string reason)
-        {
-            if (settings == null || !settings.logDiagnostics)
-            {
-                return;
-            }
-
-            var rendererName = renderer != null ? renderer.name : "<missing renderer>";
-            Debug.LogWarning($"YutrelRP DDGI ProbeTrace skipped submesh {subMeshIndex} on renderer '{rendererName}': {reason}.");
-        }
-
-        private static bool HasTransparentMaterial(Renderer renderer)
-        {
-            var materials = renderer.sharedMaterials;
-            if (materials == null)
-            {
-                return false;
-            }
-
-            foreach (var material in materials)
-            {
-                if (material != null && material.renderQueue >= (int)RenderQueue.Transparent)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static void LogStatus(ProbeTraceIssue issue, YutrelDDGIVolume volume)
         {
             var device = SystemInfo.graphicsDeviceType;
@@ -983,6 +799,19 @@ namespace YutrelRP
             }
         }
 
+        private static void SetDiagnostic(ref DDGIResources resources, ProbeTraceIssue issue,
+            RayTracingResources rayTracingResources)
+        {
+            if (resources == null || issue == ProbeTraceIssue.None)
+            {
+                return;
+            }
+
+            resources.diagnostic = !string.IsNullOrEmpty(rayTracingResources?.diagnostic)
+                ? rayTracingResources.diagnostic
+                : GetReason(issue);
+        }
+
 #if UNITY_EDITOR
         private static bool IsUnityFrameDebuggerActive()
         {
@@ -1017,8 +846,6 @@ namespace YutrelRP
 
         public static void Cleanup()
         {
-            accelerationStructure?.Dispose();
-            accelerationStructure = null;
             ReleasePersistentAtlases();
             DDGIProbeRelocationPass.Cleanup();
             DDGIProbeBlendPass.Cleanup();

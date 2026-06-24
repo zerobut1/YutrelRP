@@ -14,7 +14,8 @@ namespace YutrelRP
 #if UNITY_EDITOR
             YutrelRPDebugSettings debugSettings,
 #endif
-            LightResources lightResources, RenderTargets textures, Vector2Int attachmentSize,
+            LightResources lightResources, RayTracingResources rayTracingResources, RenderTargets textures,
+            Vector2Int attachmentSize,
             ref DDGIResources resources)
         {
             if (!IsEnabled(settings))
@@ -32,7 +33,7 @@ namespace YutrelRP
 #endif
             var sceneDepth = textures != null ? textures.scene_depth : TextureHandle.nullHandle;
             DDGIProbeTracePass.Record(renderGraph, camera, settings.ddgiSettings, lightResources, screenTraceDebug,
-                sceneDepth, attachmentSize, ref resources);
+                rayTracingResources, sceneDepth, attachmentSize, ref resources);
         }
 
         internal static void Cleanup()

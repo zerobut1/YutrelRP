@@ -12,6 +12,7 @@ namespace YutrelRP
         private readonly YutrelRPDebugSettings debug_settings;
 #endif
         private readonly ContextContainer frame_data = new();
+        private readonly YutrelRayTracingSceneManager ray_tracing_scene_manager = new();
 
 #if UNITY_EDITOR
         internal YutrelRenderer(YutrelRPSettings settings, YutrelRPDebugSettings debug_settings)
@@ -29,6 +30,7 @@ namespace YutrelRP
         public void Dispose()
         {
             DDGIProbeTrace.Cleanup();
+            ray_tracing_scene_manager.Dispose();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
             ScreenSpaceAmbientOcclusionPass.Cleanup();
@@ -93,9 +95,11 @@ namespace YutrelRP
 
                     var textures = frame_data.GetOrCreate<RenderTargets>();
                     var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
+                    var ray_tracing_resources = frame_data.GetOrCreate<RayTracingResources>();
                     var light_resources = frame_data.GetOrCreate<LightResources>();
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
                     ddgi_resources.Reset();
+                    ray_tracing_resources.Reset();
                     shadow_resources.Reset();
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
@@ -115,11 +119,20 @@ namespace YutrelRP
                     ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
                         attachment_size);
 
+                    if (DDGIProbeTrace.IsEnabled(settings))
+                    {
+                        ray_tracing_scene_manager.PrepareDDGI(settings.ddgiSettings, ray_tracing_resources);
+                    }
+                    else
+                    {
+                        ray_tracing_scene_manager.ReleaseDDGI();
+                    }
+
                     DDGIProbeTrace.Record(render_graph, camera, settings,
 #if UNITY_EDITOR
                         debug_settings,
 #endif
-                        light_resources, textures, attachment_size, ref ddgi_resources);
+                        light_resources, ray_tracing_resources, textures, attachment_size, ref ddgi_resources);
 
                     EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources);
 
