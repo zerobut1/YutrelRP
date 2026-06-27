@@ -29,7 +29,6 @@ namespace YutrelRP
 
         public void Dispose()
         {
-            DDGIProbeTrace.Cleanup();
             ray_tracing_scene_manager.Dispose();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
@@ -38,9 +37,6 @@ namespace YutrelRP
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
             DebugViewPass.Cleanup();
-            DDGIScreenTraceDepthCopyPass.Cleanup();
-            DDGIProbeDebugPass.Cleanup();
-            DDGITextureDump.Cleanup();
             UnsupportedShadersPass.Cleanup();
 #endif
             LightResources.Cleanup();
@@ -94,12 +90,8 @@ namespace YutrelRP
                         : new Vector2Int(camera_target_texture.width, camera_target_texture.height);
 
                     var textures = frame_data.GetOrCreate<RenderTargets>();
-                    var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
-                    var ray_tracing_resources = frame_data.GetOrCreate<RayTracingResources>();
                     var light_resources = frame_data.GetOrCreate<LightResources>();
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
-                    ddgi_resources.Reset();
-                    ray_tracing_resources.Reset();
                     shadow_resources.Reset();
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
@@ -119,23 +111,7 @@ namespace YutrelRP
                     ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
                         attachment_size);
 
-                    if (DDGIProbeTrace.IsEnabled(settings))
-                    {
-                        ray_tracing_scene_manager.PrepareDDGI(render_graph, settings.ddgiSettings,
-                            ray_tracing_resources);
-                    }
-                    else
-                    {
-                        ray_tracing_scene_manager.ReleaseDDGI();
-                    }
-
-                    DDGIProbeTrace.Record(render_graph, camera, settings,
-#if UNITY_EDITOR
-                        debug_settings,
-#endif
-                        light_resources, ray_tracing_resources, textures, attachment_size, ref ddgi_resources);
-
-                    EnvironmentLightingPass.Record(render_graph, textures, light_resources, ddgi_resources);
+                    EnvironmentLightingPass.Record(render_graph, textures, light_resources);
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 
@@ -149,16 +125,10 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
-                        shadow_settings, ddgi_resources, debug_settings, attachment_size);
-
-                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, debug_settings,
-                        settings.ddgiSettings);
+                        shadow_settings, debug_settings, attachment_size);
 
                     GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,
                         GizmoSubset.PostImageEffects);
-
-                    DDGITextureDump.Record(render_graph, camera, ddgi_resources, settings.ddgiSettings,
-                        attachment_size);
 #endif
 
                     FinalPass.Record(render_graph, camera, textures);
@@ -177,10 +147,6 @@ namespace YutrelRP
                 {
                     context.ExecuteCommandBuffer(command_buffer);
                     context.Submit();
-#if UNITY_EDITOR
-                    DDGITextureDump.StartReadbacks();
-                    DDGITextureDump.Update();
-#endif
                 }
 
                 CommandBufferPool.Release(command_buffer);
