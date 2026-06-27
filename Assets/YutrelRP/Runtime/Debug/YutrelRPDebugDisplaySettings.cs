@@ -11,18 +11,10 @@ namespace YutrelRP
     internal sealed class YutrelRPDebugSettings
     {
         internal DebugViewMode debug_view_mode = DebugViewMode.Disabled;
-        internal int debug_probe_ray_data_slice;
-        internal int debug_probe_irradiance_atlas_slice;
-        internal int debug_probe_distance_atlas_slice;
-        internal int debug_probe_data_slice;
 
         internal void Reset()
         {
             debug_view_mode = DebugViewMode.Disabled;
-            debug_probe_ray_data_slice = 0;
-            debug_probe_irradiance_atlas_slice = 0;
-            debug_probe_distance_atlas_slice = 0;
-            debug_probe_data_slice = 0;
         }
 
         internal enum DebugViewMode
@@ -47,30 +39,6 @@ namespace YutrelRP
             CSMCascadeLevels = 8,
             [InspectorName("Scene & Lighting/Ambient Occlusion")]
             AmbientOcclusion = 9,
-            [InspectorName("DDGI Texture/Probe Ray Data")]
-            DDGIProbeRayData = 12,
-            [InspectorName("DDGI Texture/Probe Irradiance Atlas")]
-            DDGIProbeIrradianceAtlas = 13,
-            [InspectorName("DDGI Texture/Probe Distance Atlas")]
-            DDGIProbeDistanceAtlas = 14,
-            [InspectorName("DDGI Texture/Probe Data")]
-            DDGIProbeData = 15,
-            [InspectorName("DDGI Surface/Diffuse Only")]
-            DDGIDiffuseOnly = 16,
-            [InspectorName("DDGI Surface/Coverage")]
-            DDGICoverage = 17,
-            [InspectorName("DDGI Surface/Visibility Coverage")]
-            DDGIVisibilityCoverage = 18,
-            [InspectorName("DDGI Probe Scene/Probe Irradiance")]
-            DDGIProbeIrradianceScene = 19,
-            [InspectorName("DDGI Probe Scene/Probe Ray Data Quality")]
-            DDGIProbeRayDataQualityScene = 20,
-            [InspectorName("DDGI Probe Scene/Probe Distance")]
-            DDGIProbeDistanceScene = 21,
-            [InspectorName("DDGI Texture/Trace Albedo")]
-            DDGITraceAlbedo = 22,
-            [InspectorName("DDGI Texture/Screen Trace")]
-            DDGIScreenTrace = 23,
         }
     }
 
@@ -165,90 +133,6 @@ namespace YutrelRP
             }
         }
 
-        internal int DebugProbeRayDataSlice
-        {
-            get => settings != null ? settings.debug_probe_ray_data_slice : 0;
-            set
-            {
-                if (settings == null)
-                {
-                    return;
-                }
-
-                var clamped_value = Math.Max(0, value);
-                if (settings.debug_probe_ray_data_slice == clamped_value)
-                {
-                    return;
-                }
-
-                settings.debug_probe_ray_data_slice = clamped_value;
-                RequestRepaint();
-            }
-        }
-
-        internal int DebugProbeIrradianceAtlasSlice
-        {
-            get => settings != null ? settings.debug_probe_irradiance_atlas_slice : 0;
-            set
-            {
-                if (settings == null)
-                {
-                    return;
-                }
-
-                var clamped_value = Math.Max(0, value);
-                if (settings.debug_probe_irradiance_atlas_slice == clamped_value)
-                {
-                    return;
-                }
-
-                settings.debug_probe_irradiance_atlas_slice = clamped_value;
-                RequestRepaint();
-            }
-        }
-
-        internal int DebugProbeDistanceAtlasSlice
-        {
-            get => settings != null ? settings.debug_probe_distance_atlas_slice : 0;
-            set
-            {
-                if (settings == null)
-                {
-                    return;
-                }
-
-                var clamped_value = Math.Max(0, value);
-                if (settings.debug_probe_distance_atlas_slice == clamped_value)
-                {
-                    return;
-                }
-
-                settings.debug_probe_distance_atlas_slice = clamped_value;
-                RequestRepaint();
-            }
-        }
-
-        internal int DebugProbeDataSlice
-        {
-            get => settings != null ? settings.debug_probe_data_slice : 0;
-            set
-            {
-                if (settings == null)
-                {
-                    return;
-                }
-
-                var clamped_value = Math.Max(0, value);
-                if (settings.debug_probe_data_slice == clamped_value)
-                {
-                    return;
-                }
-
-                settings.debug_probe_data_slice = clamped_value;
-                RequestRepaint();
-            }
-        }
-
         private static void RequestRepaint()
         {
             SceneView.RepaintAll();
@@ -311,49 +195,6 @@ namespace YutrelRP
                 }
             });
 
-            AddWidget(new DebugUI.Foldout
-            {
-                displayName = "DDGI Texture & Trace",
-                opened = true,
-                children =
-                {
-                    CreateModeGroupField(data, "Mode", "Select a DDGI texture, trace, or surface debug view.",
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayData, "Probe Ray Data"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceAtlas, "Probe Irradiance Atlas"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceAtlas, "Probe Distance Atlas"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeData, "Probe Data"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGITraceAlbedo, "Trace Albedo"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIScreenTrace, "Screen Trace"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIDiffuseOnly, "Diffuse Only"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGICoverage, "Coverage"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIVisibilityCoverage, "Visibility Coverage")),
-                    CreateIntField("Probe Ray Data Slice", "Y slice for DDGI probe ray data and trace albedo debug views.",
-                        () => data.DebugProbeRayDataSlice,
-                        value => data.DebugProbeRayDataSlice = value),
-                    CreateIntField("Probe Irradiance Atlas Slice", "Texture array slice for DDGI irradiance atlas debug view.",
-                        () => data.DebugProbeIrradianceAtlasSlice,
-                        value => data.DebugProbeIrradianceAtlasSlice = value),
-                    CreateIntField("Probe Distance Atlas Slice", "Texture array slice for DDGI distance atlas debug view.",
-                        () => data.DebugProbeDistanceAtlasSlice,
-                        value => data.DebugProbeDistanceAtlasSlice = value),
-                    CreateIntField("Probe Data Slice", "Texture array slice for DDGI probe data debug view.",
-                        () => data.DebugProbeDataSlice,
-                        value => data.DebugProbeDataSlice = value)
-                }
-            });
-
-            AddWidget(new DebugUI.Foldout
-            {
-                displayName = "DDGI Probe Scene",
-                opened = false,
-                children =
-                {
-                    CreateModeGroupField(data, "Mode", "Select a Scene View probe visualization.",
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeIrradianceScene, "Probe Irradiance"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeRayDataQualityScene, "Probe Ray Data Quality"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.DDGIProbeDistanceScene, "Probe Distance"))
-                }
-            });
         }
 
         private static DebugUI.EnumField CreateAllModesField(YutrelRPDebugViewSettings data)
@@ -407,24 +248,6 @@ namespace YutrelRP
                         data.DebugViewMode = (YutrelRPDebugSettings.DebugViewMode)enum_values[value];
                     }
                 }
-            };
-        }
-
-        private static DebugUI.IntField CreateIntField(string displayName, string tooltip, Func<int> getter,
-            Action<int> setter)
-        {
-            return new DebugUI.IntField
-            {
-                nameAndTooltip = new NameAndTooltip
-                {
-                    name = displayName,
-                    tooltip = tooltip
-                },
-                getter = getter,
-                setter = setter,
-                min = () => 0,
-                incStep = 1,
-                incStepMult = 8
             };
         }
 

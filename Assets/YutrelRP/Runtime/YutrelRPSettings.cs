@@ -1,6 +1,4 @@
 using UnityEngine;
-using UnityEngine.Rendering;
-
 namespace YutrelRP
 {
     [System.Serializable]
@@ -11,31 +9,6 @@ namespace YutrelRP
         public ShadowSettings shadowSettings;
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
-
-        public DDGISettings ddgiSettings = new();
-
-        [System.Serializable]
-        public class DDGISettings
-        {
-            public bool enabled = false;
-            public bool logDiagnostics = true;
-            public RayTracingShader probeTraceShader;
-            public ComputeShader probeRelocationShader;
-            public ComputeShader probeBlendShader;
-            public ComputeShader textureDumpCopyShader;
-            public bool probeRelocationEnabled = false;
-            internal static bool ProbeRelocationInScope => false;
-            internal bool ProbeRelocationEffectiveEnabled => ProbeRelocationInScope && probeRelocationEnabled;
-            public bool probeRandomRotationEnabled = true;
-            [Range(0.0f, 1.0f)] public float probeFixedRayBackfaceThreshold = 0.25f;
-            [Range(0.0f, 1.0f)] public float probeRandomRayBackfaceThreshold = 0.1f;
-            [Min(0.0f)] public float probeMinFrontfaceDistance = 1.0f;
-            [Range(0.0f, 0.49f)] public float probeMaxRelocationOffset = 0.45f;
-            public bool traceDirectionalVisibility = false;
-            public bool traceDirectionalLambert = true;
-            [Min(0.0f)] public float diffuseIntensity = 1.0f;
-        }
-
     }
 
     [System.Serializable]
