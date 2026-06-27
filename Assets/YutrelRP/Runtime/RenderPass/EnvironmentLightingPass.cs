@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -9,6 +10,7 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("Environment Lighting Pass");
         private static Material material;
         private static MaterialPropertyBlock property_block;
+        private static readonly HashSet<string> warned_invalid_environment = new();
 
         private static readonly int[] ibl_sh_IDs =
         {
@@ -25,6 +27,8 @@ namespace YutrelRP
 
         public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources)
         {
+            if (!ValidateEnvironmentResources(light_resources)) return;
+
             if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/EnvironmentLightingPass"));
             if (property_block == null) property_block = new MaterialPropertyBlock();
 
@@ -35,6 +39,7 @@ namespace YutrelRP
             pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
             pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
+            pass.screen_space_ao_ID = RenderTargets.screen_space_ao_ID;
             pass.dfg_lut_ID = LightResources.dfg_lut_ID;
             pass.environment_reflection_cube_ID = LightResources.environment_reflection_cube_ID;
             pass.environment_reflection_cube_hdr_ID = LightResources.environment_reflection_cube_hdr_ID;
@@ -47,10 +52,11 @@ namespace YutrelRP
             pass.GBuffer_B = textures.GBuffer_B;
             pass.GBuffer_C = textures.GBuffer_C;
             pass.scene_depth = textures.scene_depth;
-            pass.DFG_LUT = light_resources.has_DFG_LUT ? light_resources.DFG_LUT : graph.defaultResources.whiteTexture;
-            pass.environment_reflection_cube = light_resources.has_environment_reflection
-                ? light_resources.environment_reflection_cube
-                : TextureHandle.nullHandle;
+            pass.screen_space_ao = textures.screen_space_ao.IsValid()
+                ? textures.screen_space_ao
+                : graph.defaultResources.whiteTexture;
+            pass.DFG_LUT = light_resources.DFG_LUT;
+            pass.environment_reflection_cube = light_resources.environment_reflection_cube;
             pass.environment_reflection_cube_hdr = light_resources.environment_reflection_cube_hdr;
             pass.environment_intensity = light_resources.environment_intensity;
             pass.environment_diffuse_multiplier = light_resources.environment_diffuse_multiplier;
@@ -62,11 +68,9 @@ namespace YutrelRP
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.scene_depth);
+            builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.DFG_LUT);
-            if (pass.environment_reflection_cube.IsValid())
-            {
-                builder.UseTexture(pass.environment_reflection_cube);
-            }
+            builder.UseTexture(pass.environment_reflection_cube);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
             builder.SetRenderFunc<EnvironmentLightingPass>(static (pass, context) => pass.Render(context));
@@ -77,6 +81,7 @@ namespace YutrelRP
             GBuffer_B_ID,
             GBuffer_C_ID,
             scene_depth_ID,
+            screen_space_ao_ID,
             dfg_lut_ID,
             environment_reflection_cube_ID,
             environment_reflection_cube_hdr_ID,
@@ -90,6 +95,7 @@ namespace YutrelRP
             GBuffer_B,
             GBuffer_C,
             scene_depth,
+            screen_space_ao,
             DFG_LUT,
             environment_reflection_cube;
 
@@ -107,11 +113,9 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
             property_block.SetTexture(scene_depth_ID, scene_depth);
+            property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
             property_block.SetTexture(dfg_lut_ID, DFG_LUT);
-            if (environment_reflection_cube.IsValid())
-            {
-                property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
-            }
+            property_block.SetTexture(environment_reflection_cube_ID, environment_reflection_cube);
             property_block.SetVector(environment_reflection_cube_hdr_ID, environment_reflection_cube_hdr);
             property_block.SetFloat(environment_intensity_ID, environment_intensity);
             property_block.SetFloat(environment_diffuse_multiplier_ID, environment_diffuse_multiplier);
@@ -127,6 +131,32 @@ namespace YutrelRP
             CoreUtils.Destroy(material);
             material = null;
             property_block = null;
+        }
+
+        private static bool ValidateEnvironmentResources(LightResources light_resources)
+        {
+            if (light_resources.has_DFG_LUT && light_resources.has_environment_reflection)
+            {
+                return true;
+            }
+
+            LogInvalidEnvironmentOnce(light_resources);
+            return false;
+        }
+
+        private static void LogInvalidEnvironmentOnce(LightResources light_resources)
+        {
+            var missing_resources = string.Empty;
+            if (!light_resources.has_DFG_LUT) missing_resources += " DFG_LUT";
+            if (!light_resources.has_environment_reflection) missing_resources += " EnvironmentReflection";
+
+            var resource_error = string.IsNullOrEmpty(light_resources.environment_resource_error)
+                ? string.Empty
+                : $" {light_resources.environment_resource_error}";
+            var warning_key = missing_resources + resource_error;
+            if (!warned_invalid_environment.Add(warning_key)) return;
+
+            Debug.LogError($"YutrelRP: EnvironmentLightingPass skipped because IBL resources are incomplete. Missing:{missing_resources}.{resource_error}");
         }
 
         private static void SetIblShShaderConstants(MaterialPropertyBlock properties, SphericalHarmonicsL2 sh)
