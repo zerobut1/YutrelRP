@@ -13,6 +13,7 @@ namespace YutrelRP
 #endif
         private readonly ContextContainer frame_data = new();
         private readonly YutrelRayTracingSceneManager ray_tracing_scene_manager = new();
+        private readonly YutrelDDGIResourceManager ddgi_resource_manager = new();
 
 #if UNITY_EDITOR
         internal YutrelRenderer(YutrelRPSettings settings, YutrelRPDebugSettings debug_settings)
@@ -29,6 +30,7 @@ namespace YutrelRP
 
         public void Dispose()
         {
+            ddgi_resource_manager.Dispose();
             ray_tracing_scene_manager.Dispose();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
@@ -92,7 +94,9 @@ namespace YutrelRP
                     var textures = frame_data.GetOrCreate<RenderTargets>();
                     var light_resources = frame_data.GetOrCreate<LightResources>();
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
+                    var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                     shadow_resources.Reset();
+                    ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
                         ref shadow_resources);
