@@ -9,6 +9,14 @@ namespace YutrelRP
         public ShadowSettings shadowSettings;
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
+
+        public DDGISettings ddgiSettings = new();
+
+        [System.Serializable]
+        public class DDGISettings
+        {
+            public bool enabled;
+        }
     }
 
     [System.Serializable]

@@ -96,7 +96,17 @@ namespace YutrelRP
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
                     var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                     shadow_resources.Reset();
-                    ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
+
+                    var ddgi_enabled = settings.ddgiSettings != null && settings.ddgiSettings.enabled;
+                    if (ddgi_enabled)
+                    {
+                        ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
+                    }
+                    else
+                    {
+                        ddgi_resource_manager.Release();
+                        ddgi_resources.Reset();
+                    }
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
                         ref shadow_resources);

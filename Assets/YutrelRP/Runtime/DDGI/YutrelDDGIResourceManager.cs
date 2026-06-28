@@ -23,6 +23,11 @@ namespace YutrelRP
             Prepare(render_graph, ResolveActiveVolume(camera), resources);
         }
 
+        public void Release()
+        {
+            ReleaseTextures();
+        }
+
         public void Prepare(RenderGraph render_graph, YutrelDDGIVolume volume, DDGIResources resources)
         {
             if (resources == null)
@@ -65,7 +70,7 @@ namespace YutrelRP
 
         public void Dispose()
         {
-            ReleaseTextures();
+            Release();
         }
 
         private static RTHandle AllocTexture(int width, int height, int slices, GraphicsFormat format, string name,
