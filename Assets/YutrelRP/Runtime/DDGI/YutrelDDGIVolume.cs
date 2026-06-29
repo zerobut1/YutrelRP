@@ -20,36 +20,61 @@ namespace YutrelRP
         public const int MinProbeDistanceInteriorTexels = 2;
         public const int MaxProbeDistanceInteriorTexels = 64;
 
+        [Header("Bounds")]
+        [Tooltip("Local DDGI bounds offset. Rotation is ignored to keep the grid world axis aligned.")]
         [SerializeField] private Vector3 center = Vector3.zero;
+        [Tooltip("Local DDGI bounds size. Values are clamped to a positive size.")]
         [SerializeField] private Vector3 size = new(10.0f, 5.0f, 10.0f);
+        [Tooltip("Probe grid count per axis. Boundary probes lie on the volume min/max bounds.")]
         [SerializeField] private Vector3Int probeCount = new(4, 3, 4);
+
+        [Header("Trace")]
+        [Tooltip("Number of ray samples traced from each probe every update.")]
         [Range(MinRaysPerProbe, MaxRaysPerProbe)]
         [SerializeField] private int raysPerProbe = 64;
+        [Tooltip("Maximum world-space distance that probe rays may trace.")]
         [Min(MinProbeMaxRayDistance)]
         [SerializeField] private float probeMaxRayDistance = 100.0f;
+        [Tooltip("Maximum physical radiance used to encode probe ray radiance into ProbeRayData.")]
         [Min(MinProbeRayRadianceMax)]
         [SerializeField] private float probeRayRadianceMax = 50000.0f;
         // Persistent atlas identity: probeCount/atlas texel sizes rebuild DDGI history atlases.
         // Frame-only: raysPerProbe changes ProbeRayData dimensions/metadata without clearing persistent atlas history.
         // Constant-only: max ray distance, bias, hysteresis, gamma/exponent/thresholds update shader constants without clearing atlas history.
+
+        [Header("Probe Atlas")]
+        [Tooltip("Interior texel count per probe in the irradiance atlas. Two border texels are added by the resource manager.")]
         [Range(MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels)]
         [SerializeField] private int probeIrradianceInteriorTexels = 6;
+        [Tooltip("Interior texel count per probe in the distance atlas. Two border texels are added by the resource manager.")]
         [Range(MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels)]
         [SerializeField] private int probeDistanceInteriorTexels = 14;
+
+        [Header("Blending")]
+        [Tooltip("History weight used when blending new probe data into persistent probe atlases.")]
         [Range(0.0f, 1.0f)]
         [SerializeField] private float probeHysteresis = 0.97f;
+        [Tooltip("World-space normal bias used when sampling DDGI irradiance and tracing secondary visibility rays.")]
         [Min(0.0f)]
         [SerializeField] private float probeNormalBias = 0.2f;
+        [Tooltip("World-space view bias used when sampling DDGI irradiance and tracing secondary visibility rays.")]
         [Min(0.0f)]
         [SerializeField] private float probeViewBias = 0.1f;
+        [Tooltip("Gamma exponent used to perceptually encode probe irradiance.")]
         [Min(0.01f)]
         [SerializeField] private float irradianceEncodingGamma = 5.0f;
+        [Tooltip("Exponent used when filtering probe distance data for visibility.")]
         [Min(0.01f)]
         [SerializeField] private float distanceExponent = 50.0f;
+        [Tooltip("Irradiance delta threshold that lowers hysteresis for large lighting changes.")]
         [Min(0.0f)]
         [SerializeField] private float irradianceThreshold = 0.2f;
+        [Tooltip("Brightness delta threshold that clamps large per-update irradiance changes.")]
         [Min(0.0f)]
         [SerializeField] private float brightnessThreshold = 2.0f;
+
+        [Header("Editor")]
+        [Tooltip("Scene View probe sphere radius in local units.")]
         [Min(MinProbePreviewRadius)]
         [SerializeField] private float probePreviewRadius = 0.1f;
 

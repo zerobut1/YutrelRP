@@ -13,37 +13,12 @@ namespace YutrelRP.Editor
         private static readonly Color probe_color = new(1.0f, 0.62f, 0.18f, 0.85f);
         private static readonly GUIContent edit_bounds_label = new("Edit Bounds",
             "Edit the DDGI Volume bounds directly in the Scene View.");
-        private static readonly GUIContent center_label = new("Center",
-            "Local DDGI bounds offset. Rotation is ignored to keep the grid world axis aligned.");
-        private static readonly GUIContent size_label = new("Size",
-            "Local DDGI bounds size. Values are clamped to a positive size.");
-        private static readonly GUIContent probe_count_label = new("Probe Count",
-            "Probe grid count per axis. Each axis is clamped to [2, 64].");
-        private static readonly GUIContent rays_per_probe_label = new("Rays Per Probe",
-            "Volume-owned ProbeRayData width and probe trace dispatch X dimension.");
-        private static readonly GUIContent probe_max_ray_distance_label = new("Probe Max Ray Distance",
-            "Volume-owned ray TMax for first-stage DDGI probe tracing.");
-        private static readonly GUIContent probe_radius_label = new("Probe Preview Radius",
-            "Scene View sphere radius in local units.");
         private static YutrelDDGIVolume editing_volume;
 
         private readonly BoxBoundsHandle bounds_handle = new();
 
-        private SerializedProperty center_property;
-        private SerializedProperty size_property;
-        private SerializedProperty probe_count_property;
-        private SerializedProperty rays_per_probe_property;
-        private SerializedProperty probe_max_ray_distance_property;
-        private SerializedProperty probe_preview_radius_property;
-
         private void OnEnable()
         {
-            center_property = serializedObject.FindProperty("center");
-            size_property = serializedObject.FindProperty("size");
-            probe_count_property = serializedObject.FindProperty("probeCount");
-            rays_per_probe_property = serializedObject.FindProperty("raysPerProbe");
-            probe_max_ray_distance_property = serializedObject.FindProperty("probeMaxRayDistance");
-            probe_preview_radius_property = serializedObject.FindProperty("probePreviewRadius");
             Selection.selectionChanged += OnSelectionChanged;
         }
 
@@ -60,12 +35,7 @@ namespace YutrelRP.Editor
         {
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(center_property, center_label);
-            EditorGUILayout.PropertyField(size_property, size_label);
-            EditorGUILayout.PropertyField(probe_count_property, probe_count_label);
-            EditorGUILayout.PropertyField(rays_per_probe_property, rays_per_probe_label);
-            EditorGUILayout.PropertyField(probe_max_ray_distance_property, probe_max_ray_distance_label);
-            EditorGUILayout.PropertyField(probe_preview_radius_property, probe_radius_label);
+            DrawPropertiesExcluding(serializedObject, "m_Script");
 
             if (serializedObject.ApplyModifiedProperties())
             {
