@@ -12,7 +12,8 @@ namespace YutrelRP
         private readonly YutrelRPDebugSettings debug_settings;
 #endif
         private readonly ContextContainer frame_data = new();
-        private readonly YutrelRayTracingSceneManager ray_tracing_scene_manager = new();
+        private readonly YutrelRayTracingContext ray_tracing_context = new();
+        private readonly YutrelRayTracingWorld ray_tracing_world = new();
         private readonly YutrelDDGIResourceManager ddgi_resource_manager = new();
 
 #if UNITY_EDITOR
@@ -31,7 +32,9 @@ namespace YutrelRP
         public void Dispose()
         {
             ddgi_resource_manager.Dispose();
-            ray_tracing_scene_manager.Dispose();
+            DDGIProbeTracePass.Cleanup();
+            ray_tracing_world.Dispose();
+            ray_tracing_context.Dispose();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
             ScreenSpaceAmbientOcclusionPass.Cleanup();
@@ -119,7 +122,8 @@ namespace YutrelRP
                     {
                         var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
-                        DDGIProbeTracePass.Record(render_graph, ddgi_resources);
+                        DDGIProbeTracePass.Record(render_graph, ddgi_resources, ray_tracing_context,
+                            ray_tracing_world);
                         DDGIDebugPass.Record(render_graph, ddgi_resources);
                     }
                     else

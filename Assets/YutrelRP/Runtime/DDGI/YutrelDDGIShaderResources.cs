@@ -15,13 +15,18 @@ namespace YutrelRP
 
         bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
 
-        [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeTrace.raytrace")]
-        private RayTracingShader probeTrace;
+        [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeTrace.urtshader")]
+        private ComputeShader probeTraceCompute;
+
+        [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeTrace.urtshader")]
+        private RayTracingShader probeTraceRayTracing;
 
         [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIDebug.compute")]
         private ComputeShader debugShader;
 
-        public RayTracingShader probe_trace => probeTrace;
         public ComputeShader debug => debugShader;
+
+        public ComputeShader probe_trace_compute => probeTraceCompute;
+        public RayTracingShader probe_trace_ray_tracing => probeTraceRayTracing;
     }
 }

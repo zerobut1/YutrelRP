@@ -2,20 +2,23 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.UnifiedRayTracing;
 
 namespace YutrelRP
 {
     internal sealed class DDGIProbeTracePass
     {
-        private const string ShaderPassName = "DDGIRayTracing";
-        private const string RayGenName = "RayGenDDGIProbeTrace";
+        private const string AccelStructName = "_DDGIAccelStruct";
 
         private static readonly ProfilingSampler sampler = new("DDGI Probe Trace");
         private static readonly int probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData");
+        private static IRayTracingShader probe_trace_shader;
+        private static GraphicsBuffer trace_scratch_buffer;
 
-        internal static void Record(RenderGraph render_graph, DDGIResources resources)
+        internal static void Record(RenderGraph render_graph, DDGIResources resources,
+            YutrelRayTracingContext ray_tracing_context, YutrelRayTracingWorld ray_tracing_world)
         {
-            if (resources == null || !resources.is_valid)
+            if (resources == null || !resources.is_valid || ray_tracing_context == null || ray_tracing_world == null)
             {
                 return;
             }
@@ -41,48 +44,65 @@ namespace YutrelRP
             };
             resources.probe_ray_data = render_graph.CreateTexture(ray_data_desc);
 
-            if (!TryGetProbeTraceShader(out var shader))
+            var dispatch_width = (uint)volume.RaysPerProbe;
+            var dispatch_height = (uint)(probe_count.x * probe_count.z);
+            var dispatch_depth = (uint)probe_count.y;
+            if (!ray_tracing_context.EnsureInitialized() || !ray_tracing_world.EnsureInitialized(ray_tracing_context))
             {
                 return;
             }
 
-            using var builder = render_graph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
-            pass.ray_tracing_shader = shader;
+            if (!GraphicsSettings.TryGetRenderPipelineSettings<YutrelDDGIShaderResources>(out var shader_resources))
+            {
+                return;
+            }
+
+            probe_trace_shader ??= ray_tracing_context.CreateUnifiedShader(
+                shader_resources.probe_trace_compute, shader_resources.probe_trace_ray_tracing);
+            if (probe_trace_shader == null)
+            {
+                return;
+            }
+
+            RayTracingHelper.ResizeScratchBufferForTrace(probe_trace_shader, dispatch_width, dispatch_height,
+                dispatch_depth, ref trace_scratch_buffer);
+            ray_tracing_world.SyncSceneIfNeeded();
+
+            using var builder = render_graph.AddUnsafePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
+            pass.shader = probe_trace_shader;
+            pass.scene_accel_struct = ray_tracing_world.SceneAccelStruct;
+            pass.trace_scratch = trace_scratch_buffer;
             pass.probe_ray_data = resources.probe_ray_data;
-            pass.rays_per_probe = volume.RaysPerProbe;
-            pass.plane_probe_count = probe_count.x * probe_count.z;
-            pass.probe_count_y = probe_count.y;
+            pass.dispatch_width = dispatch_width;
+            pass.dispatch_height = dispatch_height;
+            pass.dispatch_depth = dispatch_depth;
             builder.UseTexture(resources.probe_ray_data, AccessFlags.Write);
             builder.AllowPassCulling(false);
             builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
         }
 
-        private RayTracingShader ray_tracing_shader;
-        private TextureHandle probe_ray_data;
-        private int rays_per_probe;
-        private int plane_probe_count;
-        private int probe_count_y;
-
-        private void Render(ComputeGraphContext context)
+        internal static void Cleanup()
         {
-            var cmd = context.cmd;
-            cmd.SetRayTracingShaderPass(ray_tracing_shader, ShaderPassName);
-            cmd.SetRayTracingTextureParam(ray_tracing_shader, probe_ray_data_ID, probe_ray_data);
-            cmd.DispatchRays(ray_tracing_shader, RayGenName, (uint)rays_per_probe, (uint)plane_probe_count,
-                (uint)probe_count_y, null);
+            probe_trace_shader = null;
+            trace_scratch_buffer?.Dispose();
+            trace_scratch_buffer = null;
         }
 
-        private static bool TryGetProbeTraceShader(out RayTracingShader shader)
+        private IRayTracingShader shader;
+        private YutrelRayTracingAccelStruct scene_accel_struct;
+        private GraphicsBuffer trace_scratch;
+        private TextureHandle probe_ray_data;
+        private uint dispatch_width;
+        private uint dispatch_height;
+        private uint dispatch_depth;
+
+        private void Render(UnsafeGraphContext context)
         {
-            shader = null;
-
-            if (!GraphicsSettings.TryGetRenderPipelineSettings<YutrelDDGIShaderResources>(out var resources))
-            {
-                return false;
-            }
-
-            shader = resources.probe_trace;
-            return shader != null;
+            var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+            scene_accel_struct.BuildIfNeeded(cmd);
+            scene_accel_struct.Bind(cmd, AccelStructName, shader);
+            shader.SetTextureParam(cmd, probe_ray_data_ID, probe_ray_data);
+            shader.Dispatch(cmd, trace_scratch, dispatch_width, dispatch_height, dispatch_depth);
         }
     }
 }

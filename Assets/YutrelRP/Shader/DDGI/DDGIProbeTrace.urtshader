@@ -1,0 +1,15 @@
+#include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/TraceRayAndQueryHit.hlsl"
+
+UNIFIED_RT_DECLARE_ACCEL_STRUCT(_DDGIAccelStruct);
+
+RWTexture2DArray<float2> _DDGIProbeRayData;
+
+void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
+{
+    uint3 id = dispatchInfo.dispatchThreadID;
+    uint3 dim = dispatchInfo.dispatchDimensionsInThreads;
+
+    float ray01 = dim.x > 1u ? (float)id.x / (float)(dim.x - 1u) : 0.0f;
+    float probe01 = (float)(id.y + id.z * dim.y) / max((float)(dim.y * dim.z - 1u), 1.0f);
+    _DDGIProbeRayData[id] = float2(ray01, 1.0f + 99.0f * probe01);
+}
