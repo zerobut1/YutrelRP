@@ -94,19 +94,7 @@ namespace YutrelRP
                     var textures = frame_data.GetOrCreate<RenderTargets>();
                     var light_resources = frame_data.GetOrCreate<LightResources>();
                     var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
-                    var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                     shadow_resources.Reset();
-
-                    var ddgi_enabled = settings.ddgiSettings != null && settings.ddgiSettings.enabled;
-                    if (ddgi_enabled)
-                    {
-                        ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
-                    }
-                    else
-                    {
-                        ddgi_resource_manager.Release();
-                        ddgi_resources.Reset();
-                    }
 
                     SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
                         ref shadow_resources);
@@ -124,6 +112,18 @@ namespace YutrelRP
 
                     ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
                         attachment_size);
+
+                    //DDGI
+                    if (settings.ddgiSettings != null && settings.ddgiSettings.enabled)
+                    {
+                        var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
+                        ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
+                        DDGIProbeTracePass.Record(render_graph, ddgi_resources);
+                    }
+                    else
+                    {
+                        ddgi_resource_manager.Release();
+                    }
 
                     EnvironmentLightingPass.Record(render_graph, textures, light_resources);
 

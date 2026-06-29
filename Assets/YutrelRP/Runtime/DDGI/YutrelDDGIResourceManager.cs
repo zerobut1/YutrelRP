@@ -101,11 +101,6 @@ namespace YutrelRP
                     continue;
                 }
 
-                if (camera != null && volume.gameObject.scene != camera.gameObject.scene)
-                {
-                    continue;
-                }
-
                 selected = volume;
                 break;
             }

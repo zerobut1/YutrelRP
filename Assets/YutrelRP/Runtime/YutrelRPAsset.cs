@@ -10,6 +10,9 @@ namespace YutrelRP
 
         protected override RenderPipeline CreatePipeline()
         {
+#if UNITY_EDITOR
+            YutrelRPGlobalSettings.Ensure();
+#endif
             return new YutrelRP(settings);
         }
     }
