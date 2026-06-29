@@ -120,6 +120,7 @@ namespace YutrelRP
                         var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
                         DDGIProbeTracePass.Record(render_graph, ddgi_resources);
+                        DDGIDebugPass.Record(render_graph, ddgi_resources);
                     }
                     else
                     {
