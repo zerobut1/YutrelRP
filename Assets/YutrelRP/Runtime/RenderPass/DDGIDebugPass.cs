@@ -13,10 +13,7 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("DDGI Debug");
         private static readonly int probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData");
         private static readonly int debug_texture_ID = Shader.PropertyToID("_DDGIDebugTexture");
-        private static readonly int debug_texture_size_ID = Shader.PropertyToID("_DDGIDebugTextureSize");
-        private static readonly int debug_slice_ID = Shader.PropertyToID("_DDGIDebugSlice");
-        private static readonly int debug_mode_ID = Shader.PropertyToID("_DDGIDebugMode");
-        private static readonly int debug_distance_scale_ID = Shader.PropertyToID("_DDGIDebugDistanceScale");
+        private static readonly int debug_texture_dimensions_ID = Shader.PropertyToID("_DDGIDebugTextureDimensions");
 
         internal static void Record(RenderGraph render_graph, DDGIResources resources)
         {
@@ -46,7 +43,9 @@ namespace YutrelRP
 
             var debug_desc = new TextureDesc(width, height)
             {
-                colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                colorFormat = GraphicsFormat.R32G32B32A32_SFloat,
+                dimension = TextureDimension.Tex2DArray,
+                slices = probe_count.y,
                 enableRandomWrite = true,
                 clearBuffer = true,
                 clearColor = Color.black,
@@ -59,11 +58,9 @@ namespace YutrelRP
             pass.shader = shader;
             pass.kernel = shader.FindKernel(KernelName);
             pass.probe_ray_data = resources.probe_ray_data;
-            pass.debug_texture = render_graph.CreateTexture(debug_desc);
-            pass.debug_texture_size = new Vector2Int(width, height);
-            pass.slice_index = 0;
-            pass.mode = Mode.ProbeRayDistance;
-            pass.distance_scale = volume.ProbeMaxRayDistance > 0.0f ? 1.0f / volume.ProbeMaxRayDistance : 1.0f;
+            resources.probe_ray_data_debug = render_graph.CreateTexture(debug_desc);
+            pass.debug_texture = resources.probe_ray_data_debug;
+            pass.debug_texture_dimensions = new Vector3Int(width, height, probe_count.y);
 
             builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);
             builder.UseTexture(pass.debug_texture, AccessFlags.Write);
@@ -75,25 +72,20 @@ namespace YutrelRP
         private int kernel;
         private TextureHandle probe_ray_data;
         private TextureHandle debug_texture;
-        private Vector2Int debug_texture_size;
-        private int slice_index;
-        private Mode mode;
-        private float distance_scale;
+        private Vector3Int debug_texture_dimensions;
 
         private void Render(ComputeGraphContext context)
         {
             var cmd = context.cmd;
             cmd.SetComputeTextureParam(shader, kernel, probe_ray_data_ID, probe_ray_data);
             cmd.SetComputeTextureParam(shader, kernel, debug_texture_ID, debug_texture);
-            cmd.SetComputeVectorParam(shader, debug_texture_size_ID,
-                new Vector4(debug_texture_size.x, debug_texture_size.y, 0.0f, 0.0f));
-            cmd.SetComputeIntParam(shader, debug_slice_ID, slice_index);
-            cmd.SetComputeIntParam(shader, debug_mode_ID, (int)mode);
-            cmd.SetComputeFloatParam(shader, debug_distance_scale_ID, distance_scale);
+            cmd.SetComputeVectorParam(shader, debug_texture_dimensions_ID,
+                new Vector4(debug_texture_dimensions.x, debug_texture_dimensions.y, debug_texture_dimensions.z,
+                    0.0f));
 
-            var group_x = Mathf.CeilToInt((float)debug_texture_size.x / ThreadGroupSize);
-            var group_y = Mathf.CeilToInt((float)debug_texture_size.y / ThreadGroupSize);
-            cmd.DispatchCompute(shader, kernel, group_x, group_y, 1);
+            var group_x = Mathf.CeilToInt((float)debug_texture_dimensions.x / ThreadGroupSize);
+            var group_y = Mathf.CeilToInt((float)debug_texture_dimensions.y / ThreadGroupSize);
+            cmd.DispatchCompute(shader, kernel, group_x, group_y, debug_texture_dimensions.z);
         }
 
         private static bool TryGetDebugShader(out ComputeShader shader)
@@ -107,12 +99,6 @@ namespace YutrelRP
 
             shader = resources.debug;
             return shader != null;
-        }
-
-        private enum Mode
-        {
-            ProbeRayValue = 0,
-            ProbeRayDistance = 1
         }
     }
 }

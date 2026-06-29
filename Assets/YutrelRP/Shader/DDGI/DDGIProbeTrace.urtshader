@@ -1,15 +1,176 @@
+#include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/TraceRayAndQueryHit.hlsl"
+
+#define YUTREL_PI 3.14159265358979323846f
+#define DDGI_RAY_MASK 0xFFu
 
 UNIFIED_RT_DECLARE_ACCEL_STRUCT(_DDGIAccelStruct);
 
+struct DirectionalLightData
+{
+    float3 color;
+    float illuminance;
+    float4 direction;
+    float4 shadow_data;
+};
+
+struct DDGIGeometryInstanceData
+{
+    float4 local_to_world_row0;
+    float4 local_to_world_row1;
+    float4 local_to_world_row2;
+    uint vertex_offset;
+    uint index_offset;
+    uint2 padding;
+};
+
+StructuredBuffer<DirectionalLightData> _DirectionalLightData;
+StructuredBuffer<float3> _DDGIVertexPositions;
+StructuredBuffer<uint> _DDGIIndices;
+StructuredBuffer<DDGIGeometryInstanceData> _DDGIInstanceData;
 RWTexture2DArray<float2> _DDGIProbeRayData;
+
+int _DirectionalLightCount;
+float3 _DDGIProbeBoundsMin;
+float3 _DDGIProbeSpacing;
+float3 _DDGIProbeCount;
+float _DDGIProbeMaxRayDistance;
+float _DDGIProbeRayRadianceMax;
+float _DDGIProbeNormalBias;
+
+float3 SphericalFibonacci(uint sampleIndex, uint sampleCount)
+{
+    const float b  = 0.61803398874989484820f;
+    float phi      = 2.0f * YUTREL_PI * frac((float)sampleIndex * b);
+    float cosTheta = 1.0f - (2.0f * (float)sampleIndex + 1.0f) / (float)sampleCount;
+    float sinTheta = sqrt(saturate(1.0f - cosTheta * cosTheta));
+    return float3(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
+}
+
+uint PackRadiance(float3 radiance)
+{
+    float maxRadiance = max(_DDGIProbeRayRadianceMax, 1.0e-6f);
+    float3 value      = saturate(radiance / maxRadiance);
+    return (uint)round(value.r * 1023.0f) |
+           ((uint)round(value.g * 1023.0f) << 10) |
+           ((uint)round(value.b * 1023.0f) << 20);
+}
+
+void StoreRay(uint3 coords, float3 radiance, float distance)
+{
+    _DDGIProbeRayData[coords] = float2(asfloat(PackRadiance(radiance)), distance);
+}
+
+uint3 GetProbeCoords(uint probePlaneIndex, uint probeSliceIndex)
+{
+    uint probeCountX = max((uint)_DDGIProbeCount.x, 1u);
+    uint probeX      = probePlaneIndex % probeCountX;
+    uint probeZ      = probePlaneIndex / probeCountX;
+    return uint3(probeX, probeSliceIndex, probeZ);
+}
+
+float3 GetProbePosition(uint3 probeCoords)
+{
+    return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
+}
+
+float3 TransformPosition(DDGIGeometryInstanceData instanceData, float3 positionOS)
+{
+    float4 position = float4(positionOS, 1.0f);
+    return float3(
+        dot(instanceData.local_to_world_row0, position),
+        dot(instanceData.local_to_world_row1, position),
+        dot(instanceData.local_to_world_row2, position));
+}
+
+float3 GetHitNormalWS(UnifiedRT::Hit hit, float3 rayDirectionWS)
+{
+    DDGIGeometryInstanceData instanceData = _DDGIInstanceData[hit.instanceID];
+    uint triangleIndex                    = instanceData.index_offset + hit.primitiveIndex * 3u;
+    float3 p0                             = TransformPosition(instanceData, _DDGIVertexPositions[_DDGIIndices[triangleIndex + 0u]]);
+    float3 p1                             = TransformPosition(instanceData, _DDGIVertexPositions[_DDGIIndices[triangleIndex + 1u]]);
+    float3 p2                             = TransformPosition(instanceData, _DDGIVertexPositions[_DDGIIndices[triangleIndex + 2u]]);
+    float3 normalWS                       = cross(p1 - p0, p2 - p0);
+    if (dot(normalWS, normalWS) < 1.0e-8f)
+    {
+        return -rayDirectionWS;
+    }
+    normalWS = normalize(normalWS);
+    return dot(normalWS, rayDirectionWS) > 0.0f ? -normalWS : normalWS;
+}
+
+float TraceDirectionalVisibility(UnifiedRT::DispatchInfo dispatchInfo,
+                                 UnifiedRT::RayTracingAccelStruct accelStruct, float3 hitPositionWS, float3 normalWS, float3 lightDirectionWS)
+{
+    UnifiedRT::Ray shadowRay;
+    shadowRay.origin    = OffsetRayOrigin(hitPositionWS, normalWS, _DDGIProbeNormalBias);
+    shadowRay.tMin      = 0.001f;
+    shadowRay.direction = lightDirectionWS;
+    shadowRay.tMax      = max(_DDGIProbeMaxRayDistance, shadowRay.tMin);
+
+    bool blocked = UnifiedRT::TraceRayAnyHit(
+        dispatchInfo,
+        accelStruct,
+        DDGI_RAY_MASK,
+        shadowRay,
+        UnifiedRT::kRayFlagNone);
+    return blocked ? 0.0f : 1.0f;
+}
 
 void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
 {
-    uint3 id  = dispatchInfo.dispatchThreadID;
-    uint3 dim = dispatchInfo.dispatchDimensionsInThreads;
+    uint3 id           = dispatchInfo.dispatchThreadID;
+    uint3 dim          = dispatchInfo.dispatchDimensionsInThreads;
+    uint3 probeCoords  = GetProbeCoords(id.y, id.z);
+    uint3 outputCoords = uint3(id.x, id.y, id.z);
 
-    float ray01           = dim.x > 1u ? (float)id.x / (float)(dim.x - 1u) : 0.0f;
-    float probe01         = (float)(id.y + id.z * dim.y) / max((float)(dim.y * dim.z - 1u), 1.0f);
-    _DDGIProbeRayData[id] = float2(ray01, 1.0f + 99.0f * probe01);
+    UnifiedRT::RayTracingAccelStruct accelStruct = UNIFIED_RT_GET_ACCEL_STRUCT(_DDGIAccelStruct);
+
+    UnifiedRT::Ray ray;
+    ray.origin    = GetProbePosition(probeCoords);
+    ray.tMin      = 0.001f;
+    ray.direction = SphericalFibonacci(id.x, max(dim.x, 1u));
+    ray.tMax      = _DDGIProbeMaxRayDistance;
+
+    UnifiedRT::Hit hit = UnifiedRT::TraceRayClosestHit(
+        dispatchInfo,
+        accelStruct,
+        DDGI_RAY_MASK,
+        ray,
+        UnifiedRT::kRayFlagNone);
+
+    if (!hit.IsValid())
+    {
+        StoreRay(outputCoords, 0.0f, 1.0e27f);
+        return;
+    }
+
+    if (!hit.isFrontFace)
+    {
+        StoreRay(outputCoords, 0.0f, -hit.hitDistance * 0.2f);
+        return;
+    }
+
+    float3 radiance = 0.0f;
+    if (_DirectionalLightCount > 0)
+    {
+        DirectionalLightData light = _DirectionalLightData[0];
+        float3 normalWS            = GetHitNormalWS(hit, ray.direction);
+        float3 lightDirectionWS    = normalize(light.direction.xyz);
+        float noL                  = saturate(dot(normalWS, lightDirectionWS));
+
+        if (noL > 0.0f)
+        {
+            float3 hitPositionWS = ray.origin + ray.direction * hit.hitDistance;
+            float visibility     = TraceDirectionalVisibility(
+                dispatchInfo,
+                accelStruct,
+                hitPositionWS,
+                normalWS,
+                lightDirectionWS);
+            radiance = light.color * light.illuminance * noL * visibility * (1.0f / YUTREL_PI);
+        }
+    }
+
+    StoreRay(outputCoords, radiance, hit.hitDistance);
 }

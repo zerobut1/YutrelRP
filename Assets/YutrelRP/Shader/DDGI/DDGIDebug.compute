@@ -1,29 +1,27 @@
 #pragma kernel CSMain
 
 Texture2DArray<float2> _DDGIProbeRayData;
-RWTexture2D<float4> _DDGIDebugTexture;
+RWTexture2DArray<float4> _DDGIDebugTexture;
 
-float2 _DDGIDebugTextureSize;
-int _DDGIDebugSlice;
-int _DDGIDebugMode;
-float _DDGIDebugDistanceScale;
+float3 _DDGIDebugTextureDimensions;
+
+float3 UnpackRadiance(uint packedRadiance)
+{
+    return float3(
+        (float)(packedRadiance & 0x000003FFu) / 1023.0f,
+        (float)((packedRadiance >> 10) & 0x000003FFu) / 1023.0f,
+        (float)((packedRadiance >> 20) & 0x000003FFu) / 1023.0f);
+}
 
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= (uint)_DDGIDebugTextureSize.x || id.y >= (uint)_DDGIDebugTextureSize.y)
+    if (id.x >= (uint)_DDGIDebugTextureDimensions.x || id.y >= (uint)_DDGIDebugTextureDimensions.y ||
+        id.z >= (uint)_DDGIDebugTextureDimensions.z)
     {
         return;
     }
 
-    float2 ray_data = _DDGIProbeRayData.Load(int4(id.xy, _DDGIDebugSlice, 0));
-
-    if (_DDGIDebugMode == 0)
-    {
-        _DDGIDebugTexture[id.xy] = float4(saturate(ray_data.x).xxx, 1.0f);
-        return;
-    }
-
-    float distance           = saturate(ray_data.y * _DDGIDebugDistanceScale);
-    _DDGIDebugTexture[id.xy] = float4(distance.xxx, 1.0f);
+    float2 ray_data       = _DDGIProbeRayData.Load(int4(id.xyz, 0));
+    _DDGIDebugTexture[id] = float4(UnpackRadiance(asuint(ray_data.x)), ray_data.y);
 }

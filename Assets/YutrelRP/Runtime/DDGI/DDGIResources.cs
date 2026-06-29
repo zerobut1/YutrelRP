@@ -13,6 +13,7 @@ namespace YutrelRP
         public YutrelDDGIVolume active_volume;
         public bool is_valid;
         public TextureHandle probe_ray_data;
+        public TextureHandle probe_ray_data_debug;
         public TextureHandle probe_irradiance;
         public TextureHandle probe_distance;
         public Vector3Int probe_count;
@@ -24,6 +25,7 @@ namespace YutrelRP
             active_volume = null;
             is_valid = false;
             probe_ray_data = TextureHandle.nullHandle;
+            probe_ray_data_debug = TextureHandle.nullHandle;
             probe_irradiance = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
             probe_count = Vector3Int.zero;
