@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_DIR = PROJECT_ROOT / "Logs" / "agent-harness"
 SHADER_ROOT = PROJECT_ROOT / "Assets" / "YutrelRP" / "Shader"
 CSHARP_LOG_DIR = DEFAULT_LOG_DIR / "csharp-compile"
+SHADER_FORMAT_EXTENSIONS = (".hlsl", ".hlsli", ".compute", ".urtshader")
+INLINE_NUMTHREADS_PATTERN = re.compile(r"(?m)^(\s*\[numthreads\([^\]\r\n]*\)\])\s+(void\s+)")
 
 RUNTIME_PROJECT = PROJECT_ROOT / "Assembly-CSharp.csproj"
 EDITOR_PROJECT = PROJECT_ROOT / "Assembly-CSharp-Editor.csproj"
@@ -222,11 +225,12 @@ def command_shader_format(args: argparse.Namespace) -> int:
 
     shader_files = sorted(
         path
-        for pattern in ("*.hlsl", "*.hlsli")
-        for path in SHADER_ROOT.rglob(pattern)
+        for extension in SHADER_FORMAT_EXTENSIONS
+        for path in SHADER_ROOT.rglob(f"*{extension}")
     )
     if not shader_files:
-        print(f"PASS: No HLSL files found under {SHADER_ROOT}.")
+        extensions = ", ".join(SHADER_FORMAT_EXTENSIONS)
+        print(f"PASS: No shader files found under {SHADER_ROOT} for extensions: {extensions}.")
         return 0
 
     for path in shader_files:
@@ -236,9 +240,17 @@ def command_shader_format(args: argparse.Namespace) -> int:
         )
         if completed.returncode != 0:
             return fail(f"clang-format failed for {path}", completed.returncode)
+        restore_numthreads_line_break(path)
 
     print(f"PASS: Formatted {len(shader_files)} shader files under {SHADER_ROOT}.")
     return 0
+
+
+def restore_numthreads_line_break(path: Path) -> None:
+    source = path.read_text(encoding="utf-8")
+    formatted = INLINE_NUMTHREADS_PATTERN.sub(r"\1\n\2", source)
+    if formatted != source:
+        path.write_text(formatted, encoding="utf-8", newline="\n")
 
 
 def command_doctor(args: argparse.Namespace) -> int:
@@ -312,7 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     shader_parser = subparsers.add_parser(
         "shader-format",
-        help="Format Assets/YutrelRP/Shader .hlsl and .hlsli files with clang-format.",
+        help="Format Assets/YutrelRP/Shader HLSL-like files with clang-format.",
     )
     shader_parser.add_argument(
         "--clang-format",

@@ -24,6 +24,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    float distance = saturate(ray_data.y * _DDGIDebugDistanceScale);
+    float distance           = saturate(ray_data.y * _DDGIDebugDistanceScale);
     _DDGIDebugTexture[id.xy] = float4(distance.xxx, 1.0f);
 }
