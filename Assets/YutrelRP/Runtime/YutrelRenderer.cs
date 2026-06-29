@@ -43,6 +43,7 @@ namespace YutrelRP
 #endif
             LightResources.Cleanup();
             FinalPass.Cleanup();
+            YutrelRPRuntimeShaderUtility.ClearWarnings();
         }
 
         public void Render(RenderGraph render_graph, ScriptableRenderContext context, Camera camera)

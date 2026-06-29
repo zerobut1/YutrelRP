@@ -16,8 +16,9 @@ namespace YutrelRP
         internal static void Record(RenderGraph render_graph, RenderTargets textures,
             ResolvedPostProcessSettings post_process_settings)
         {
+            if (!TryEnsureMaterial()) return;
+
             using var builder = render_graph.AddRasterRenderPass<ToneMappingPass>(sampler.name, out var pass, sampler);
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ToneMapping"));
 
             pass.source_color = textures.scene_color;
             pass.pass_id = (int)post_process_settings.tone_mapping.mode;
@@ -46,6 +47,19 @@ namespace YutrelRP
         {
             CoreUtils.Destroy(material);
             material = null;
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return false;
+            }
+
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.tone_mapping,
+                nameof(YutrelRPRuntimeShaders.tone_mapping),
+                ref material);
         }
     }
 }

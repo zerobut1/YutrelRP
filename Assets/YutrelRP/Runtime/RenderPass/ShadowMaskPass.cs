@@ -18,9 +18,14 @@ namespace YutrelRP
             ShadowResources shadow_resources, ResolvedShadowSettings shadow_settings, Vector2Int attachment_size)
         {
             if (light_resources.directional_light_count == 0) return;
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ShadowMask"));
 
             if (shadow_resources.shadowed_directional_light_count == 0)
+            {
+                textures.shadow_mask = render_graph.defaultResources.whiteTexture;
+                return;
+            }
+
+            if (!TryEnsureMaterial())
             {
                 textures.shadow_mask = render_graph.defaultResources.whiteTexture;
                 return;
@@ -171,6 +176,19 @@ namespace YutrelRP
         {
             CoreUtils.Destroy(material);
             material = null;
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return false;
+            }
+
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.shadow_mask_pass,
+                nameof(YutrelRPRuntimeShaders.shadow_mask_pass),
+                ref material);
         }
     }
 }

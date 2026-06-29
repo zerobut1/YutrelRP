@@ -29,7 +29,7 @@ namespace YutrelRP
         {
             if (!ValidateEnvironmentResources(light_resources)) return;
 
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/EnvironmentLightingPass"));
+            if (!TryEnsureMaterial()) return;
             if (property_block == null) property_block = new MaterialPropertyBlock();
 
             using var builder =
@@ -131,6 +131,19 @@ namespace YutrelRP
             CoreUtils.Destroy(material);
             material = null;
             property_block = null;
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return false;
+            }
+
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.environment_lighting_pass,
+                nameof(YutrelRPRuntimeShaders.environment_lighting_pass),
+                ref material);
         }
 
         private static bool ValidateEnvironmentResources(LightResources light_resources)

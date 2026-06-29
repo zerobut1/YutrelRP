@@ -31,6 +31,7 @@ MonoBehaviour:
       - rid: 7702192861310877709
       - rid: 7702192861310877710
       - rid: 7702192861310877711
+      - rid: 7702192861310877712
     m_RuntimeSettings:
       m_List: []
   references:
@@ -185,3 +186,15 @@ MonoBehaviour:
       data:
         m_Version: 0
         probeTrace: {fileID: 4807578003741378534, guid: 1b74a2aa2b9a454cb678f00e7df7dd8e, type: 3}
+    - rid: 7702192861310877712
+      type: {class: YutrelRPRuntimeShaders, ns: YutrelRP, asm: Assembly-CSharp}
+      data:
+        m_Version: 0
+        directionalLightPass: {fileID: 4800000, guid: dc67511405634115b71478b975685786, type: 3}
+        environmentLightingPass: {fileID: 4800000, guid: 2c88f6d81b39460789168f9d5f5c5948, type: 3}
+        shadowMaskPass: {fileID: 4800000, guid: b83622d3aba341db9f548e4bfad0a288, type: 3}
+        toneMapping: {fileID: 4800000, guid: 5d7fcb16ab1244df9f834ae095539213, type: 3}
+        debugView: {fileID: 4800000, guid: f1b980e1d3ad43c188a9c104802a91a6, type: 3}
+        ssao: {fileID: 4800000, guid: 4bb6a4b5ceaf4cd6ac400f0fd8eb2c0b, type: 3}
+        hbao: {fileID: 4800000, guid: e08ff0dc86264b7199cc042a6a07cdab, type: 3}
+        gtao: {fileID: 4800000, guid: 5a37231e44974f88b9057f4a56075a39, type: 3}

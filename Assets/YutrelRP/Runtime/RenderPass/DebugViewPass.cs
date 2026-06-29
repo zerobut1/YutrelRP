@@ -9,8 +9,6 @@ namespace YutrelRP
 {
     internal class DebugViewPass
     {
-        private const string shader_name = "YutrelRP/DebugView";
-
         private static readonly ProfilingSampler sampler = new("Debug View Pass");
         private static readonly int debug_view_issue_ID = Shader.PropertyToID("_DebugViewIssue");
         private static readonly int debug_view_mode_ID = Shader.PropertyToID("_DebugViewMode");
@@ -36,7 +34,7 @@ namespace YutrelRP
 
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game) return;
 
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find(shader_name));
+            if (!TryEnsureMaterial()) return;
             if (property_block == null) property_block = new MaterialPropertyBlock();
 
             using var builder = render_graph.AddRasterRenderPass<DebugViewPass>(sampler.name, out var pass, sampler);
@@ -277,6 +275,19 @@ namespace YutrelRP
             material = null;
             property_block = null;
             warned_issues.Clear();
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return false;
+            }
+
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.debug_view,
+                nameof(YutrelRPRuntimeShaders.debug_view),
+                ref material);
         }
 
         private enum Issue

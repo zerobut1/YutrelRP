@@ -16,8 +16,9 @@ namespace YutrelRP
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures)
         {
+            if (!TryEnsureMaterial()) return;
+
             using var builder = render_graph.AddRasterRenderPass<FinalPass>(sampler.name, out var pass, sampler);
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/ToneMapping"));
 
             pass.source_color = textures.final_color;
             pass.source_scale_bias = GetFinalBlitScaleBias(camera);
@@ -54,6 +55,19 @@ namespace YutrelRP
         {
             CoreUtils.Destroy(material);
             material = null;
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return false;
+            }
+
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.tone_mapping,
+                nameof(YutrelRPRuntimeShaders.tone_mapping),
+                ref material);
         }
     }
 }

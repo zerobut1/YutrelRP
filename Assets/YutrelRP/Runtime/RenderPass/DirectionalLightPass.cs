@@ -17,7 +17,7 @@ namespace YutrelRP
             if (light_resources.directional_light_count == 0) return;
             if (!ValidateLightingResources(light_resources)) return;
 
-            if (material == null) material = CoreUtils.CreateEngineMaterial(Shader.Find("YutrelRP/DirectionalLightPass"));
+            if (!TryEnsureMaterial()) return;
             if (property_block == null) property_block = new MaterialPropertyBlock();
 
             for (int i = 0; i < light_resources.directional_light_count; i++)
@@ -100,6 +100,19 @@ namespace YutrelRP
             CoreUtils.Destroy(material);
             material = null;
             property_block = null;
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return false;
+            }
+
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.directional_light_pass,
+                nameof(YutrelRPRuntimeShaders.directional_light_pass),
+                ref material);
         }
 
         private static bool ValidateLightingResources(LightResources light_resources)

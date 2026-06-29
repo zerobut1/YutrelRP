@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -8,10 +7,6 @@ namespace YutrelRP
 {
     internal class ScreenSpaceAmbientOcclusionPass
     {
-        private const string SSAOShaderName = "YutrelRP/SSAO";
-        private const string HBAOShaderName = "YutrelRP/HBAO";
-        private const string GTAOShaderName = "YutrelRP/GTAO";
-
         private static readonly ProfilingSampler ssao_sampler = new("SSAO Pass");
         private static readonly ProfilingSampler hbao_sampler = new("HBAO Pass");
         private static readonly ProfilingSampler gtao_sampler = new("GTAO Pass");
@@ -31,7 +26,6 @@ namespace YutrelRP
         private static Material hbao_material;
         private static Material gtao_material;
         private static MaterialPropertyBlock property_block;
-        private static readonly HashSet<string> warned_missing_shader_names = new();
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures,
             AmbientOcclusionSettings settings, Vector2Int attachment_size)
@@ -45,8 +39,7 @@ namespace YutrelRP
                 return;
             }
 
-            var shader_name = GetShaderName(settings.mode);
-            var material = GetMaterial(settings.mode, shader_name);
+            var material = GetMaterial(settings.mode);
             if (material == null) return;
 
             if (property_block == null) property_block = new MaterialPropertyBlock();
@@ -80,21 +73,6 @@ namespace YutrelRP
             builder.SetRenderFunc<ScreenSpaceAmbientOcclusionPass>(static (pass, context) => pass.Render(context));
         }
 
-        private static string GetShaderName(AmbientOcclusionSettings.Mode mode)
-        {
-            switch (mode)
-            {
-                case AmbientOcclusionSettings.Mode.SSAO:
-                    return SSAOShaderName;
-                case AmbientOcclusionSettings.Mode.HBAO:
-                    return HBAOShaderName;
-                case AmbientOcclusionSettings.Mode.GTAO:
-                    return GTAOShaderName;
-                default:
-                    return null;
-            }
-        }
-
         private static ProfilingSampler GetSampler(AmbientOcclusionSettings.Mode mode)
         {
             switch (mode)
@@ -110,43 +88,36 @@ namespace YutrelRP
             }
         }
 
-        private static Material GetMaterial(AmbientOcclusionSettings.Mode mode, string shader_name)
+        private static Material GetMaterial(AmbientOcclusionSettings.Mode mode)
         {
-            if (string.IsNullOrEmpty(shader_name)) return null;
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            {
+                return null;
+            }
 
             switch (mode)
             {
                 case AmbientOcclusionSettings.Mode.SSAO:
-                    if (ssao_material == null) ssao_material = CreateMaterial(shader_name);
+                    YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                        resources.ssao_shader,
+                        nameof(YutrelRPRuntimeShaders.ssao_shader),
+                        ref ssao_material);
                     return ssao_material;
                 case AmbientOcclusionSettings.Mode.HBAO:
-                    if (hbao_material == null) hbao_material = CreateMaterial(shader_name);
+                    YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                        resources.hbao_shader,
+                        nameof(YutrelRPRuntimeShaders.hbao_shader),
+                        ref hbao_material);
                     return hbao_material;
                 case AmbientOcclusionSettings.Mode.GTAO:
-                    if (gtao_material == null) gtao_material = CreateMaterial(shader_name);
+                    YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                        resources.gtao_shader,
+                        nameof(YutrelRPRuntimeShaders.gtao_shader),
+                        ref gtao_material);
                     return gtao_material;
                 default:
                     return null;
             }
-        }
-
-        private static Material CreateMaterial(string shader_name)
-        {
-            var shader = Shader.Find(shader_name);
-            if (shader == null)
-            {
-                WarnMissingShaderOnce(shader_name);
-                return null;
-            }
-
-            return CoreUtils.CreateEngineMaterial(shader);
-        }
-
-        private static void WarnMissingShaderOnce(string shader_name)
-        {
-            if (!warned_missing_shader_names.Add(shader_name)) return;
-
-            Debug.LogWarning($"YutrelRP screen-space AO shader '{shader_name}' was not found. Using neutral AO.");
         }
 
         private static Constants BuildConstants(AmbientOcclusionSettings settings)
@@ -236,7 +207,6 @@ namespace YutrelRP
             hbao_material = null;
             gtao_material = null;
             property_block = null;
-            warned_missing_shader_names.Clear();
         }
 
         private struct Constants
