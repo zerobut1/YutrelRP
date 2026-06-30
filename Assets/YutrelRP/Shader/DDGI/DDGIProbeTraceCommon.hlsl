@@ -9,7 +9,9 @@ struct DDGIProbeTracePayload
 {
     uint hitKind;
     float rayT;
+    float3 positionWS;
     float3 normalWS;
+    float3 shadingNormalWS;
     float3 baseColor;
 };
 
@@ -24,10 +26,18 @@ float3 DDGITraceFallbackNormalWS()
     return DDGITraceSafeNormalize(-WorldRayDirection(), float3(0.0f, 1.0f, 0.0f));
 }
 
-float3 DDGITraceRayFacingNormalWS(float3 normalWS)
+float3 DDGITraceKeepSameHemisphere(float3 normalWS, float3 referenceNormalWS)
 {
-    float3 normal = DDGITraceSafeNormalize(normalWS, DDGITraceFallbackNormalWS());
-    return dot(normal, WorldRayDirection()) > 0.0f ? -normal : normal;
+    float3 referenceNormal = DDGITraceSafeNormalize(referenceNormalWS, DDGITraceFallbackNormalWS());
+    float3 normal          = DDGITraceSafeNormalize(normalWS, referenceNormal);
+    return dot(normal, referenceNormal) >= 0.0f ? normal : referenceNormal;
+}
+
+float3 DDGITraceOrientNormal(float3 normalWS, float3 referenceNormalWS)
+{
+    float3 referenceNormal = DDGITraceSafeNormalize(referenceNormalWS, DDGITraceFallbackNormalWS());
+    float3 normal          = DDGITraceSafeNormalize(normalWS, referenceNormal);
+    return dot(normal, referenceNormal) >= 0.0f ? normal : -normal;
 }
 
 float3 DDGITraceOffsetRayOrigin(float3 positionWS, float3 normalWS, float bias)
@@ -35,12 +45,19 @@ float3 DDGITraceOffsetRayOrigin(float3 positionWS, float3 normalWS, float bias)
     return positionWS + normalWS * max(bias, 0.0f);
 }
 
-void DDGITraceCommitClosestHit(inout DDGIProbeTracePayload payload, float3 baseColor, float3 normalWS)
+void DDGITraceCommitClosestHit(
+    inout DDGIProbeTracePayload payload,
+    float3 baseColor,
+    float3 positionWS,
+    float3 normalWS,
+    float3 shadingNormalWS)
 {
-    payload.hitKind   = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? DDGI_TRACE_HIT_KIND_FRONT_FACE : DDGI_TRACE_HIT_KIND_BACK_FACE;
-    payload.rayT      = RayTCurrent();
-    payload.normalWS  = DDGITraceRayFacingNormalWS(normalWS);
-    payload.baseColor = max(baseColor, 0.0f);
+    payload.hitKind         = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE ? DDGI_TRACE_HIT_KIND_FRONT_FACE : DDGI_TRACE_HIT_KIND_BACK_FACE;
+    payload.rayT            = RayTCurrent();
+    payload.positionWS      = positionWS;
+    payload.normalWS        = DDGITraceSafeNormalize(normalWS, DDGITraceFallbackNormalWS());
+    payload.shadingNormalWS = DDGITraceKeepSameHemisphere(shadingNormalWS, payload.normalWS);
+    payload.baseColor       = max(baseColor, 0.0f);
 }
 
 #endif

@@ -56,6 +56,8 @@ namespace YutrelRP
                 probe_distance_rt = AllocTexture(next_identity.distance_width,
                     next_identity.distance_height, next_identity.slices, probe_distance_format,
                     "DDGI Probe Distance", FilterMode.Bilinear);
+                ClearTextureArray(probe_irradiance_rt, new Color(0.0f, 0.0f, 0.0f, 1.0f));
+                ClearTextureArray(probe_distance_rt, Color.black);
                 identity = next_identity;
                 has_identity = true;
             }
@@ -79,6 +81,24 @@ namespace YutrelRP
             return RTHandles.Alloc(width, height, slices: slices, dimension: TextureDimension.Tex2DArray,
                 colorFormat: format, enableRandomWrite: true, filterMode: filter_mode,
                 wrapMode: TextureWrapMode.Clamp, name: name);
+        }
+
+        private static void ClearTextureArray(RTHandle handle, Color clear_color)
+        {
+            if (handle == null || handle.rt == null)
+            {
+                return;
+            }
+
+            var cmd = CommandBufferPool.Get("Clear DDGI Persistent Atlas");
+            for (var slice = 0; slice < handle.rt.volumeDepth; slice++)
+            {
+                cmd.SetRenderTarget(handle, 0, CubemapFace.Unknown, slice);
+                cmd.ClearRenderTarget(false, true, clear_color);
+            }
+
+            Graphics.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
         }
 
         private void ReleaseTextures()

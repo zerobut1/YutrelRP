@@ -13,6 +13,7 @@ struct DefaultLitRayTracingAttributes
 
 struct DefaultLitRayTracingVertex
 {
+    float3 position_OS;
     float3 normal_OS;
     float4 tangent_OS;
     float2 uv;
@@ -21,7 +22,11 @@ struct DefaultLitRayTracingVertex
 DefaultLitRayTracingVertex FetchDefaultLitRayTracingVertex(uint vertex_index)
 {
     DefaultLitRayTracingVertex vertex;
-    vertex.normal_OS = UnityRayTracingFetchVertexAttribute3(vertex_index, kVertexAttributeNormal);
+    vertex.position_OS = UnityRayTracingFetchVertexAttribute3(vertex_index, kVertexAttributePosition);
+
+    vertex.normal_OS = UnityRayTracingHasVertexAttribute(kVertexAttributeNormal)
+                           ? UnityRayTracingFetchVertexAttribute3(vertex_index, kVertexAttributeNormal)
+                           : float3(0.0f, 1.0f, 0.0f);
 
     vertex.tangent_OS = UnityRayTracingHasVertexAttribute(kVertexAttributeTangent)
                             ? UnityRayTracingFetchVertexAttribute4(vertex_index, kVertexAttributeTangent)
@@ -46,16 +51,30 @@ DefaultLitRayTracingVertex InterpolateDefaultLitRayTracingVertex(DefaultLitRayTr
         attributes.barycentrics.y);
 
     DefaultLitRayTracingVertex vertex;
-    vertex.normal_OS  = v0.normal_OS * barycentrics.x +
-                        v1.normal_OS * barycentrics.y +
-                        v2.normal_OS * barycentrics.z;
-    vertex.tangent_OS = v0.tangent_OS * barycentrics.x +
-                        v1.tangent_OS * barycentrics.y +
-                        v2.tangent_OS * barycentrics.z;
-    vertex.uv         = v0.uv * barycentrics.x +
-                        v1.uv * barycentrics.y +
-                        v2.uv * barycentrics.z;
+    vertex.position_OS = v0.position_OS * barycentrics.x +
+                         v1.position_OS * barycentrics.y +
+                         v2.position_OS * barycentrics.z;
+    vertex.normal_OS   = v0.normal_OS * barycentrics.x +
+                         v1.normal_OS * barycentrics.y +
+                         v2.normal_OS * barycentrics.z;
+    vertex.tangent_OS  = v0.tangent_OS * barycentrics.x +
+                         v1.tangent_OS * barycentrics.y +
+                         v2.tangent_OS * barycentrics.z;
+    vertex.uv          = v0.uv * barycentrics.x +
+                         v1.uv * barycentrics.y +
+                         v2.uv * barycentrics.z;
     return vertex;
+}
+
+float3 ComputeDefaultLitRayTracingGeometricNormalWS(DefaultLitRayTracingAttributes attributes)
+{
+    uint3 triangle_indices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
+    float3 p0              = UnityRayTracingFetchVertexAttribute3(triangle_indices.x, kVertexAttributePosition);
+    float3 p1              = UnityRayTracingFetchVertexAttribute3(triangle_indices.y, kVertexAttributePosition);
+    float3 p2              = UnityRayTracingFetchVertexAttribute3(triangle_indices.z, kVertexAttributePosition);
+    float3 normal_OS       = cross(p1 - p0, p2 - p0);
+    float3 normal_WS       = mul(normal_OS, (float3x3)WorldToObject3x4());
+    return DDGITraceSafeNormalize(normal_WS, DDGITraceFallbackNormalWS());
 }
 
 DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracingAttributes attributes)
@@ -91,8 +110,12 @@ DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracin
 {
     DefaultLitSurfaceInput input = BuildDefaultLitRayTracingSurfaceInput(attributes);
     float4 base_color            = SampleStandardDefaultLitBaseColorLOD(input.uv, 0.0f);
-    float3 normal_WS             = SampleStandardDefaultLitNormalLOD(input, 0.0f);
-    DDGITraceCommitClosestHit(payload, base_color.rgb, normal_WS);
+    float3 geometric_normal_WS   = ComputeDefaultLitRayTracingGeometricNormalWS(attributes);
+    float3 visibility_normal_WS  = DDGITraceOrientNormal(input.normal_WS, geometric_normal_WS);
+    float3 shading_normal_WS     = SampleStandardDefaultLitNormalLOD(input, 0.0f);
+    shading_normal_WS            = DDGITraceKeepSameHemisphere(shading_normal_WS, visibility_normal_WS);
+    float3 position_WS           = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+    DDGITraceCommitClosestHit(payload, base_color.rgb, position_WS, visibility_normal_WS, shading_normal_WS);
 }
 
 #endif
