@@ -27,7 +27,11 @@ namespace YutrelRP
         [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIDebug.compute")]
         private ComputeShader debugShader;
 
+        [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeDebug.shader")]
+        private Shader probeDebugShader;
+
         public ComputeShader debug => debugShader;
+        public Shader probe_debug => probeDebugShader;
 
         public ComputeShader probe_trace_compute => probeTraceCompute;
         public RayTracingShader probe_trace_ray_tracing => probeTraceRayTracing;

@@ -41,6 +41,7 @@ namespace YutrelRP
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
+            DDGIProbeDebugPass.Cleanup();
             DebugViewPass.Cleanup();
             UnsupportedShadersPass.Cleanup();
 #endif
@@ -118,17 +119,24 @@ namespace YutrelRP
                         attachment_size);
 
                     //DDGI
+                    DDGIResources ddgi_resources = null;
                     if (settings.ddgiSettings != null && settings.ddgiSettings.enabled)
                     {
-                        var ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
+                        ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
                         DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources, ray_tracing_context,
                             ray_tracing_world);
+#if UNITY_EDITOR
+                        if (debug_settings.ddgi_ray_data_debug_texture)
+                        {
+                            DDGIDebugPass.Record(render_graph, ddgi_resources);
+                        }
+#endif
                         DDGIProbeBlendingPass.Record(render_graph, ddgi_resources);
-                        DDGIDebugPass.Record(render_graph, ddgi_resources);
                     }
                     else
                     {
+                        frame_data.GetOrCreate<DDGIResources>().Reset();
                         ddgi_resource_manager.Release();
                     }
 
@@ -138,6 +146,8 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
+                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, debug_settings,
+                        attachment_size);
                     GizmosPass.Record(render_graph, camera, textures.scene_color, textures.scene_depth,
                         GizmoSubset.PreImageEffects);
 #endif

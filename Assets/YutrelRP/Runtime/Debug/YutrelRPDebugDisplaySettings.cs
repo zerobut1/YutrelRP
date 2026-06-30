@@ -10,11 +10,22 @@ namespace YutrelRP
 {
     internal sealed class YutrelRPDebugSettings
     {
+        internal const float DefaultDDGIProbeDebugRadius = 0.05f;
+        internal const float DefaultDDGIProbeDebugDistanceScale = 10.0f;
+
         internal DebugViewMode debug_view_mode = DebugViewMode.Disabled;
+        internal bool ddgi_ray_data_debug_texture;
+        internal DDGIProbeDebugMode ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
+        internal float ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
+        internal float ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
 
         internal void Reset()
         {
             debug_view_mode = DebugViewMode.Disabled;
+            ddgi_ray_data_debug_texture = false;
+            ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
+            ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
+            ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
         }
 
         internal enum DebugViewMode
@@ -39,6 +50,22 @@ namespace YutrelRP
             CSMCascadeLevels = 8,
             [InspectorName("Scene & Lighting/Ambient Occlusion")]
             AmbientOcclusion = 9,
+        }
+
+        internal enum DDGIProbeDebugMode
+        {
+            [InspectorName("Disabled")]
+            Disabled = 0,
+            [InspectorName("Probe Irradiance")]
+            ProbeIrradiance = 1,
+            [InspectorName("Probe Distance")]
+            ProbeDistance = 2,
+            [InspectorName("Irradiance Atlas")]
+            IrradianceAtlas = 3,
+            [InspectorName("Distance Atlas")]
+            DistanceAtlas = 4,
+            [InspectorName("Ray Data Radiance")]
+            RayDataRadiance = 5
         }
     }
 
@@ -94,7 +121,10 @@ namespace YutrelRP
         }
 
         public bool AreAnySettingsActive => settings != null &&
-                                            settings.debug_view_mode != YutrelRPDebugSettings.DebugViewMode.Disabled;
+                                            (settings.debug_view_mode != YutrelRPDebugSettings.DebugViewMode.Disabled ||
+                                             settings.ddgi_ray_data_debug_texture ||
+                                             settings.ddgi_probe_debug_mode !=
+                                             YutrelRPDebugSettings.DDGIProbeDebugMode.Disabled);
 
         public bool IsPostProcessingAllowed => true;
 
@@ -129,6 +159,72 @@ namespace YutrelRP
                 }
 
                 settings.debug_view_mode = value;
+                RequestRepaint();
+            }
+        }
+
+        internal YutrelRPDebugSettings.DDGIProbeDebugMode DDGIProbeDebugMode
+        {
+            get => settings != null
+                ? settings.ddgi_probe_debug_mode
+                : YutrelRPDebugSettings.DDGIProbeDebugMode.Disabled;
+            set
+            {
+                if (settings == null || settings.ddgi_probe_debug_mode == value)
+                {
+                    return;
+                }
+
+                settings.ddgi_probe_debug_mode = value;
+                RequestRepaint();
+            }
+        }
+
+        internal bool DDGIRayDataDebugTexture
+        {
+            get => settings != null && settings.ddgi_ray_data_debug_texture;
+            set
+            {
+                if (settings == null || settings.ddgi_ray_data_debug_texture == value)
+                {
+                    return;
+                }
+
+                settings.ddgi_ray_data_debug_texture = value;
+                RequestRepaint();
+            }
+        }
+
+        internal float DDGIProbeDebugRadius
+        {
+            get => settings != null
+                ? settings.ddgi_probe_debug_radius
+                : YutrelRPDebugSettings.DefaultDDGIProbeDebugRadius;
+            set
+            {
+                if (settings == null)
+                {
+                    return;
+                }
+
+                settings.ddgi_probe_debug_radius = Mathf.Max(0.001f, value);
+                RequestRepaint();
+            }
+        }
+
+        internal float DDGIProbeDebugDistanceScale
+        {
+            get => settings != null
+                ? settings.ddgi_probe_debug_distance_scale
+                : YutrelRPDebugSettings.DefaultDDGIProbeDebugDistanceScale;
+            set
+            {
+                if (settings == null)
+                {
+                    return;
+                }
+
+                settings.ddgi_probe_debug_distance_scale = Mathf.Max(0.001f, value);
                 RequestRepaint();
             }
         }
@@ -195,6 +291,50 @@ namespace YutrelRP
                 }
             });
 
+            AddWidget(new DebugUI.Foldout
+            {
+                displayName = "DDGI",
+                opened = false,
+                children =
+                {
+                    new DebugUI.Value
+                    {
+                        displayName = "Current",
+                        getter = () => GetDDGIModeLabel(data.DDGIProbeDebugMode)
+                    },
+                    new DebugUI.BoolField
+                    {
+                        displayName = "Ray Data Debug Texture",
+                        tooltip = "Unpack DDGI probe ray data into a debug Texture2DArray resource.",
+                        getter = () => data.DDGIRayDataDebugTexture,
+                        setter = value => data.DDGIRayDataDebugTexture = value
+                    },
+                    CreateDDGIModeField(data),
+                    new DebugUI.FloatField
+                    {
+                        displayName = "Probe Radius",
+                        tooltip = "World-space radius used to draw DDGI probe debug spheres.",
+                        getter = () => data.DDGIProbeDebugRadius,
+                        setter = value => data.DDGIProbeDebugRadius = value,
+                        min = () => 0.001f
+                    },
+                    new DebugUI.FloatField
+                    {
+                        displayName = "Distance Scale",
+                        tooltip = "World-space distance value mapped to white in DDGI distance debug views.",
+                        getter = () => data.DDGIProbeDebugDistanceScale,
+                        setter = value => data.DDGIProbeDebugDistanceScale = value,
+                        min = () => 0.001f
+                    },
+                    new DebugUI.Button
+                    {
+                        displayName = "Disable DDGI Debug",
+                        action = () => data.DDGIProbeDebugMode =
+                            YutrelRPDebugSettings.DDGIProbeDebugMode.Disabled
+                    }
+                }
+            });
+
         }
 
         private static DebugUI.EnumField CreateAllModesField(YutrelRPDebugViewSettings data)
@@ -251,6 +391,25 @@ namespace YutrelRP
             };
         }
 
+        private static DebugUI.EnumField CreateDDGIModeField(YutrelRPDebugViewSettings data)
+        {
+            return new DebugUI.EnumField
+            {
+                nameAndTooltip = new NameAndTooltip
+                {
+                    name = "Mode",
+                    tooltip = "Select a DDGI probe debug visualization."
+                },
+                autoEnum = typeof(YutrelRPDebugSettings.DDGIProbeDebugMode),
+                getter = () => (int)data.DDGIProbeDebugMode,
+                setter = value => data.DDGIProbeDebugMode =
+                    (YutrelRPDebugSettings.DDGIProbeDebugMode)value,
+                getIndex = () => (int)data.DDGIProbeDebugMode,
+                setIndex = value => data.DDGIProbeDebugMode =
+                    (YutrelRPDebugSettings.DDGIProbeDebugMode)value
+            };
+        }
+
         private static int GetGroupValue(YutrelRPDebugSettings.DebugViewMode mode, ModeOption[] options)
         {
             if (mode == YutrelRPDebugSettings.DebugViewMode.Disabled)
@@ -288,6 +447,11 @@ namespace YutrelRP
         }
 
         private static string GetModeLabel(YutrelRPDebugSettings.DebugViewMode mode)
+        {
+            return ObjectNames.NicifyVariableName(mode.ToString());
+        }
+
+        private static string GetDDGIModeLabel(YutrelRPDebugSettings.DDGIProbeDebugMode mode)
         {
             return ObjectNames.NicifyVariableName(mode.ToString());
         }
