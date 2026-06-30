@@ -50,7 +50,7 @@ void InitPayload(out DDGIProbeTracePayload payload)
     payload.hitKind = DDGI_TRACE_HIT_KIND_MISS;
     payload.rayT = -1.0f;
     payload.normalWS = float3(0.0f, 1.0f, 0.0f);
-    payload.baseColor = DDGI_TRACE_FALLBACK_BASE_COLOR;
+    payload.baseColor = 0.0f;
 }
 
 float TraceDirectionalVisibility(float3 hitPositionWS, float3 normalWS, float3 lightDirectionWS)

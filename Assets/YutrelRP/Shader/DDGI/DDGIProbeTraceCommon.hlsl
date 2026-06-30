@@ -1,10 +1,9 @@
 #ifndef YUTREL_DDGI_PROBE_TRACE_COMMON_INCLUDED
 #define YUTREL_DDGI_PROBE_TRACE_COMMON_INCLUDED
 
-static const uint DDGI_TRACE_HIT_KIND_MISS         = 0u;
-static const uint DDGI_TRACE_HIT_KIND_FRONT_FACE   = 1u;
-static const uint DDGI_TRACE_HIT_KIND_BACK_FACE    = 2u;
-static const float3 DDGI_TRACE_FALLBACK_BASE_COLOR = float3(0.8f, 0.8f, 0.8f);
+static const uint DDGI_TRACE_HIT_KIND_MISS       = 0u;
+static const uint DDGI_TRACE_HIT_KIND_FRONT_FACE = 1u;
+static const uint DDGI_TRACE_HIT_KIND_BACK_FACE  = 2u;
 
 struct DDGIProbeTracePayload
 {

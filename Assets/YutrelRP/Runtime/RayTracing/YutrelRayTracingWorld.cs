@@ -50,7 +50,7 @@ namespace YutrelRP
             scene_dirty = true;
         }
 
-        public void SyncSceneIfNeeded(YutrelRayTracingBuildConfig config)
+        public void SyncSceneIfNeeded(uint mask)
         {
             if (!initialized || !scene_dirty)
             {
@@ -73,7 +73,7 @@ namespace YutrelRP
                     continue;
                 }
 
-                scene_accel_struct.AddMesh(mesh, renderer.localToWorldMatrix, renderer.sharedMaterials, config);
+                scene_accel_struct.AddMesh(mesh, renderer.localToWorldMatrix, renderer.sharedMaterials, mask);
             }
 
             scene_dirty = false;

@@ -21,8 +21,6 @@ namespace YutrelRP
         private static readonly int probe_ray_radiance_max_ID = Shader.PropertyToID("_DDGIProbeRayRadianceMax");
         private static readonly int probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias");
         private static RayTracingShader probe_trace_shader;
-        private static Material probe_trace_fallback_material;
-        private static Shader probe_trace_fallback_shader;
 
         internal static void Record(RenderGraph render_graph, DDGIResources resources,
             LightResources light_resources, YutrelRayTracingWorld ray_tracing_world)
@@ -68,17 +66,12 @@ namespace YutrelRP
             }
 
             probe_trace_shader ??= shader_resources.probe_trace_ray_tracing;
-            if (probe_trace_shader == null ||
-                !EnsureFallbackMaterial(shader_resources.probe_trace_fallback_shader))
+            if (probe_trace_shader == null)
             {
                 return;
             }
 
-            var build_config = new YutrelRayTracingBuildConfig(
-                probe_trace_fallback_material,
-                RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.ClosestHitOnly,
-                0xFFu);
-            ray_tracing_world.SyncSceneIfNeeded(build_config);
+            ray_tracing_world.SyncSceneIfNeeded(0xFFu);
 
             using var builder = render_graph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
             var bounds = volume.WorldBounds;
@@ -105,9 +98,6 @@ namespace YutrelRP
         internal static void Cleanup()
         {
             probe_trace_shader = null;
-            CoreUtils.Destroy(probe_trace_fallback_material);
-            probe_trace_fallback_material = null;
-            probe_trace_fallback_shader = null;
         }
 
         private RayTracingShader shader;
@@ -124,24 +114,6 @@ namespace YutrelRP
         private uint dispatch_width;
         private uint dispatch_height;
         private uint dispatch_depth;
-
-        private static bool EnsureFallbackMaterial(Shader shader)
-        {
-            if (shader == null)
-            {
-                return false;
-            }
-
-            if (probe_trace_fallback_material != null && probe_trace_fallback_shader == shader)
-            {
-                return true;
-            }
-
-            CoreUtils.Destroy(probe_trace_fallback_material);
-            probe_trace_fallback_shader = shader;
-            probe_trace_fallback_material = CoreUtils.CreateEngineMaterial(shader);
-            return probe_trace_fallback_material != null;
-        }
 
         private void Render(ComputeGraphContext context)
         {

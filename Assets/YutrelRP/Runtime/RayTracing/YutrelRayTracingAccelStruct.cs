@@ -22,8 +22,7 @@ namespace YutrelRP
             MarkBuildDirty();
         }
 
-        public void AddMesh(Mesh mesh, Matrix4x4 local_to_world, Material[] materials,
-            YutrelRayTracingBuildConfig config)
+        public void AddMesh(Mesh mesh, Matrix4x4 local_to_world, Material[] materials, uint mask)
         {
             if (mesh == null)
             {
@@ -32,9 +31,7 @@ namespace YutrelRP
 
             for (var sub_mesh_index = 0; sub_mesh_index < mesh.subMeshCount; sub_mesh_index++)
             {
-                var material = config.override_material != null
-                    ? config.override_material
-                    : GetSubMeshMaterial(materials, sub_mesh_index);
+                var material = GetSubMeshMaterial(materials, sub_mesh_index);
                 if (material == null)
                 {
                     continue;
@@ -42,8 +39,8 @@ namespace YutrelRP
 
                 var instance_config = new RayTracingMeshInstanceConfig(mesh, (uint)sub_mesh_index, material)
                 {
-                    mask = config.mask,
-                    subMeshFlags = config.sub_mesh_flags,
+                    mask = mask,
+                    subMeshFlags = GetSubMeshFlags(material),
                     enableTriangleCulling = false,
                     frontTriangleCounterClockwise = false
                 };
@@ -84,6 +81,16 @@ namespace YutrelRP
 
             var material_index = Mathf.Min(sub_mesh_index, materials.Length - 1);
             return materials[material_index];
+        }
+
+        private static RayTracingSubMeshFlags GetSubMeshFlags(Material material)
+        {
+            var alpha_clip = material != null &&
+                             material.HasProperty("_UseAlphaClip") &&
+                             material.GetFloat("_UseAlphaClip") > 0.5f;
+            return alpha_clip
+                ? RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.UniqueAnyHitCalls
+                : RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.ClosestHitOnly;
         }
     }
 }
