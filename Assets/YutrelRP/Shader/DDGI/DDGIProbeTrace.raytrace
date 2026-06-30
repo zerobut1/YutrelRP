@@ -1,0 +1,141 @@
+#pragma max_recursion_depth 1
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "DDGICommon.hlsl"
+#include "DDGIProbeTraceCommon.hlsl"
+
+#define DDGI_RAY_MASK 0xFFu
+
+struct DirectionalLightData
+{
+    float3 color;
+    float illuminance;
+    float4 direction;
+    float4 shadow_data;
+};
+
+StructuredBuffer<DirectionalLightData> _DirectionalLightData;
+RWTexture2DArray<float2> _DDGIProbeRayData;
+RaytracingAccelerationStructure _DDGIAccelerationStructure;
+
+int _DirectionalLightCount;
+float3 _DDGIProbeBoundsMin;
+float3 _DDGIProbeSpacing;
+float3 _DDGIProbeCount;
+float _DDGIProbeMaxRayDistance;
+float _DDGIProbeRayRadianceMax;
+float _DDGIProbeNormalBias;
+
+void StoreRay(uint3 coords, float3 radiance, float distance)
+{
+    float3 radiance01 = saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
+    _DDGIProbeRayData[coords] = float2(asfloat(DDGIPackRadiance01(radiance01)), distance);
+}
+
+uint3 GetProbeCoords(uint probePlaneIndex, uint probeSliceIndex)
+{
+    uint probeCountX = max((uint)_DDGIProbeCount.x, 1u);
+    uint probeX = probePlaneIndex % probeCountX;
+    uint probeZ = probePlaneIndex / probeCountX;
+    return uint3(probeX, probeSliceIndex, probeZ);
+}
+
+float3 GetProbePosition(uint3 probeCoords)
+{
+    return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
+}
+
+void InitPayload(out DDGIProbeTracePayload payload)
+{
+    payload.hitKind = DDGI_TRACE_HIT_KIND_MISS;
+    payload.rayT = -1.0f;
+    payload.normalWS = float3(0.0f, 1.0f, 0.0f);
+    payload.baseColor = DDGI_TRACE_FALLBACK_BASE_COLOR;
+}
+
+float TraceDirectionalVisibility(float3 hitPositionWS, float3 normalWS, float3 lightDirectionWS)
+{
+    RayDesc shadowRay;
+    shadowRay.Origin = DDGITraceOffsetRayOrigin(hitPositionWS, normalWS, _DDGIProbeNormalBias);
+    shadowRay.TMin = 0.001f;
+    shadowRay.Direction = lightDirectionWS;
+    shadowRay.TMax = max(_DDGIProbeMaxRayDistance, shadowRay.TMin);
+
+    DDGIProbeTracePayload shadowPayload;
+    InitPayload(shadowPayload);
+    shadowPayload.hitKind = DDGI_TRACE_HIT_KIND_FRONT_FACE;
+
+    TraceRay(_DDGIAccelerationStructure,
+             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+             DDGI_RAY_MASK,
+             0,
+             1,
+             0,
+             shadowRay,
+             shadowPayload);
+
+    return shadowPayload.hitKind == DDGI_TRACE_HIT_KIND_MISS ? 1.0f : 0.0f;
+}
+
+[shader("miss")]
+void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
+{
+    payload.hitKind = DDGI_TRACE_HIT_KIND_MISS;
+    payload.rayT = -1.0f;
+}
+
+[shader("raygeneration")]
+void RayGenDDGIProbeTrace()
+{
+    uint3 id = DispatchRaysIndex();
+    uint3 dim = DispatchRaysDimensions();
+    uint3 probeCoords = GetProbeCoords(id.y, id.z);
+    uint3 outputCoords = uint3(id.x, id.y, id.z);
+
+    RayDesc ray;
+    ray.Origin = GetProbePosition(probeCoords);
+    ray.TMin = 0.001f;
+    ray.Direction = DDGISphericalFibonacci(id.x, max(dim.x, 1u));
+    ray.TMax = _DDGIProbeMaxRayDistance;
+
+    DDGIProbeTracePayload payload;
+    InitPayload(payload);
+
+    TraceRay(_DDGIAccelerationStructure,
+             RAY_FLAG_NONE,
+             DDGI_RAY_MASK,
+             0,
+             1,
+             0,
+             ray,
+             payload);
+
+    if (payload.hitKind == DDGI_TRACE_HIT_KIND_MISS)
+    {
+        StoreRay(outputCoords, 0.0f, 1.0e27f);
+        return;
+    }
+
+    if (payload.hitKind != DDGI_TRACE_HIT_KIND_FRONT_FACE)
+    {
+        StoreRay(outputCoords, 0.0f, -payload.rayT * 0.2f);
+        return;
+    }
+
+    float3 radiance = 0.0f;
+    if (_DirectionalLightCount > 0)
+    {
+        DirectionalLightData light = _DirectionalLightData[0];
+        float3 lightDirectionWS = normalize(light.direction.xyz);
+        float noL = saturate(dot(payload.normalWS, lightDirectionWS));
+
+        if (noL > 0.0f)
+        {
+            float3 hitPositionWS = ray.Origin + ray.Direction * payload.rayT;
+            float visibility = TraceDirectionalVisibility(hitPositionWS, payload.normalWS, lightDirectionWS);
+            radiance = payload.baseColor * light.color * light.illuminance * noL * visibility * INV_PI;
+        }
+    }
+
+    StoreRay(outputCoords, radiance, payload.rayT);
+}

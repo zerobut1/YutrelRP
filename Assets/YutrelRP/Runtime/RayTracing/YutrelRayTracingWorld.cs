@@ -27,19 +27,19 @@ namespace YutrelRP
         public bool SceneDirty => scene_dirty;
         public YutrelRayTracingAccelStruct SceneAccelStruct => scene_accel_struct;
 
-        public bool EnsureInitialized(YutrelRayTracingContext context)
+        public bool EnsureInitialized()
         {
             if (initialized)
             {
                 return true;
             }
 
-            if (context == null || !context.EnsureInitialized())
+            if (!SystemInfo.supportsRayTracing)
             {
                 return false;
             }
 
-            scene_accel_struct = new YutrelRayTracingAccelStruct(context.Context);
+            scene_accel_struct = new YutrelRayTracingAccelStruct();
             initialized = true;
             MarkSceneDirty();
             return true;
@@ -50,7 +50,7 @@ namespace YutrelRP
             scene_dirty = true;
         }
 
-        public void SyncSceneIfNeeded()
+        public void SyncSceneIfNeeded(YutrelRayTracingBuildConfig config)
         {
             if (!initialized || !scene_dirty)
             {
@@ -73,8 +73,7 @@ namespace YutrelRP
                     continue;
                 }
 
-                var object_id = renderer.GetEntityId();
-                scene_accel_struct.AddMesh(object_id, mesh, renderer.localToWorldMatrix, 0xFFu);
+                scene_accel_struct.AddMesh(mesh, renderer.localToWorldMatrix, renderer.sharedMaterials, config);
             }
 
             scene_dirty = false;
