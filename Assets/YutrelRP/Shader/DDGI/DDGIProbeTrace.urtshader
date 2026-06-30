@@ -1,7 +1,7 @@
+#include "DDGICommon.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/TraceRayAndQueryHit.hlsl"
 
-#define YUTREL_PI 3.14159265358979323846f
 #define DDGI_RAY_MASK 0xFFu
 
 UNIFIED_RT_DECLARE_ACCEL_STRUCT(_DDGIAccelStruct);
@@ -38,27 +38,10 @@ float _DDGIProbeMaxRayDistance;
 float _DDGIProbeRayRadianceMax;
 float _DDGIProbeNormalBias;
 
-float3 SphericalFibonacci(uint sampleIndex, uint sampleCount)
-{
-    const float b  = 0.61803398874989484820f;
-    float phi      = 2.0f * YUTREL_PI * frac((float)sampleIndex * b);
-    float cosTheta = 1.0f - (2.0f * (float)sampleIndex + 1.0f) / (float)sampleCount;
-    float sinTheta = sqrt(saturate(1.0f - cosTheta * cosTheta));
-    return float3(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
-}
-
-uint PackRadiance(float3 radiance)
-{
-    float maxRadiance = max(_DDGIProbeRayRadianceMax, 1.0e-6f);
-    float3 value      = saturate(radiance / maxRadiance);
-    return (uint)round(value.r * 1023.0f) |
-           ((uint)round(value.g * 1023.0f) << 10) |
-           ((uint)round(value.b * 1023.0f) << 20);
-}
-
 void StoreRay(uint3 coords, float3 radiance, float distance)
 {
-    _DDGIProbeRayData[coords] = float2(asfloat(PackRadiance(radiance)), distance);
+    float3 radiance01         = saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
+    _DDGIProbeRayData[coords] = float2(asfloat(DDGIPackRadiance01(radiance01)), distance);
 }
 
 uint3 GetProbeCoords(uint probePlaneIndex, uint probeSliceIndex)
@@ -129,7 +112,7 @@ void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
     UnifiedRT::Ray ray;
     ray.origin    = GetProbePosition(probeCoords);
     ray.tMin      = 0.001f;
-    ray.direction = SphericalFibonacci(id.x, max(dim.x, 1u));
+    ray.direction = DDGISphericalFibonacci(id.x, max(dim.x, 1u));
     ray.tMax      = _DDGIProbeMaxRayDistance;
 
     UnifiedRT::Hit hit = UnifiedRT::TraceRayClosestHit(
@@ -168,7 +151,7 @@ void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
                 hitPositionWS,
                 normalWS,
                 lightDirectionWS);
-            radiance = light.color * light.illuminance * noL * visibility * (1.0f / YUTREL_PI);
+            radiance = light.color * light.illuminance * noL * visibility * INV_PI;
         }
     }
 

@@ -15,10 +15,8 @@ namespace YutrelRP
         public const float MinProbePreviewRadius = 0.01f;
         public const float MinProbeMaxRayDistance = 0.001f;
         public const float MinProbeRayRadianceMax = 0.001f;
-        public const int MinProbeIrradianceInteriorTexels = 2;
-        public const int MaxProbeIrradianceInteriorTexels = 32;
-        public const int MinProbeDistanceInteriorTexels = 2;
-        public const int MaxProbeDistanceInteriorTexels = 64;
+        public const int DefaultProbeIrradianceInteriorTexels = 6;
+        public const int DefaultProbeDistanceInteriorTexels = 14;
 
         [Header("Bounds")]
         [Tooltip("Local DDGI bounds offset. Rotation is ignored to keep the grid world axis aligned.")]
@@ -38,17 +36,14 @@ namespace YutrelRP
         [Tooltip("Maximum physical radiance used to encode probe ray radiance into ProbeRayData.")]
         [Min(MinProbeRayRadianceMax)]
         [SerializeField] private float probeRayRadianceMax = 50000.0f;
-        // Persistent atlas identity: probeCount/atlas texel sizes rebuild DDGI history atlases.
+        // Persistent atlas identity: probeCount rebuilds DDGI history atlases.
         // Frame-only: raysPerProbe changes ProbeRayData dimensions/metadata without clearing persistent atlas history.
         // Constant-only: max ray distance, bias, hysteresis, gamma/exponent/thresholds update shader constants without clearing atlas history.
 
-        [Header("Probe Atlas")]
-        [Tooltip("Interior texel count per probe in the irradiance atlas. Two border texels are added by the resource manager.")]
-        [Range(MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels)]
-        [SerializeField] private int probeIrradianceInteriorTexels = 6;
-        [Tooltip("Interior texel count per probe in the distance atlas. Two border texels are added by the resource manager.")]
-        [Range(MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels)]
-        [SerializeField] private int probeDistanceInteriorTexels = 14;
+        [HideInInspector] [SerializeField] private int probeIrradianceInteriorTexels =
+            DefaultProbeIrradianceInteriorTexels;
+        [HideInInspector] [SerializeField] private int probeDistanceInteriorTexels =
+            DefaultProbeDistanceInteriorTexels;
 
         [Header("Blending")]
         [Tooltip("History weight used when blending new probe data into persistent probe atlases.")]
@@ -117,13 +112,13 @@ namespace YutrelRP
         public int ProbeIrradianceInteriorTexels
         {
             get => probeIrradianceInteriorTexels;
-            set => probeIrradianceInteriorTexels = Mathf.Clamp(value, MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels);
+            set => probeIrradianceInteriorTexels = DefaultProbeIrradianceInteriorTexels;
         }
 
         public int ProbeDistanceInteriorTexels
         {
             get => probeDistanceInteriorTexels;
-            set => probeDistanceInteriorTexels = Mathf.Clamp(value, MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels);
+            set => probeDistanceInteriorTexels = DefaultProbeDistanceInteriorTexels;
         }
 
         public float ProbeHysteresis
@@ -265,8 +260,8 @@ namespace YutrelRP
             raysPerProbe = Mathf.Clamp(raysPerProbe, MinRaysPerProbe, MaxRaysPerProbe);
             probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
             probeRayRadianceMax = Mathf.Max(MinProbeRayRadianceMax, probeRayRadianceMax);
-            probeIrradianceInteriorTexels = Mathf.Clamp(probeIrradianceInteriorTexels, MinProbeIrradianceInteriorTexels, MaxProbeIrradianceInteriorTexels);
-            probeDistanceInteriorTexels = Mathf.Clamp(probeDistanceInteriorTexels, MinProbeDistanceInteriorTexels, MaxProbeDistanceInteriorTexels);
+            probeIrradianceInteriorTexels = DefaultProbeIrradianceInteriorTexels;
+            probeDistanceInteriorTexels = DefaultProbeDistanceInteriorTexels;
             probeHysteresis = Mathf.Clamp01(probeHysteresis);
             probeNormalBias = Mathf.Max(0.0f, probeNormalBias);
             probeViewBias = Mathf.Max(0.0f, probeViewBias);

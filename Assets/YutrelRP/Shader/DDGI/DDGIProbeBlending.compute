@@ -1,0 +1,220 @@
+#pragma kernel BlendIrradiance
+#pragma kernel BlendDistance
+
+#include "DDGICommon.hlsl"
+
+#define DDGI_IRRADIANCE_INTERIOR_TEXELS 6
+#define DDGI_IRRADIANCE_TILE_TEXELS 8
+#define DDGI_DISTANCE_INTERIOR_TEXELS 14
+#define DDGI_DISTANCE_TILE_TEXELS 16
+#define DDGI_IRRADIANCE_NUMTHREADS [numthreads(DDGI_IRRADIANCE_TILE_TEXELS, DDGI_IRRADIANCE_TILE_TEXELS, 1)]
+#define DDGI_DISTANCE_NUMTHREADS [numthreads(DDGI_DISTANCE_TILE_TEXELS, DDGI_DISTANCE_TILE_TEXELS, 1)]
+
+Texture2DArray<float2> _DDGIProbeRayData;
+RWTexture2DArray<float4> _DDGIProbeIrradiance;
+RWTexture2DArray<float2> _DDGIProbeDistance;
+
+float3 _DDGIProbeCount;
+float _DDGIRaysPerProbe;
+float3 _DDGIProbeSpacing;
+float _DDGIProbeHysteresis;
+float _DDGIIrradianceEncodingGamma;
+float _DDGIDistanceExponent;
+float _DDGIIrradianceThreshold;
+float _DDGIBrightnessThreshold;
+
+bool IsBorderTexel(uint2 local, uint tile)
+{
+    return local.x == 0u || local.y == 0u || local.x == tile - 1u || local.y == tile - 1u;
+}
+
+int GetProbeIndexInPlane(uint3 groupID)
+{
+    return (int)(groupID.x + groupID.y * (uint)_DDGIProbeCount.x);
+}
+
+float3 GetTileOctahedralDirection(uint2 local, int interiorTexels)
+{
+    int2 interiorCoords = int2(local) - int2(1, 1);
+    float2 octahedralUV = DDGIGetNormalizedOctahedralCoordinates(interiorCoords, interiorTexels);
+    return DDGIOctDecode(octahedralUV);
+}
+
+float DDGILuminance(float3 color)
+{
+    return dot(color, float3(0.2126f, 0.7152f, 0.0722f));
+}
+
+float DDGIMaxComponent(float3 value)
+{
+    return max(max(value.x, value.y), value.z);
+}
+
+uint3 GetRayDataTexelCoords(uint rayIndex, int probeIndexInPlane, uint probeY)
+{
+    return uint3(rayIndex, (uint)probeIndexInPlane, probeY);
+}
+
+float3 LoadProbeRayRadiance01(uint3 rayCoords)
+{
+    float2 rayData = _DDGIProbeRayData.Load(int4(rayCoords, 0));
+    return DDGIUnpackRadiance01(asuint(rayData.x));
+}
+
+float LoadProbeRayDistance(uint3 rayCoords)
+{
+    return _DDGIProbeRayData.Load(int4(rayCoords, 0)).y;
+}
+
+uint3 GetBorderCopyCoordinates(uint3 dispatchThreadID, uint2 local, uint tile)
+{
+    uint3 copyCoordinates = uint3(
+        (dispatchThreadID.x / tile) * tile,
+        (dispatchThreadID.y / tile) * tile,
+        dispatchThreadID.z);
+
+    bool isCornerTexel = (local.x == 0u || local.x == tile - 1u) && (local.y == 0u || local.y == tile - 1u);
+    bool isRowTexel    = local.x > 0u && local.x < tile - 1u;
+
+    if (isCornerTexel)
+    {
+        copyCoordinates.x += local.x > 0u ? 1u : tile - 2u;
+        copyCoordinates.y += local.y > 0u ? 1u : tile - 2u;
+    }
+    else if (isRowTexel)
+    {
+        copyCoordinates.x += (tile - 1u) - local.x;
+        copyCoordinates.y += local.y + (local.y > 0u ? 0xFFFFFFFFu : 1u);
+    }
+    else
+    {
+        copyCoordinates.x += local.x + (local.x > 0u ? 0xFFFFFFFFu : 1u);
+        copyCoordinates.y += (tile - 1u) - local.y;
+    }
+
+    return copyCoordinates;
+}
+
+DDGI_IRRADIANCE_NUMTHREADS
+void BlendIrradiance(
+    uint3 dispatchThreadID : SV_DispatchThreadID,
+    uint3 groupThreadID : SV_GroupThreadID,
+    uint3 groupID : SV_GroupID)
+{
+    uint2 local      = groupThreadID.xy;
+    bool isBorder    = IsBorderTexel(local, DDGI_IRRADIANCE_TILE_TEXELS);
+    uint3 atlasCoord = uint3(dispatchThreadID.xy, groupID.z);
+
+    if (!isBorder)
+    {
+        int probeIndexInPlane      = GetProbeIndexInPlane(groupID);
+        float3 octahedralDirection = GetTileOctahedralDirection(local, DDGI_IRRADIANCE_INTERIOR_TEXELS);
+
+        float3 radianceSum = 0.0f;
+        float weightSum    = 0.0f;
+        uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
+        for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
+        {
+            float3 rayDirection = DDGISphericalFibonacci(rayIndex, rayCount);
+            float weight        = max(0.0f, dot(octahedralDirection, rayDirection));
+            uint3 rayCoords     = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
+            float rayDistance   = LoadProbeRayDistance(rayCoords);
+            if (rayDistance < 0.0f)
+            {
+                continue;
+            }
+
+            radianceSum += LoadProbeRayRadiance01(rayCoords) * weight;
+            weightSum += weight;
+        }
+
+        float epsilon            = (float)rayCount * 1.0e-9f;
+        float3 irradiance        = radianceSum / (2.0f * max(weightSum, epsilon));
+        float3 encodedIrradiance = pow(max(irradiance, 0.0f), rcp(max(_DDGIIrradianceEncodingGamma, 1.0e-6f)));
+
+        float3 previous  = _DDGIProbeIrradiance[atlasCoord].rgb;
+        float hysteresis = _DDGIProbeHysteresis;
+        if (dot(previous, previous) == 0.0f)
+        {
+            hysteresis = 0.0f;
+        }
+
+        if (DDGIMaxComponent(previous - encodedIrradiance) > _DDGIIrradianceThreshold)
+        {
+            hysteresis = max(0.0f, hysteresis - 0.75f);
+        }
+
+        float3 delta = encodedIrradiance - previous;
+        if (DDGILuminance(delta) > _DDGIBrightnessThreshold)
+        {
+            delta *= 0.25f;
+        }
+
+        static const float darkeningThreshold = 1.0f / 1024.0f;
+        float3 lerpDelta                      = (1.0f - hysteresis) * delta;
+        if (DDGIMaxComponent(encodedIrradiance) < DDGIMaxComponent(previous))
+        {
+            lerpDelta = min(max(darkeningThreshold, abs(lerpDelta)), abs(delta)) * sign(lerpDelta);
+        }
+
+        _DDGIProbeIrradiance[atlasCoord] = float4(saturate(previous + lerpDelta), 1.0f);
+    }
+
+    AllMemoryBarrierWithGroupSync();
+
+    if (isBorder)
+    {
+        uint3 copyCoord                  = GetBorderCopyCoordinates(atlasCoord, local, DDGI_IRRADIANCE_TILE_TEXELS);
+        _DDGIProbeIrradiance[atlasCoord] = _DDGIProbeIrradiance[copyCoord];
+    }
+}
+
+DDGI_DISTANCE_NUMTHREADS
+void BlendDistance(
+    uint3 dispatchThreadID : SV_DispatchThreadID,
+    uint3 groupThreadID : SV_GroupThreadID,
+    uint3 groupID : SV_GroupID)
+{
+    uint2 local      = groupThreadID.xy;
+    bool isBorder    = IsBorderTexel(local, DDGI_DISTANCE_TILE_TEXELS);
+    uint3 atlasCoord = uint3(dispatchThreadID.xy, groupID.z);
+
+    if (!isBorder)
+    {
+        int probeIndexInPlane      = GetProbeIndexInPlane(groupID);
+        float3 octahedralDirection = GetTileOctahedralDirection(local, DDGI_DISTANCE_INTERIOR_TEXELS);
+        float maxRayDistance       = length(_DDGIProbeSpacing) * 1.5f;
+
+        float2 distanceSum = 0.0f;
+        float weightSum    = 0.0f;
+        uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
+        for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
+        {
+            float3 rayDirection = DDGISphericalFibonacci(rayIndex, rayCount);
+            float weight        = pow(max(0.0f, dot(octahedralDirection, rayDirection)), _DDGIDistanceExponent);
+            uint3 rayCoords     = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
+            float rayDistance   = min(abs(LoadProbeRayDistance(rayCoords)), maxRayDistance);
+            distanceSum += float2(rayDistance, rayDistance * rayDistance) * weight;
+            weightSum += weight;
+        }
+
+        float epsilon           = (float)rayCount * 1.0e-9f;
+        float2 filteredDistance = distanceSum / (2.0f * max(weightSum, epsilon));
+        float2 previous         = _DDGIProbeDistance[atlasCoord];
+        float hysteresis        = _DDGIProbeHysteresis;
+        if (dot(previous, previous) == 0.0f)
+        {
+            hysteresis = 0.0f;
+        }
+
+        _DDGIProbeDistance[atlasCoord] = lerp(filteredDistance, previous, hysteresis);
+    }
+
+    AllMemoryBarrierWithGroupSync();
+
+    if (isBorder)
+    {
+        uint3 copyCoord                = GetBorderCopyCoordinates(atlasCoord, local, DDGI_DISTANCE_TILE_TEXELS);
+        _DDGIProbeDistance[atlasCoord] = _DDGIProbeDistance[copyCoord];
+    }
+}
