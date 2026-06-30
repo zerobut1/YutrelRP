@@ -31,6 +31,7 @@ namespace YutrelRP
         public void Dispose()
         {
             ddgi_resource_manager.Dispose();
+            DDGILightingPass.Cleanup();
             DDGIProbeTracePass.Cleanup();
             ray_tracing_world.Dispose();
             DirectionalLightPass.Cleanup();
@@ -123,21 +124,22 @@ namespace YutrelRP
                         ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
                         DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources, ray_tracing_world);
+                        DDGIProbeBlendingPass.Record(render_graph, ddgi_resources);
+                        DDGILightingPass.Record(render_graph, textures, ddgi_resources);
 #if UNITY_EDITOR
                         if (debug_settings.ddgi_ray_data_debug_texture)
                         {
                             DDGIDebugPass.Record(render_graph, ddgi_resources);
                         }
 #endif
-                        DDGIProbeBlendingPass.Record(render_graph, ddgi_resources);
                     }
                     else
                     {
                         frame_data.GetOrCreate<DDGIResources>().Reset();
                         ddgi_resource_manager.Release();
-                    }
 
-                    EnvironmentLightingPass.Record(render_graph, textures, light_resources);
+                        EnvironmentLightingPass.Record(render_graph, textures, light_resources);
+                    }
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 

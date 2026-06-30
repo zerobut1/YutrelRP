@@ -186,10 +186,10 @@ MonoBehaviour:
       data:
         m_Version: 0
         probeTraceRayTracing: {fileID: 4807578003741378534, guid: 3b55ee3fb62847c08546b5962e23f9b7, type: 3}
-        probeTraceFallbackShader: {fileID: 4800000, guid: 7b030bd3b4c34d9b929aafabddbc280e, type: 3}
         probeBlending: {fileID: 7200000, guid: 09b0a2f22ed346b79396d8d4331dcad1, type: 3}
         debugShader: {fileID: 7200000, guid: 31a25721657d45fca313db699f0cc5df, type: 3}
         probeDebugShader: {fileID: 4800000, guid: 8de0f52a4d5e4af7b339d16b9c8f5216, type: 3}
+        lightingShader: {fileID: 4800000, guid: 54b76af9368d42d487ba84d86d6c169a, type: 3}
     - rid: 7702192861310877712
       type: {class: YutrelRPRuntimeShaders, ns: YutrelRP, asm: Assembly-CSharp}
       data:

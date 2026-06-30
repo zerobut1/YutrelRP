@@ -18,9 +18,6 @@ namespace YutrelRP
         [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeTrace.raytrace")]
         private RayTracingShader probeTraceRayTracing;
 
-        [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeTraceFallback.shader")]
-        private Shader probeTraceFallbackShader;
-
         [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeBlending.compute")]
         private ComputeShader probeBlending;
 
@@ -30,11 +27,14 @@ namespace YutrelRP
         [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGIProbeDebug.shader")]
         private Shader probeDebugShader;
 
+        [SerializeField, ResourcePath("YutrelRP/Shader/DDGI/DDGILightingPass.shader")]
+        private Shader lightingShader;
+
         public ComputeShader debug => debugShader;
         public Shader probe_debug => probeDebugShader;
+        public Shader lighting => lightingShader;
 
         public RayTracingShader probe_trace_ray_tracing => probeTraceRayTracing;
-        public Shader probe_trace_fallback_shader => probeTraceFallbackShader;
         public ComputeShader probe_blending => probeBlending;
     }
 }

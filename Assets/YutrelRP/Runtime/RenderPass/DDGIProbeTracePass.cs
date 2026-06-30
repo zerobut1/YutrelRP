@@ -38,20 +38,6 @@ namespace YutrelRP
             }
 
             var probe_count = volume.ProbeCount;
-            var ray_data_desc = new TextureDesc(volume.RaysPerProbe, probe_count.x * probe_count.z)
-            {
-                colorFormat = GraphicsFormat.R32G32_SFloat,
-                dimension = TextureDimension.Tex2DArray,
-                slices = probe_count.y,
-                enableRandomWrite = true,
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-                clearBuffer = true,
-                clearColor = new Color(0.0f, 1.0e27f, 0.0f, 0.0f),
-                name = "DDGI Probe Ray Data"
-            };
-            resources.probe_ray_data = render_graph.CreateTexture(ray_data_desc);
-
             var dispatch_width = (uint)volume.RaysPerProbe;
             var dispatch_height = (uint)(probe_count.x * probe_count.z);
             var dispatch_depth = (uint)probe_count.y;
@@ -72,6 +58,20 @@ namespace YutrelRP
             }
 
             ray_tracing_world.SyncSceneIfNeeded(0xFFu);
+
+            var ray_data_desc = new TextureDesc(volume.RaysPerProbe, probe_count.x * probe_count.z)
+            {
+                colorFormat = GraphicsFormat.R32G32_SFloat,
+                dimension = TextureDimension.Tex2DArray,
+                slices = probe_count.y,
+                enableRandomWrite = true,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                clearBuffer = true,
+                clearColor = new Color(0.0f, 1.0e27f, 0.0f, 0.0f),
+                name = "DDGI Probe Ray Data"
+            };
+            resources.probe_ray_data = render_graph.CreateTexture(ray_data_desc);
 
             using var builder = render_graph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
             var bounds = volume.WorldBounds;
