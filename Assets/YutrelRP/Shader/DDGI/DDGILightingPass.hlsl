@@ -6,6 +6,7 @@
 
 Texture2DArray<float4> _DDGIProbeIrradiance;
 Texture2DArray<float2> _DDGIProbeDistance;
+Texture2DArray<float4> _DDGIProbeData;
 
 float3 _DDGIProbeBoundsMin;
 float3 _DDGIProbeSpacing;

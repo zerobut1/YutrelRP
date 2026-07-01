@@ -9,6 +9,7 @@ namespace YutrelRP
     {
         public const GraphicsFormat ProbeIrradianceGraphicsFormat = GraphicsFormat.A2B10G10R10_UNormPack32;
         public const GraphicsFormat ProbeDistanceGraphicsFormat = GraphicsFormat.R16G16_SFloat;
+        public const GraphicsFormat ProbeDataGraphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
 
         public YutrelDDGIVolume active_volume;
         public bool is_valid;
@@ -16,6 +17,7 @@ namespace YutrelRP
         public TextureHandle probe_ray_data_debug;
         public TextureHandle probe_irradiance;
         public TextureHandle probe_distance;
+        public TextureHandle probe_data;
         public Vector3Int probe_count;
         public Vector4 probe_ray_rotation_row0;
         public Vector4 probe_ray_rotation_row1;
@@ -31,6 +33,7 @@ namespace YutrelRP
             probe_ray_data_debug = TextureHandle.nullHandle;
             probe_irradiance = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
+            probe_data = TextureHandle.nullHandle;
             probe_count = Vector3Int.zero;
             probe_ray_rotation_row0 = new Vector4(1.0f, 0.0f, 0.0f, 0.0f);
             probe_ray_rotation_row1 = new Vector4(0.0f, 1.0f, 0.0f, 0.0f);

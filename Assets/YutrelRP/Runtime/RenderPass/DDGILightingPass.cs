@@ -9,6 +9,7 @@ namespace YutrelRP
         private static readonly ProfilingSampler sampler = new("DDGI Lighting Pass");
         private static readonly int probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance");
         private static readonly int probe_distance_ID = Shader.PropertyToID("_DDGIProbeDistance");
+        private static readonly int probe_data_ID = Shader.PropertyToID("_DDGIProbeData");
         private static readonly int probe_bounds_min_ID = Shader.PropertyToID("_DDGIProbeBoundsMin");
         private static readonly int probe_spacing_ID = Shader.PropertyToID("_DDGIProbeSpacing");
         private static readonly int probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
@@ -17,6 +18,7 @@ namespace YutrelRP
         private static readonly int probe_ray_radiance_max_ID = Shader.PropertyToID("_DDGIProbeRayRadianceMax");
         private static readonly int irradiance_encoding_gamma_ID =
             Shader.PropertyToID("_DDGIIrradianceEncodingGamma");
+        private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
 
         private static Material material;
         private static MaterialPropertyBlock property_block;
@@ -57,6 +59,7 @@ namespace YutrelRP
             pass.scene_depth = textures.scene_depth;
             pass.probe_irradiance = resources.probe_irradiance;
             pass.probe_distance = resources.probe_distance;
+            pass.probe_data = resources.probe_data;
             pass.probe_bounds_min = bounds.min;
             pass.probe_spacing = probe_spacing;
             pass.probe_count = probe_count;
@@ -64,6 +67,7 @@ namespace YutrelRP
             pass.probe_view_bias = volume.ProbeViewBias;
             pass.probe_ray_radiance_max = volume.ProbeRayRadianceMax;
             pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
+            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
 
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);
@@ -71,6 +75,7 @@ namespace YutrelRP
             builder.UseTexture(pass.scene_depth);
             builder.UseTexture(pass.probe_irradiance);
             builder.UseTexture(pass.probe_distance);
+            builder.UseTexture(pass.probe_data);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             builder.SetRenderFunc<DDGILightingPass>(static (pass, context) => pass.Render(context));
         }
@@ -93,6 +98,7 @@ namespace YutrelRP
         private TextureHandle scene_depth;
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
+        private TextureHandle probe_data;
         private Vector3 probe_bounds_min;
         private Vector3 probe_spacing;
         private Vector3Int probe_count;
@@ -100,6 +106,7 @@ namespace YutrelRP
         private float probe_view_bias;
         private float probe_ray_radiance_max;
         private float irradiance_encoding_gamma;
+        private int probe_relocation_enabled;
 
         private void Render(RasterGraphContext context)
         {
@@ -110,6 +117,7 @@ namespace YutrelRP
             property_block.SetTexture(scene_depth_ID, scene_depth);
             property_block.SetTexture(probe_irradiance_ID, probe_irradiance);
             property_block.SetTexture(probe_distance_ID, probe_distance);
+            property_block.SetTexture(probe_data_ID, probe_data);
             property_block.SetVector(probe_bounds_min_ID, probe_bounds_min);
             property_block.SetVector(probe_spacing_ID, probe_spacing);
             property_block.SetVector(probe_count_ID,
@@ -118,6 +126,7 @@ namespace YutrelRP
             property_block.SetFloat(probe_view_bias_ID, probe_view_bias);
             property_block.SetFloat(probe_ray_radiance_max_ID, probe_ray_radiance_max);
             property_block.SetFloat(irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
+            property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
 
             CoreUtils.DrawFullScreen(context.cmd, material, property_block);
         }

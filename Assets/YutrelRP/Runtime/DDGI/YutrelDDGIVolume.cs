@@ -71,6 +71,10 @@ namespace YutrelRP
         [Range(0.0f, 1.0f)]
         [SerializeField] private float probeRandomRayBackfaceThreshold = 0.1f;
 
+        [Header("Relocation")]
+        [Tooltip("Enable fixed probe rays and probe relocation data. The relocation compute pass is added separately.")]
+        [SerializeField] private bool probeRelocationEnabled;
+
         [Header("Editor")]
         [Tooltip("Scene View probe sphere radius in local units.")]
         [Min(MinProbePreviewRadius)]
@@ -170,6 +174,12 @@ namespace YutrelRP
         {
             get => probeRandomRayBackfaceThreshold;
             set => probeRandomRayBackfaceThreshold = Mathf.Clamp01(value);
+        }
+
+        public bool ProbeRelocationEnabled
+        {
+            get => probeRelocationEnabled;
+            set => probeRelocationEnabled = value;
         }
 
         public float ProbePreviewRadius

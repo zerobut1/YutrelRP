@@ -17,6 +17,7 @@ groupshared float g_DDGISharedRayDistance[DDGI_BLEND_MAX_RAYS_PER_PROBE];
 groupshared float3 g_DDGISharedRayDirection[DDGI_BLEND_MAX_RAYS_PER_PROBE];
 
 Texture2DArray<float2> _DDGIProbeRayData;
+Texture2DArray<float4> _DDGIProbeData;
 RWTexture2DArray<float4> _DDGIProbeIrradiance;
 RWTexture2DArray<float2> _DDGIProbeDistance;
 
@@ -118,6 +119,10 @@ void BlendIrradiance(
     uint3 atlasCoord      = uint3(dispatchThreadID.xy, groupID.z);
     int probeIndexInPlane = GetProbeIndexInPlane(groupID);
     uint rayCount         = min((uint)max(_DDGIRaysPerProbe, 1.0f), (uint)DDGI_BLEND_MAX_RAYS_PER_PROBE);
+    uint firstBlendRay    = (_DDGIProbeRelocationEnabled != 0 && rayCount > DDGI_FIXED_RAY_COUNT)
+                                ? DDGI_FIXED_RAY_COUNT
+                                : 0u;
+    uint blendRayCount    = max(rayCount - firstBlendRay, 1u);
 
     LoadSharedRayData(
         groupIndex,
@@ -133,9 +138,9 @@ void BlendIrradiance(
         float3 radianceSum    = 0.0f;
         float weightSum       = 0.0f;
         uint backfaces        = 0u;
-        uint maxBackfaces     = (uint)((float)rayCount * saturate(_DDGIProbeRandomRayBackfaceThreshold));
+        uint maxBackfaces     = (uint)((float)blendRayCount * saturate(_DDGIProbeRandomRayBackfaceThreshold));
         bool updateIrradiance = true;
-        for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
+        for (uint rayIndex = firstBlendRay; rayIndex < rayCount; rayIndex++)
         {
             float3 rayDirection = g_DDGISharedRayDirection[rayIndex];
             float weight        = max(0.0f, dot(octahedralDirection, rayDirection));
@@ -158,7 +163,7 @@ void BlendIrradiance(
 
         if (updateIrradiance)
         {
-            float epsilon            = (float)rayCount * 1.0e-9f;
+            float epsilon            = (float)blendRayCount * 1.0e-9f;
             float3 irradiance        = radianceSum / (2.0f * max(weightSum, epsilon));
             float3 encodedIrradiance = pow(max(irradiance, 0.0f), rcp(max(_DDGIIrradianceEncodingGamma, 1.0e-6f)));
 
@@ -212,6 +217,10 @@ void BlendDistance(
     uint3 atlasCoord      = uint3(dispatchThreadID.xy, groupID.z);
     int probeIndexInPlane = GetProbeIndexInPlane(groupID);
     uint rayCount         = min((uint)max(_DDGIRaysPerProbe, 1.0f), (uint)DDGI_BLEND_MAX_RAYS_PER_PROBE);
+    uint firstBlendRay    = (_DDGIProbeRelocationEnabled != 0 && rayCount > DDGI_FIXED_RAY_COUNT)
+                                ? DDGI_FIXED_RAY_COUNT
+                                : 0u;
+    uint blendRayCount    = max(rayCount - firstBlendRay, 1u);
 
     LoadSharedRayData(
         groupIndex,
@@ -227,7 +236,7 @@ void BlendDistance(
 
         float2 distanceSum = 0.0f;
         float weightSum    = 0.0f;
-        for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
+        for (uint rayIndex = firstBlendRay; rayIndex < rayCount; rayIndex++)
         {
             float3 rayDirection = g_DDGISharedRayDirection[rayIndex];
             float weight        = pow(max(0.0f, dot(octahedralDirection, rayDirection)), _DDGIDistanceExponent);
@@ -236,7 +245,7 @@ void BlendDistance(
             weightSum += weight;
         }
 
-        float epsilon           = (float)rayCount * 1.0e-9f;
+        float epsilon           = (float)blendRayCount * 1.0e-9f;
         float2 filteredDistance = distanceSum / (2.0f * max(weightSum, epsilon));
         float2 previous         = _DDGIProbeDistance[atlasCoord];
         float hysteresis        = _DDGIProbeHysteresis;

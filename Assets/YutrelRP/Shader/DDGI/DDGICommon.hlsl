@@ -6,6 +6,9 @@
 float4 _DDGIProbeRayRotationRow0;
 float4 _DDGIProbeRayRotationRow1;
 float4 _DDGIProbeRayRotationRow2;
+int _DDGIProbeRelocationEnabled;
+
+#define DDGI_FIXED_RAY_COUNT 32u
 
 float3 DDGISphericalFibonacci(uint sampleIndex, uint sampleCount)
 {
@@ -24,9 +27,29 @@ float3 DDGIRotateProbeRayDirection(float3 direction)
         dot(direction, float3(_DDGIProbeRayRotationRow0.z, _DDGIProbeRayRotationRow1.z, _DDGIProbeRayRotationRow2.z))));
 }
 
+bool DDGIIsFixedRay(uint rayIndex, uint rayCount)
+{
+    return _DDGIProbeRelocationEnabled != 0 &&
+           rayCount > DDGI_FIXED_RAY_COUNT &&
+           rayIndex < DDGI_FIXED_RAY_COUNT;
+}
+
 float3 DDGIGetProbeRayDirection(uint rayIndex, uint rayCount)
 {
-    return DDGIRotateProbeRayDirection(DDGISphericalFibonacci(rayIndex, rayCount));
+    if (DDGIIsFixedRay(rayIndex, rayCount))
+    {
+        return normalize(DDGISphericalFibonacci(rayIndex, DDGI_FIXED_RAY_COUNT));
+    }
+
+    uint randomIndex = rayIndex;
+    uint randomCount = rayCount;
+    if (_DDGIProbeRelocationEnabled != 0 && rayCount > DDGI_FIXED_RAY_COUNT)
+    {
+        randomIndex = rayIndex - DDGI_FIXED_RAY_COUNT;
+        randomCount = rayCount - DDGI_FIXED_RAY_COUNT;
+    }
+
+    return DDGIRotateProbeRayDirection(DDGISphericalFibonacci(randomIndex, randomCount));
 }
 
 uint DDGIPackRadiance01(float3 value)

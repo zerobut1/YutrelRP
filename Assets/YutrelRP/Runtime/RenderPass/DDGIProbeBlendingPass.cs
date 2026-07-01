@@ -15,6 +15,7 @@ namespace YutrelRP
         private static readonly int probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData");
         private static readonly int probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance");
         private static readonly int probe_distance_ID = Shader.PropertyToID("_DDGIProbeDistance");
+        private static readonly int probe_data_ID = Shader.PropertyToID("_DDGIProbeData");
         private static readonly int probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int rays_per_probe_ID = Shader.PropertyToID("_DDGIRaysPerProbe");
         private static readonly int probe_spacing_ID = Shader.PropertyToID("_DDGIProbeSpacing");
@@ -26,6 +27,7 @@ namespace YutrelRP
         private static readonly int brightness_threshold_ID = Shader.PropertyToID("_DDGIBrightnessThreshold");
         private static readonly int probe_random_ray_backface_threshold_ID =
             Shader.PropertyToID("_DDGIProbeRandomRayBackfaceThreshold");
+        private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
         private static readonly int probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0");
         private static readonly int probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1");
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
@@ -65,6 +67,7 @@ namespace YutrelRP
             pass.probe_ray_data = resources.probe_ray_data;
             pass.probe_irradiance = resources.probe_irradiance;
             pass.probe_distance = resources.probe_distance;
+            pass.probe_data = resources.probe_data;
             pass.probe_count = volume.ProbeCount;
             pass.probe_ray_rotation_row0 = resources.probe_ray_rotation_row0;
             pass.probe_ray_rotation_row1 = resources.probe_ray_rotation_row1;
@@ -77,8 +80,10 @@ namespace YutrelRP
             pass.irradiance_threshold = volume.IrradianceThreshold;
             pass.brightness_threshold = volume.BrightnessThreshold;
             pass.probe_random_ray_backface_threshold = volume.ProbeRandomRayBackfaceThreshold;
+            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
 
             builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);
+            builder.UseTexture(pass.probe_data, AccessFlags.Read);
 
             if (mode == KernelMode.BlendIrradiance)
             {
@@ -100,6 +105,7 @@ namespace YutrelRP
         private TextureHandle probe_ray_data;
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
+        private TextureHandle probe_data;
         private Vector3Int probe_count;
         private Vector4 probe_ray_rotation_row0;
         private Vector4 probe_ray_rotation_row1;
@@ -112,6 +118,7 @@ namespace YutrelRP
         private float irradiance_threshold;
         private float brightness_threshold;
         private float probe_random_ray_backface_threshold;
+        private int probe_relocation_enabled;
 
         private void Render(ComputeGraphContext context)
         {
@@ -143,6 +150,7 @@ namespace YutrelRP
             cmd.SetComputeVectorParam(shader, probe_ray_rotation_row0_ID, probe_ray_rotation_row0);
             cmd.SetComputeVectorParam(shader, probe_ray_rotation_row1_ID, probe_ray_rotation_row1);
             cmd.SetComputeVectorParam(shader, probe_ray_rotation_row2_ID, probe_ray_rotation_row2);
+            cmd.SetComputeTextureParam(shader, kernel, probe_data_ID, probe_data);
             cmd.SetComputeFloatParam(shader, probe_hysteresis_ID, probe_hysteresis);
             cmd.SetComputeFloatParam(shader, irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
             cmd.SetComputeFloatParam(shader, distance_exponent_ID, distance_exponent);
@@ -150,6 +158,7 @@ namespace YutrelRP
             cmd.SetComputeFloatParam(shader, brightness_threshold_ID, brightness_threshold);
             cmd.SetComputeFloatParam(shader, probe_random_ray_backface_threshold_ID,
                 probe_random_ray_backface_threshold);
+            cmd.SetComputeIntParam(shader, probe_relocation_enabled_ID, probe_relocation_enabled);
         }
 
         private void Dispatch(ComputeCommandBuffer cmd)
