@@ -2,6 +2,7 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "DDGICommon.hlsl"
+#include "DDGIProbeRayData.hlsl"
 #include "DDGIProbeTraceCommon.hlsl"
 
 #define DDGI_RAY_MASK 0xFFu
@@ -30,10 +31,10 @@ float _DDGIProbeRayRadianceMax;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
 float _DDGIIrradianceEncodingGamma;
-void StoreRay(uint3 coords, float3 radiance, float distance)
+
+float3 EncodeRayRadiance01(float3 radiance)
 {
-    float3 radiance01 = saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
-    _DDGIProbeRayData[coords] = float2(asfloat(DDGIPackRadiance01(radiance01)), distance);
+    return saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
 }
 
 uint3 GetProbeCoords(uint probePlaneIndex, uint probeSliceIndex)
@@ -258,13 +259,13 @@ void RayGenDDGIProbeTrace()
 
     if (payload.hitKind == DDGI_TRACE_HIT_KIND_MISS)
     {
-        StoreRay(outputCoords, 0.0f, 1.0e27f);
+        _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayMiss(float3(0.0f, 0.0f, 0.0f));
         return;
     }
 
     if (payload.hitKind != DDGI_TRACE_HIT_KIND_FRONT_FACE)
     {
-        StoreRay(outputCoords, 0.0f, -payload.rayT * 0.2f);
+        _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayBackface(payload.rayT);
         return;
     }
 
@@ -293,5 +294,5 @@ void RayGenDDGIProbeTrace()
 
     float3 bounceAlbedo = min(payload.baseColor, float3(0.9f, 0.9f, 0.9f));
     float3 radiance = directRadiance + bounceAlbedo * INV_PI * indirectIrradiance;
-    StoreRay(outputCoords, radiance, payload.rayT);
+    _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayFrontface(EncodeRayRadiance01(radiance), payload.rayT);
 }

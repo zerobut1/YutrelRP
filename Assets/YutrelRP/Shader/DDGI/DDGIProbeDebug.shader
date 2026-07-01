@@ -5,6 +5,7 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		HLSLINCLUDE
 		#include "../Utils/Common.hlsl"
 		#include "DDGICommon.hlsl"
+		#include "DDGIProbeRayData.hlsl"
 
 		Texture2DArray<float4> _DDGIProbeIrradiance;
 		Texture2DArray<float2> _DDGIProbeDistance;
@@ -68,11 +69,6 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		float DDGIProbeDebugDecodeDistance(float2 value)
 		{
 			return 2.0f * value.r;
-		}
-
-		float3 DDGIProbeDebugUnpackRadiance01(uint packedRadiance)
-		{
-			return DDGIUnpackRadiance01(packedRadiance);
 		}
 
 		float4 DDGIProbeDebugOutput(float3 color, float alpha)
@@ -193,9 +189,8 @@ Shader "YutrelRP/DDGI/Probe Debug"
 					return float4(0.0f, 0.0f, 0.0f, 0.0f);
 				}
 
-				float2 rayData = _DDGIProbeRayData.Load(int4(coords, 0));
-				float3 color   = DDGIProbeDebugUnpackRadiance01(asuint(rayData.x));
-				return DDGIProbeDebugOutput(color, 1.0f);
+				DDGIProbeRayData rayData = DDGIDecodeProbeRayData(_DDGIProbeRayData.Load(int4(coords, 0)));
+				return DDGIProbeDebugOutput(rayData.radiance01, 1.0f);
 			}
 
 			return float4(0.0f, 0.0f, 0.0f, 0.0f);

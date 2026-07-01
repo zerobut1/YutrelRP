@@ -2,6 +2,7 @@
 #pragma kernel BlendDistance
 
 #include "DDGICommon.hlsl"
+#include "DDGIProbeRayData.hlsl"
 
 #define DDGI_IRRADIANCE_INTERIOR_TEXELS 6
 #define DDGI_IRRADIANCE_TILE_TEXELS 8
@@ -55,17 +56,6 @@ uint3 GetRayDataTexelCoords(uint rayIndex, int probeIndexInPlane, uint probeY)
     return uint3(rayIndex, (uint)probeIndexInPlane, probeY);
 }
 
-float3 LoadProbeRayRadiance01(uint3 rayCoords)
-{
-    float2 rayData = _DDGIProbeRayData.Load(int4(rayCoords, 0));
-    return DDGIUnpackRadiance01(asuint(rayData.x));
-}
-
-float LoadProbeRayDistance(uint3 rayCoords)
-{
-    return _DDGIProbeRayData.Load(int4(rayCoords, 0)).y;
-}
-
 uint3 GetBorderCopyCoordinates(uint3 dispatchThreadID, uint2 local, uint tile)
 {
     uint3 copyCoordinates = uint3(
@@ -115,16 +105,16 @@ void BlendIrradiance(
         uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
         for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
         {
-            float3 rayDirection = DDGIGetProbeRayDirection(rayIndex, rayCount);
-            float weight        = max(0.0f, dot(octahedralDirection, rayDirection));
-            uint3 rayCoords     = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
-            float rayDistance   = LoadProbeRayDistance(rayCoords);
-            if (rayDistance < 0.0f)
+            float3 rayDirection      = DDGIGetProbeRayDirection(rayIndex, rayCount);
+            float weight             = max(0.0f, dot(octahedralDirection, rayDirection));
+            uint3 rayCoords          = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
+            DDGIProbeRayData rayData = DDGIDecodeProbeRayData(_DDGIProbeRayData.Load(int4(rayCoords, 0)));
+            if (DDGIProbeRayIsBackface(rayData))
             {
                 continue;
             }
 
-            radianceSum += LoadProbeRayRadiance01(rayCoords) * weight;
+            radianceSum += rayData.radiance01 * weight;
             weightSum += weight;
         }
 
@@ -190,10 +180,11 @@ void BlendDistance(
         uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
         for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
         {
-            float3 rayDirection = DDGIGetProbeRayDirection(rayIndex, rayCount);
-            float weight        = pow(max(0.0f, dot(octahedralDirection, rayDirection)), _DDGIDistanceExponent);
-            uint3 rayCoords     = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
-            float rayDistance   = min(abs(LoadProbeRayDistance(rayCoords)), maxRayDistance);
+            float3 rayDirection      = DDGIGetProbeRayDirection(rayIndex, rayCount);
+            float weight             = pow(max(0.0f, dot(octahedralDirection, rayDirection)), _DDGIDistanceExponent);
+            uint3 rayCoords          = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
+            DDGIProbeRayData rayData = DDGIDecodeProbeRayData(_DDGIProbeRayData.Load(int4(rayCoords, 0)));
+            float rayDistance        = min(abs(rayData.signedDistance), maxRayDistance);
             distanceSum += float2(rayDistance, rayDistance * rayDistance) * weight;
             weightSum += weight;
         }
