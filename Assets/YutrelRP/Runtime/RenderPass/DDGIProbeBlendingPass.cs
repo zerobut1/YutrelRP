@@ -24,6 +24,8 @@ namespace YutrelRP
         private static readonly int distance_exponent_ID = Shader.PropertyToID("_DDGIDistanceExponent");
         private static readonly int irradiance_threshold_ID = Shader.PropertyToID("_DDGIIrradianceThreshold");
         private static readonly int brightness_threshold_ID = Shader.PropertyToID("_DDGIBrightnessThreshold");
+        private static readonly int probe_random_ray_backface_threshold_ID =
+            Shader.PropertyToID("_DDGIProbeRandomRayBackfaceThreshold");
         private static readonly int probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0");
         private static readonly int probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1");
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
@@ -74,6 +76,7 @@ namespace YutrelRP
             pass.distance_exponent = volume.DistanceExponent;
             pass.irradiance_threshold = volume.IrradianceThreshold;
             pass.brightness_threshold = volume.BrightnessThreshold;
+            pass.probe_random_ray_backface_threshold = volume.ProbeRandomRayBackfaceThreshold;
 
             builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);
 
@@ -108,6 +111,7 @@ namespace YutrelRP
         private float distance_exponent;
         private float irradiance_threshold;
         private float brightness_threshold;
+        private float probe_random_ray_backface_threshold;
 
         private void Render(ComputeGraphContext context)
         {
@@ -144,6 +148,8 @@ namespace YutrelRP
             cmd.SetComputeFloatParam(shader, distance_exponent_ID, distance_exponent);
             cmd.SetComputeFloatParam(shader, irradiance_threshold_ID, irradiance_threshold);
             cmd.SetComputeFloatParam(shader, brightness_threshold_ID, brightness_threshold);
+            cmd.SetComputeFloatParam(shader, probe_random_ray_backface_threshold_ID,
+                probe_random_ray_backface_threshold);
         }
 
         private void Dispatch(ComputeCommandBuffer cmd)

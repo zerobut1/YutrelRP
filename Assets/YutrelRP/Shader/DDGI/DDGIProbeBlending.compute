@@ -23,6 +23,7 @@ float _DDGIIrradianceEncodingGamma;
 float _DDGIDistanceExponent;
 float _DDGIIrradianceThreshold;
 float _DDGIBrightnessThreshold;
+float _DDGIProbeRandomRayBackfaceThreshold;
 
 bool IsBorderTexel(uint2 local, uint tile)
 {
@@ -100,9 +101,12 @@ void BlendIrradiance(
         int probeIndexInPlane      = GetProbeIndexInPlane(groupID);
         float3 octahedralDirection = GetTileOctahedralDirection(local, DDGI_IRRADIANCE_INTERIOR_TEXELS);
 
-        float3 radianceSum = 0.0f;
-        float weightSum    = 0.0f;
-        uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
+        float3 radianceSum    = 0.0f;
+        float weightSum       = 0.0f;
+        uint rayCount         = (uint)max(_DDGIRaysPerProbe, 1.0f);
+        uint backfaces        = 0u;
+        uint maxBackfaces     = (uint)((float)rayCount * saturate(_DDGIProbeRandomRayBackfaceThreshold));
+        bool updateIrradiance = true;
         for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
         {
             float3 rayDirection      = DDGIGetProbeRayDirection(rayIndex, rayCount);
@@ -111,6 +115,13 @@ void BlendIrradiance(
             DDGIProbeRayData rayData = DDGIDecodeProbeRayData(_DDGIProbeRayData.Load(int4(rayCoords, 0)));
             if (DDGIProbeRayIsBackface(rayData))
             {
+                backfaces++;
+                if (backfaces >= maxBackfaces)
+                {
+                    updateIrradiance = false;
+                    break;
+                }
+
                 continue;
             }
 
@@ -118,36 +129,39 @@ void BlendIrradiance(
             weightSum += weight;
         }
 
-        float epsilon            = (float)rayCount * 1.0e-9f;
-        float3 irradiance        = radianceSum / (2.0f * max(weightSum, epsilon));
-        float3 encodedIrradiance = pow(max(irradiance, 0.0f), rcp(max(_DDGIIrradianceEncodingGamma, 1.0e-6f)));
-
-        float3 previous  = _DDGIProbeIrradiance[atlasCoord].rgb;
-        float hysteresis = _DDGIProbeHysteresis;
-        if (dot(previous, previous) == 0.0f)
+        if (updateIrradiance)
         {
-            hysteresis = 0.0f;
-        }
+            float epsilon            = (float)rayCount * 1.0e-9f;
+            float3 irradiance        = radianceSum / (2.0f * max(weightSum, epsilon));
+            float3 encodedIrradiance = pow(max(irradiance, 0.0f), rcp(max(_DDGIIrradianceEncodingGamma, 1.0e-6f)));
 
-        if (DDGIMaxComponent(previous - encodedIrradiance) > _DDGIIrradianceThreshold)
-        {
-            hysteresis = max(0.0f, hysteresis - 0.75f);
-        }
+            float3 previous  = _DDGIProbeIrradiance[atlasCoord].rgb;
+            float hysteresis = _DDGIProbeHysteresis;
+            if (dot(previous, previous) == 0.0f)
+            {
+                hysteresis = 0.0f;
+            }
 
-        float3 delta = encodedIrradiance - previous;
-        if (DDGILuminance(delta) > _DDGIBrightnessThreshold)
-        {
-            delta *= 0.25f;
-        }
+            if (DDGIMaxComponent(previous - encodedIrradiance) > _DDGIIrradianceThreshold)
+            {
+                hysteresis = max(0.0f, hysteresis - 0.75f);
+            }
 
-        static const float darkeningThreshold = 1.0f / 1024.0f;
-        float3 lerpDelta                      = (1.0f - hysteresis) * delta;
-        if (DDGIMaxComponent(encodedIrradiance) < DDGIMaxComponent(previous))
-        {
-            lerpDelta = min(max(darkeningThreshold, abs(lerpDelta)), abs(delta)) * sign(lerpDelta);
-        }
+            float3 delta = encodedIrradiance - previous;
+            if (DDGILuminance(delta) > _DDGIBrightnessThreshold)
+            {
+                delta *= 0.25f;
+            }
 
-        _DDGIProbeIrradiance[atlasCoord] = float4(saturate(previous + lerpDelta), 1.0f);
+            static const float darkeningThreshold = 1.0f / 1024.0f;
+            float3 lerpDelta                      = (1.0f - hysteresis) * delta;
+            if (DDGIMaxComponent(encodedIrradiance) < DDGIMaxComponent(previous))
+            {
+                lerpDelta = min(max(darkeningThreshold, abs(lerpDelta)), abs(delta)) * sign(lerpDelta);
+            }
+
+            _DDGIProbeIrradiance[atlasCoord] = float4(saturate(previous + lerpDelta), 1.0f);
+        }
     }
 
     AllMemoryBarrierWithGroupSync();

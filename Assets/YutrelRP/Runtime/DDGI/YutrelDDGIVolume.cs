@@ -67,6 +67,9 @@ namespace YutrelRP
         [Tooltip("Brightness delta threshold that clamps large per-update irradiance changes.")]
         [Min(0.0f)]
         [SerializeField] private float brightnessThreshold = 2.0f;
+        [Tooltip("Backface ray ratio that stops irradiance blending for a probe texel.")]
+        [Range(0.0f, 1.0f)]
+        [SerializeField] private float probeRandomRayBackfaceThreshold = 0.1f;
 
         [Header("Editor")]
         [Tooltip("Scene View probe sphere radius in local units.")]
@@ -161,6 +164,12 @@ namespace YutrelRP
         {
             get => brightnessThreshold;
             set => brightnessThreshold = Mathf.Max(0.0f, value);
+        }
+
+        public float ProbeRandomRayBackfaceThreshold
+        {
+            get => probeRandomRayBackfaceThreshold;
+            set => probeRandomRayBackfaceThreshold = Mathf.Clamp01(value);
         }
 
         public float ProbePreviewRadius
@@ -269,6 +278,7 @@ namespace YutrelRP
             distanceExponent = Mathf.Max(0.01f, distanceExponent);
             irradianceThreshold = Mathf.Max(0.0f, irradianceThreshold);
             brightnessThreshold = Mathf.Max(0.0f, brightnessThreshold);
+            probeRandomRayBackfaceThreshold = Mathf.Clamp01(probeRandomRayBackfaceThreshold);
             probePreviewRadius = Mathf.Max(MinProbePreviewRadius, probePreviewRadius);
             EnforceAxisAlignedRotation();
         }
