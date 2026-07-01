@@ -6,9 +6,85 @@
 float4 _DDGIProbeRayRotationRow0;
 float4 _DDGIProbeRayRotationRow1;
 float4 _DDGIProbeRayRotationRow2;
+float3 _DDGIProbeBoundsMin;
+float3 _DDGIProbeSpacing;
+float3 _DDGIProbeCount;
 int _DDGIProbeRelocationEnabled;
 
 #define DDGI_FIXED_RAY_COUNT 32u
+
+static const float DDGI_PROBE_RAY_MISS_DISTANCE  = 1.0e27f;
+static const float DDGI_PROBE_RAY_BACKFACE_SCALE = 0.2f;
+
+struct DDGIProbeRayData
+{
+    float3 radiance01;
+    float signedDistance;
+};
+
+int3 DDGIProbeCount()
+{
+    return (int3)_DDGIProbeCount;
+}
+
+int DDGIProbeIndex(int3 coords)
+{
+    int3 count = DDGIProbeCount();
+    return coords.x + coords.z * count.x + coords.y * count.x * count.z;
+}
+
+int DDGIProbePlaneIndex(int3 coords)
+{
+    int3 count = DDGIProbeCount();
+    return coords.x + coords.z * count.x;
+}
+
+int3 DDGIProbeCoords(int index)
+{
+    int3 count = DDGIProbeCount();
+    return int3(
+        index % count.x,
+        index / (count.x * count.z),
+        (index / count.x) % count.z);
+}
+
+int3 DDGIProbeCoordsFromPlaneIndex(int planeIndex, int probeY)
+{
+    int3 count = DDGIProbeCount();
+    return int3(planeIndex % count.x, probeY, planeIndex / count.x);
+}
+
+int3 DDGIProbeDataCoords(int3 coords)
+{
+    return int3(coords.x, coords.z, coords.y);
+}
+
+float3 DDGIProbeBaseWorldPosition(int3 coords)
+{
+    return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)coords;
+}
+
+float3 DDGIProbeWorldPosition(Texture2DArray<float4> probeData, int3 coords)
+{
+    float3 position = DDGIProbeBaseWorldPosition(coords);
+    if (_DDGIProbeRelocationEnabled != 0)
+    {
+        position += probeData.Load(int4(DDGIProbeDataCoords(coords), 0)).xyz * _DDGIProbeSpacing;
+    }
+
+    return position;
+}
+
+float3 DDGIProbeAtlasUV(int probeIndex, float2 octantCoordinates, int interiorTexels)
+{
+    int3 probeCount  = DDGIProbeCount();
+    int3 probeCoords = DDGIProbeCoords(probeIndex);
+    float tile       = (float)interiorTexels + 2.0f;
+    float2 atlasSize = float2(probeCount.x, probeCount.z) * tile;
+    float2 uv        = float2(probeCoords.x, probeCoords.z) * tile + tile * 0.5f;
+    uv += octantCoordinates * ((float)interiorTexels * 0.5f);
+    return float3(uv / atlasSize, probeCoords.y);
+}
 
 float3 DDGISphericalFibonacci(uint sampleIndex, uint sampleCount)
 {
@@ -66,6 +142,44 @@ float3 DDGIUnpackRadiance01(uint packedRadiance)
         (float)(packedRadiance & 0x000003FFu) / 1023.0f,
         (float)((packedRadiance >> 10) & 0x000003FFu) / 1023.0f,
         (float)((packedRadiance >> 20) & 0x000003FFu) / 1023.0f);
+}
+
+float2 DDGIEncodeProbeRayData(float3 radiance01, float signedDistance)
+{
+    return float2(asfloat(DDGIPackRadiance01(radiance01)), signedDistance);
+}
+
+DDGIProbeRayData DDGIDecodeProbeRayData(float2 raw)
+{
+    DDGIProbeRayData data;
+    data.radiance01     = DDGIUnpackRadiance01(asuint(raw.x));
+    data.signedDistance = raw.y;
+    return data;
+}
+
+float2 DDGIEncodeProbeRayMiss(float3 radiance01)
+{
+    return DDGIEncodeProbeRayData(radiance01, DDGI_PROBE_RAY_MISS_DISTANCE);
+}
+
+float2 DDGIEncodeProbeRayFrontface(float3 radiance01, float distance)
+{
+    return DDGIEncodeProbeRayData(radiance01, max(distance, 0.0f));
+}
+
+float2 DDGIEncodeProbeRayBackface(float distance)
+{
+    return DDGIEncodeProbeRayData(float3(0.0f, 0.0f, 0.0f), -abs(distance) * DDGI_PROBE_RAY_BACKFACE_SCALE);
+}
+
+bool DDGIProbeRayIsMiss(DDGIProbeRayData data)
+{
+    return data.signedDistance >= DDGI_PROBE_RAY_MISS_DISTANCE * 0.5f;
+}
+
+bool DDGIProbeRayIsBackface(DDGIProbeRayData data)
+{
+    return data.signedDistance < 0.0f;
 }
 
 float2 DDGISignNotZero(float2 value)

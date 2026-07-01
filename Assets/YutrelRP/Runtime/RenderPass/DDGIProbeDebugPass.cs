@@ -31,6 +31,8 @@ namespace YutrelRP
         private static readonly int probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance");
         private static readonly int probe_distance_ID = Shader.PropertyToID("_DDGIProbeDistance");
         private static readonly int probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData");
+        private static readonly int probe_data_ID = Shader.PropertyToID("_DDGIProbeData");
+        private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
 
         private static Material material;
         private static MaterialPropertyBlock property_block;
@@ -100,6 +102,8 @@ namespace YutrelRP
             pass.probe_irradiance = resources.probe_irradiance;
             pass.probe_distance = resources.probe_distance;
             pass.probe_ray_data = resources.probe_ray_data;
+            pass.probe_data = resources.probe_data;
+            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
 
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
@@ -132,6 +136,11 @@ namespace YutrelRP
                 builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);
             }
 
+            if (IsProbeMode(mode))
+            {
+                builder.UseTexture(pass.probe_data, AccessFlags.Read);
+            }
+
             builder.AllowPassCulling(false);
             builder.SetRenderFunc<DDGIProbeDebugPass>(static (pass, context) => pass.Render(context));
         }
@@ -159,7 +168,9 @@ namespace YutrelRP
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
         private TextureHandle probe_ray_data;
+        private TextureHandle probe_data;
         private TextureHandle scene_depth;
+        private int probe_relocation_enabled;
 
         private void Render(RasterGraphContext context)
         {
@@ -193,6 +204,8 @@ namespace YutrelRP
 
             if (IsProbeMode(mode))
             {
+                property_block.SetTexture(probe_data_ID, probe_data);
+                property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
                 property_block.SetTexture(scene_depth_ID, scene_depth);
                 context.cmd.DrawMeshInstancedProcedural(
                     sphere_mesh, 0, material, SpherePassIndex, total_probe_count, property_block);

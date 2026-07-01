@@ -134,6 +134,13 @@ namespace YutrelRP.Editor
             EditorGUILayout.LabelField("World Probe Spacing", FormatVector3(spacing));
             EditorGUILayout.LabelField("ProbeRayData Layout",
                 $"{volume.RaysPerProbe} x {volume.ProbeCount.x * volume.ProbeCount.z} x {volume.ProbeCount.y}, F32x2");
+            if (volume.ProbeRelocationEnabled && volume.RaysPerProbe <= DDGIResources.FixedRayCount)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Probe Relocation requires more than {DDGIResources.FixedRayCount} rays per probe.",
+                    MessageType.Warning);
+            }
+
             EditorGUILayout.HelpBox(
                 "DDGI probe grid bounds are the Volume bounds: boundary probes lie on min/max. For indoor scenes, keep boundary probes inside lit air with a small offset from walls, floor, and ceiling; avoid shrinking the volume so receiver surfaces fall outside, and avoid overshooting far outside the building.",
                 MessageType.Info);

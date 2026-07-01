@@ -125,6 +125,7 @@ namespace YutrelRP
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
                         DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources, ray_tracing_world);
                         DDGIProbeBlendingPass.Record(render_graph, ddgi_resources);
+                        DDGIProbeRelocationPass.Record(render_graph, ddgi_resources);
                         DDGILightingPass.Record(render_graph, textures, ddgi_resources);
 #if UNITY_EDITOR
                         if (debug_settings.ddgi_ray_data_debug_texture)

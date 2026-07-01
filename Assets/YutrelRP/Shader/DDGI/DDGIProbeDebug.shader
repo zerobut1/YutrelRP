@@ -5,19 +5,16 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		HLSLINCLUDE
 		#include "../Utils/Common.hlsl"
 		#include "DDGICommon.hlsl"
-		#include "DDGIProbeRayData.hlsl"
 
 		Texture2DArray<float4> _DDGIProbeIrradiance;
 		Texture2DArray<float2> _DDGIProbeDistance;
 		Texture2DArray<float2> _DDGIProbeRayData;
+		Texture2DArray<float4> _DDGIProbeData;
 		Texture2D<float> _SceneDepth;
 
 		int _DDGIProbeDebugMode;
 		float _DDGIProbeDebugRadius;
 		float _DDGIProbeDebugDistanceScale;
-		float3 _DDGIProbeBoundsMin;
-		float3 _DDGIProbeSpacing;
-		float3 _DDGIProbeCount;
 		float4 _DDGIProbeIrradianceDimensions;
 		float4 _DDGIProbeDistanceDimensions;
 		float4 _DDGIProbeRayDataDimensions;
@@ -36,29 +33,6 @@ Shader "YutrelRP/DDGI/Probe Debug"
 			float3 probe_center_WS : TEXCOORD1;
 			nointerpolation int probe_index : TEXCOORD2;
 		};
-
-		int3 DDGIProbeDebugGetProbeCoords(int probeIndex, int3 probeCount)
-		{
-			return int3(
-				probeIndex % probeCount.x,
-				probeIndex / (probeCount.x * probeCount.z),
-				(probeIndex / probeCount.x) % probeCount.z);
-		}
-
-		float3 DDGIProbeDebugGetProbePosition(int3 probeCoords)
-		{
-			return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
-		}
-
-		float3 DDGIProbeDebugGetProbeUV(int probeIndex, float2 octantCoordinates, int interiorTexels, int3 probeCount)
-		{
-			int3 probeCoords = DDGIProbeDebugGetProbeCoords(probeIndex, probeCount);
-			float tile       = (float)interiorTexels + 2.0f;
-			float2 size      = float2(probeCount.x, probeCount.z) * tile;
-			float2 uv        = float2(probeCoords.x, probeCoords.z) * tile + tile * 0.5f;
-			uv += octantCoordinates * ((float)interiorTexels * 0.5f);
-			return float3(uv / size, probeCoords.y);
-		}
 
 		float3 DDGIProbeDebugDecodeIrradiance(float3 value)
 		{
@@ -91,10 +65,9 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		ProbeDebugVaryings ProbeDebugSphereVertex(ProbeDebugAttributes input)
 		{
 			ProbeDebugVaryings output;
-			int3 probeCount      = (int3)_DDGIProbeCount;
 			int probeIndex       = (int)input.instance_id;
-			int3 probeCoords     = DDGIProbeDebugGetProbeCoords(probeIndex, probeCount);
-			float3 probeCenterWS = DDGIProbeDebugGetProbePosition(probeCoords);
+			int3 probeCoords     = DDGIProbeCoords(probeIndex);
+			float3 probeCenterWS = DDGIProbeWorldPosition(_DDGIProbeData, probeCoords);
 			float3 positionWS    = probeCenterWS + input.position_OS * _DDGIProbeDebugRadius;
 
 			output.position_CS     = mul(UNITY_MATRIX_VP, float4(positionWS, 1.0f));
@@ -111,20 +84,19 @@ Shader "YutrelRP/DDGI/Probe Debug"
 				discard;
 			}
 
-			int3 probeCount   = (int3)_DDGIProbeCount;
 			float3 direction = normalize(input.position_WS - input.probe_center_WS);
 			float2 octantUV  = DDGIOctEncode(direction);
 
 			if (_DDGIProbeDebugMode == 1)
 			{
-				float3 uv    = DDGIProbeDebugGetProbeUV(input.probe_index, octantUV, 6, probeCount);
+				float3 uv    = DDGIProbeAtlasUV(input.probe_index, octantUV, 6);
 				float3 value = _DDGIProbeIrradiance.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
 				return DDGIProbeDebugOutput(saturate(DDGIProbeDebugDecodeIrradiance(value)), 1.0f);
 			}
 
 			if (_DDGIProbeDebugMode == 2)
 			{
-				float3 uv      = DDGIProbeDebugGetProbeUV(input.probe_index, octantUV, 14, probeCount);
+				float3 uv      = DDGIProbeAtlasUV(input.probe_index, octantUV, 14);
 				float distance = DDGIProbeDebugDecodeDistance(_DDGIProbeDistance.SampleLevel(sampler_linear_clamp, uv, 0));
 				float value    = saturate(distance / max(_DDGIProbeDebugDistanceScale, 1.0e-6f));
 				return DDGIProbeDebugOutput(value.xxx, 1.0f);

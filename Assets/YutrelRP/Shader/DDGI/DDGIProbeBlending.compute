@@ -2,7 +2,6 @@
 #pragma kernel BlendDistance
 
 #include "DDGICommon.hlsl"
-#include "DDGIProbeRayData.hlsl"
 
 #define DDGI_IRRADIANCE_INTERIOR_TEXELS 6
 #define DDGI_IRRADIANCE_TILE_TEXELS 8
@@ -21,9 +20,7 @@ Texture2DArray<float4> _DDGIProbeData;
 RWTexture2DArray<float4> _DDGIProbeIrradiance;
 RWTexture2DArray<float2> _DDGIProbeDistance;
 
-float3 _DDGIProbeCount;
 float _DDGIRaysPerProbe;
-float3 _DDGIProbeSpacing;
 float _DDGIProbeHysteresis;
 float _DDGIIrradianceEncodingGamma;
 float _DDGIDistanceExponent;
@@ -38,7 +35,7 @@ bool IsBorderTexel(uint2 local, uint tile)
 
 int GetProbeIndexInPlane(uint3 groupID)
 {
-    return (int)(groupID.x + groupID.y * (uint)_DDGIProbeCount.x);
+    return DDGIProbePlaneIndex(int3(groupID.x, groupID.z, groupID.y));
 }
 
 float3 GetTileOctahedralDirection(uint2 local, int interiorTexels)

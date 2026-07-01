@@ -8,18 +8,10 @@ Texture2DArray<float4> _DDGIProbeIrradiance;
 Texture2DArray<float2> _DDGIProbeDistance;
 Texture2DArray<float4> _DDGIProbeData;
 
-float3 _DDGIProbeBoundsMin;
-float3 _DDGIProbeSpacing;
-float3 _DDGIProbeCount;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
 float _DDGIProbeRayRadianceMax;
 float _DDGIIrradianceEncodingGamma;
-
-int3 DDGILightingProbeCount()
-{
-    return (int3)_DDGIProbeCount;
-}
 
 float3 DDGILightingSafeNormalize(float3 value)
 {
@@ -27,47 +19,16 @@ float3 DDGILightingSafeNormalize(float3 value)
     return lengthSqr > 1.0e-10f ? value * rsqrt(lengthSqr) : float3(0.0f, 1.0f, 0.0f);
 }
 
-int DDGILightingGetProbeIndex(int3 probeCoords)
-{
-    int3 probeCount = DDGILightingProbeCount();
-    return probeCoords.x + probeCoords.z * probeCount.x + probeCoords.y * probeCount.x * probeCount.z;
-}
-
-int3 DDGILightingGetProbeCoords(int probeIndex)
-{
-    int3 probeCount = DDGILightingProbeCount();
-    return int3(
-        probeIndex % probeCount.x,
-        probeIndex / (probeCount.x * probeCount.z),
-        (probeIndex / probeCount.x) % probeCount.z);
-}
-
-float3 DDGILightingGetProbeWorldPosition(int3 probeCoords)
-{
-    return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
-}
-
 int3 DDGILightingGetBaseProbeGridCoords(float3 worldPosition)
 {
     float3 gridCoords = (worldPosition - _DDGIProbeBoundsMin) / max(_DDGIProbeSpacing, 1.0e-6f);
-    int3 maxBase      = max(DDGILightingProbeCount() - int3(1, 1, 1), int3(0, 0, 0));
+    int3 maxBase      = max(DDGIProbeCount() - int3(1, 1, 1), int3(0, 0, 0));
     return clamp((int3)floor(gridCoords), int3(0, 0, 0), maxBase);
-}
-
-float3 DDGILightingGetProbeUV(int probeIndex, float2 octantCoordinates, int interiorTexels)
-{
-    int3 probeCount  = DDGILightingProbeCount();
-    int3 probeCoords = DDGILightingGetProbeCoords(probeIndex);
-    float tile       = (float)interiorTexels + 2.0f;
-    float2 atlasSize = float2(probeCount.x, probeCount.z) * tile;
-    float2 uv        = float2(probeCoords.x, probeCoords.z) * tile + tile * 0.5f;
-    uv += octantCoordinates * ((float)interiorTexels * 0.5f);
-    return float3(uv / atlasSize, probeCoords.y);
 }
 
 float DDGILightingGetVolumeBlendWeight(float3 worldPosition)
 {
-    int3 probeCount = DDGILightingProbeCount();
+    int3 probeCount = DDGIProbeCount();
     float3 extent   = _DDGIProbeSpacing * (float3)(probeCount - int3(1, 1, 1)) * 0.5f;
     float3 origin   = _DDGIProbeBoundsMin + extent;
     float3 delta    = abs(worldPosition - origin) - extent;
@@ -86,7 +47,7 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
     float accumulatedWeights      = 0.0f;
     float3 biasedWorldPosition    = worldPosition + surfaceBias;
     int3 baseProbeCoords          = DDGILightingGetBaseProbeGridCoords(biasedWorldPosition);
-    float3 baseProbeWorldPosition = DDGILightingGetProbeWorldPosition(baseProbeCoords);
+    float3 baseProbeWorldPosition = DDGIProbeBaseWorldPosition(baseProbeCoords);
     float3 gridSpaceDistance      = biasedWorldPosition - baseProbeWorldPosition;
     float3 alpha                  = saturate(gridSpaceDistance / max(_DDGIProbeSpacing, 1.0e-6f));
 
@@ -96,9 +57,9 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
         int3 adjacentProbeCoords = clamp(
             baseProbeCoords + adjacentProbeOffset,
             int3(0, 0, 0),
-            DDGILightingProbeCount() - int3(1, 1, 1));
-        int adjacentProbeIndex            = DDGILightingGetProbeIndex(adjacentProbeCoords);
-        float3 adjacentProbeWorldPosition = DDGILightingGetProbeWorldPosition(adjacentProbeCoords);
+            DDGIProbeCount() - int3(1, 1, 1));
+        int adjacentProbeIndex            = DDGIProbeIndex(adjacentProbeCoords);
+        float3 adjacentProbeWorldPosition = DDGIProbeWorldPosition(_DDGIProbeData, adjacentProbeCoords);
 
         float3 worldPosToAdjProbe     = DDGILightingSafeNormalize(adjacentProbeWorldPosition - worldPosition);
         float3 biasedPosToAdjProbe    = DDGILightingSafeNormalize(adjacentProbeWorldPosition - biasedWorldPosition);
@@ -111,7 +72,7 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
         weight *= (wrapShading * wrapShading) + 0.2f;
 
         float2 octantCoordinates = DDGIOctEncode(-biasedPosToAdjProbe);
-        float3 probeTextureUV    = DDGILightingGetProbeUV(adjacentProbeIndex, octantCoordinates, 14);
+        float3 probeTextureUV    = DDGIProbeAtlasUV(adjacentProbeIndex, octantCoordinates, 14);
         float2 filteredDistance  = 2.0f * _DDGIProbeDistance.SampleLevel(sampler_linear_clamp, probeTextureUV, 0).rg;
         float variance           = abs(filteredDistance.x * filteredDistance.x - filteredDistance.y);
 
@@ -135,7 +96,7 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
         weight *= trilinearWeight;
 
         octantCoordinates      = DDGIOctEncode(direction);
-        probeTextureUV         = DDGILightingGetProbeUV(adjacentProbeIndex, octantCoordinates, 6);
+        probeTextureUV         = DDGIProbeAtlasUV(adjacentProbeIndex, octantCoordinates, 6);
         float3 probeIrradiance = _DDGIProbeIrradiance.SampleLevel(sampler_linear_clamp, probeTextureUV, 0).rgb;
         probeIrradiance        = pow(max(probeIrradiance, 0.0f), _DDGIIrradianceEncodingGamma * 0.5f);
 

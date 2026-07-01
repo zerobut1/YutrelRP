@@ -2,7 +2,6 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "DDGICommon.hlsl"
-#include "DDGIProbeRayData.hlsl"
 #include "DDGIProbeTraceCommon.hlsl"
 
 #define DDGI_RAY_MASK 0xFFu
@@ -27,9 +26,6 @@ RaytracingAccelerationStructure _DDGIAccelerationStructure;
 SamplerState sampler_linear_clamp;
 
 int _DirectionalLightCount;
-float3 _DDGIProbeBoundsMin;
-float3 _DDGIProbeSpacing;
-float3 _DDGIProbeCount;
 float _DDGIProbeMaxRayDistance;
 float _DDGIProbeRayRadianceMax;
 float _DDGIProbeNormalBias;
@@ -41,71 +37,22 @@ float3 EncodeRayRadiance01(float3 radiance)
     return saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
 }
 
-uint3 GetProbeCoords(uint probePlaneIndex, uint probeSliceIndex)
-{
-    uint probeCountX = max((uint)_DDGIProbeCount.x, 1u);
-    uint probeX = probePlaneIndex % probeCountX;
-    uint probeZ = probePlaneIndex / probeCountX;
-    return uint3(probeX, probeSliceIndex, probeZ);
-}
-
-float3 GetProbePosition(uint3 probeCoords)
-{
-    return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
-}
-
-int3 TraceProbeCount()
-{
-    return (int3)_DDGIProbeCount;
-}
-
 float3 TraceSafeNormalize(float3 value)
 {
     float lengthSqr = dot(value, value);
     return lengthSqr > 1.0e-10f ? value * rsqrt(lengthSqr) : float3(0.0f, 1.0f, 0.0f);
 }
 
-int TraceGetProbeIndex(int3 probeCoords)
-{
-    int3 probeCount = TraceProbeCount();
-    return probeCoords.x + probeCoords.z * probeCount.x + probeCoords.y * probeCount.x * probeCount.z;
-}
-
-int3 TraceGetProbeCoords(int probeIndex)
-{
-    int3 probeCount = TraceProbeCount();
-    return int3(
-        probeIndex % probeCount.x,
-        probeIndex / (probeCount.x * probeCount.z),
-        (probeIndex / probeCount.x) % probeCount.z);
-}
-
-float3 TraceGetProbeWorldPosition(int3 probeCoords)
-{
-    return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
-}
-
 int3 TraceGetBaseProbeGridCoords(float3 worldPosition)
 {
     float3 gridCoords = (worldPosition - _DDGIProbeBoundsMin) / max(_DDGIProbeSpacing, 1.0e-6f);
-    int3 maxBase      = max(TraceProbeCount() - int3(1, 1, 1), int3(0, 0, 0));
+    int3 maxBase      = max(DDGIProbeCount() - int3(1, 1, 1), int3(0, 0, 0));
     return clamp((int3)floor(gridCoords), int3(0, 0, 0), maxBase);
-}
-
-float3 TraceGetProbeUV(int probeIndex, float2 octantCoordinates, int interiorTexels)
-{
-    int3 probeCount  = TraceProbeCount();
-    int3 probeCoords = TraceGetProbeCoords(probeIndex);
-    float tile       = (float)interiorTexels + 2.0f;
-    float2 atlasSize = float2(probeCount.x, probeCount.z) * tile;
-    float2 uv        = float2(probeCoords.x, probeCoords.z) * tile + tile * 0.5f;
-    uv += octantCoordinates * ((float)interiorTexels * 0.5f);
-    return float3(uv / atlasSize, probeCoords.y);
 }
 
 float TraceGetVolumeBlendWeight(float3 worldPosition)
 {
-    int3 probeCount = TraceProbeCount();
+    int3 probeCount = DDGIProbeCount();
     float3 extent   = _DDGIProbeSpacing * (float3)(probeCount - int3(1, 1, 1)) * 0.5f;
     float3 origin   = _DDGIProbeBoundsMin + extent;
     float3 delta    = abs(worldPosition - origin) - extent;
@@ -124,7 +71,7 @@ float3 TraceGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias, float3
     float accumulatedWeights      = 0.0f;
     float3 biasedWorldPosition    = worldPosition + surfaceBias;
     int3 baseProbeCoords          = TraceGetBaseProbeGridCoords(biasedWorldPosition);
-    float3 baseProbeWorldPosition = TraceGetProbeWorldPosition(baseProbeCoords);
+    float3 baseProbeWorldPosition = DDGIProbeBaseWorldPosition(baseProbeCoords);
     float3 gridSpaceDistance      = biasedWorldPosition - baseProbeWorldPosition;
     float3 alpha                  = saturate(gridSpaceDistance / max(_DDGIProbeSpacing, 1.0e-6f));
 
@@ -134,9 +81,9 @@ float3 TraceGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias, float3
         int3 adjacentProbeCoords = clamp(
             baseProbeCoords + adjacentProbeOffset,
             int3(0, 0, 0),
-            TraceProbeCount() - int3(1, 1, 1));
-        int adjacentProbeIndex            = TraceGetProbeIndex(adjacentProbeCoords);
-        float3 adjacentProbeWorldPosition = TraceGetProbeWorldPosition(adjacentProbeCoords);
+            DDGIProbeCount() - int3(1, 1, 1));
+        int adjacentProbeIndex            = DDGIProbeIndex(adjacentProbeCoords);
+        float3 adjacentProbeWorldPosition = DDGIProbeWorldPosition(_DDGIProbeData, adjacentProbeCoords);
 
         float3 worldPosToAdjProbe     = TraceSafeNormalize(adjacentProbeWorldPosition - worldPosition);
         float3 biasedPosToAdjProbe    = TraceSafeNormalize(adjacentProbeWorldPosition - biasedWorldPosition);
@@ -149,7 +96,7 @@ float3 TraceGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias, float3
         weight *= (wrapShading * wrapShading) + 0.2f;
 
         float2 octantCoordinates = DDGIOctEncode(-biasedPosToAdjProbe);
-        float3 probeTextureUV    = TraceGetProbeUV(adjacentProbeIndex, octantCoordinates, 14);
+        float3 probeTextureUV    = DDGIProbeAtlasUV(adjacentProbeIndex, octantCoordinates, 14);
         float2 filteredDistance  = 2.0f * _DDGIProbeDistance.SampleLevel(sampler_linear_clamp, probeTextureUV, 0).rg;
         float variance           = abs(filteredDistance.x * filteredDistance.x - filteredDistance.y);
 
@@ -173,7 +120,7 @@ float3 TraceGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias, float3
         weight *= trilinearWeight;
 
         octantCoordinates      = DDGIOctEncode(direction);
-        probeTextureUV         = TraceGetProbeUV(adjacentProbeIndex, octantCoordinates, 6);
+        probeTextureUV         = DDGIProbeAtlasUV(adjacentProbeIndex, octantCoordinates, 6);
         float3 probeIrradiance = _DDGIProbeIrradiance.SampleLevel(sampler_linear_clamp, probeTextureUV, 0).rgb;
         probeIrradiance        = pow(max(probeIrradiance, 0.0f), _DDGIIrradianceEncodingGamma * 0.5f);
 
@@ -240,11 +187,11 @@ void RayGenDDGIProbeTrace()
 {
     uint3 id = DispatchRaysIndex();
     uint3 dim = DispatchRaysDimensions();
-    uint3 probeCoords = GetProbeCoords(id.y, id.z);
+    int3 probeCoords = DDGIProbeCoordsFromPlaneIndex((int)id.y, (int)id.z);
     uint3 outputCoords = uint3(id.x, id.y, id.z);
 
     RayDesc ray;
-    ray.Origin = GetProbePosition(probeCoords);
+    ray.Origin = DDGIProbeWorldPosition(_DDGIProbeData, probeCoords);
     ray.TMin = 0.001f;
     ray.Direction = DDGIGetProbeRayDirection(id.x, max(dim.x, 1u));
     ray.TMax = _DDGIProbeMaxRayDistance;

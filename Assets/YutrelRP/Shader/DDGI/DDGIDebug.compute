@@ -1,6 +1,6 @@
 #pragma kernel CSMain
 
-#include "DDGIProbeRayData.hlsl"
+#include "DDGICommon.hlsl"
 
 Texture2DArray<float2> _DDGIProbeRayData;
 RWTexture2DArray<float4> _DDGIDebugTexture;

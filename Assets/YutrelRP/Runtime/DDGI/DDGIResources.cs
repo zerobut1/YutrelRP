@@ -10,6 +10,7 @@ namespace YutrelRP
         public const GraphicsFormat ProbeIrradianceGraphicsFormat = GraphicsFormat.A2B10G10R10_UNormPack32;
         public const GraphicsFormat ProbeDistanceGraphicsFormat = GraphicsFormat.R16G16_SFloat;
         public const GraphicsFormat ProbeDataGraphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+        public const int FixedRayCount = 32;
 
         public YutrelDDGIVolume active_volume;
         public bool is_valid;

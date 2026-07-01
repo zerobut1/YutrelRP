@@ -831,6 +831,7 @@ MonoBehaviour:
   irradianceThreshold: 0.2
   brightnessThreshold: 2
   probeRandomRayBackfaceThreshold: 0.1
+  probeRelocationEnabled: 1
   probePreviewRadius: 0.03
 --- !u!1 &1352061749
 GameObject:

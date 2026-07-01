@@ -72,8 +72,14 @@ namespace YutrelRP
         [SerializeField] private float probeRandomRayBackfaceThreshold = 0.1f;
 
         [Header("Relocation")]
-        [Tooltip("Enable fixed probe rays and probe relocation data. The relocation compute pass is added separately.")]
+        [Tooltip("Enable fixed probe rays and the probe relocation compute pass.")]
         [SerializeField] private bool probeRelocationEnabled;
+        [Tooltip("Minimum world-space distance a relocated probe should keep from front-facing geometry.")]
+        [Min(0.0f)]
+        [SerializeField] private float probeMinFrontfaceDistance = 0.1f;
+        [Tooltip("Fixed-ray backface ratio used to decide whether a probe is inside geometry.")]
+        [Range(0.0f, 1.0f)]
+        [SerializeField] private float probeFixedRayBackfaceThreshold = 0.25f;
 
         [Header("Editor")]
         [Tooltip("Scene View probe sphere radius in local units.")]
@@ -180,6 +186,18 @@ namespace YutrelRP
         {
             get => probeRelocationEnabled;
             set => probeRelocationEnabled = value;
+        }
+
+        public float ProbeMinFrontfaceDistance
+        {
+            get => probeMinFrontfaceDistance;
+            set => probeMinFrontfaceDistance = Mathf.Max(0.0f, value);
+        }
+
+        public float ProbeFixedRayBackfaceThreshold
+        {
+            get => probeFixedRayBackfaceThreshold;
+            set => probeFixedRayBackfaceThreshold = Mathf.Clamp01(value);
         }
 
         public float ProbePreviewRadius
@@ -289,6 +307,8 @@ namespace YutrelRP
             irradianceThreshold = Mathf.Max(0.0f, irradianceThreshold);
             brightnessThreshold = Mathf.Max(0.0f, brightnessThreshold);
             probeRandomRayBackfaceThreshold = Mathf.Clamp01(probeRandomRayBackfaceThreshold);
+            probeMinFrontfaceDistance = Mathf.Max(0.0f, probeMinFrontfaceDistance);
+            probeFixedRayBackfaceThreshold = Mathf.Clamp01(probeFixedRayBackfaceThreshold);
             probePreviewRadius = Mathf.Max(MinProbePreviewRadius, probePreviewRadius);
             EnforceAxisAlignedRotation();
         }
