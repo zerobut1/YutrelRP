@@ -7,6 +7,8 @@
 
 #define DDGI_RAY_MASK 0xFFu
 
+static const float DDGI_DIRECTIONAL_SHADOW_RAY_TMAX = 1.0e27f;
+
 struct DirectionalLightData
 {
     float3 color;
@@ -206,7 +208,7 @@ float TraceDirectionalVisibility(float3 hitPositionWS, float3 normalWS, float3 l
     shadowRay.Origin = DDGITraceOffsetRayOrigin(hitPositionWS, normalWS, _DDGIProbeNormalBias);
     shadowRay.TMin = 0.001f;
     shadowRay.Direction = lightDirectionWS;
-    shadowRay.TMax = max(_DDGIProbeMaxRayDistance, shadowRay.TMin);
+    shadowRay.TMax = DDGI_DIRECTIONAL_SHADOW_RAY_TMAX;
 
     DDGIProbeTracePayload shadowPayload;
     InitPayload(shadowPayload);
