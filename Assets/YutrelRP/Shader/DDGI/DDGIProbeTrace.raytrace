@@ -8,6 +8,7 @@
 #define DDGI_RAY_MASK 0xFFu
 
 static const float DDGI_DIRECTIONAL_SHADOW_RAY_TMAX = 1.0e27f;
+static const float DDGI_DIRECTIONAL_SHADOW_RAY_NORMAL_BIAS = 1.0e-4f;
 
 struct DirectionalLightData
 {
@@ -86,7 +87,7 @@ float3 TraceGetProbeWorldPosition(int3 probeCoords)
 int3 TraceGetBaseProbeGridCoords(float3 worldPosition)
 {
     float3 gridCoords = (worldPosition - _DDGIProbeBoundsMin) / max(_DDGIProbeSpacing, 1.0e-6f);
-    int3 maxBase      = max(TraceProbeCount() - int3(2, 2, 2), int3(0, 0, 0));
+    int3 maxBase      = max(TraceProbeCount() - int3(1, 1, 1), int3(0, 0, 0));
     return clamp((int3)floor(gridCoords), int3(0, 0, 0), maxBase);
 }
 
@@ -205,7 +206,7 @@ void InitPayload(out DDGIProbeTracePayload payload)
 float TraceDirectionalVisibility(float3 hitPositionWS, float3 normalWS, float3 lightDirectionWS)
 {
     RayDesc shadowRay;
-    shadowRay.Origin = DDGITraceOffsetRayOrigin(hitPositionWS, normalWS, _DDGIProbeNormalBias);
+    shadowRay.Origin = DDGITraceOffsetRayOrigin(hitPositionWS, normalWS, DDGI_DIRECTIONAL_SHADOW_RAY_NORMAL_BIAS);
     shadowRay.TMin = 0.001f;
     shadowRay.Direction = lightDirectionWS;
     shadowRay.TMax = DDGI_DIRECTIONAL_SHADOW_RAY_TMAX;

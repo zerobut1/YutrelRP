@@ -49,7 +49,7 @@ float3 DDGILightingGetProbeWorldPosition(int3 probeCoords)
 int3 DDGILightingGetBaseProbeGridCoords(float3 worldPosition)
 {
     float3 gridCoords = (worldPosition - _DDGIProbeBoundsMin) / max(_DDGIProbeSpacing, 1.0e-6f);
-    int3 maxBase      = max(DDGILightingProbeCount() - int3(2, 2, 2), int3(0, 0, 0));
+    int3 maxBase      = max(DDGILightingProbeCount() - int3(1, 1, 1), int3(0, 0, 0));
     return clamp((int3)floor(gridCoords), int3(0, 0, 0), maxBase);
 }
 
@@ -178,7 +178,7 @@ float4 DDGILightingFragment(FullScreenVaryings input) : SV_Target
         return float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
-    float3 surfaceBias = surface.normal_WS * _DDGIProbeNormalBias -
+    float3 surfaceBias = surface.normal_WS * _DDGIProbeNormalBias +
                          surface.view_direction_WS * _DDGIProbeViewBias;
     float3 irradiance  = DDGILightingGetVolumeIrradiance(surface.position_WS, surfaceBias, surface.normal_WS);
     float3 diffuse     = surface.diffuse_color * INV_PI * irradiance * volumeBlendWeight;

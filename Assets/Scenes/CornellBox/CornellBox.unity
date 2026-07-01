@@ -824,7 +824,7 @@ MonoBehaviour:
   probeIrradianceInteriorTexels: 6
   probeDistanceInteriorTexels: 14
   probeHysteresis: 0.97
-  probeNormalBias: 0.2
+  probeNormalBias: 0.02
   probeViewBias: 0.1
   irradianceEncodingGamma: 5
   distanceExponent: 50
