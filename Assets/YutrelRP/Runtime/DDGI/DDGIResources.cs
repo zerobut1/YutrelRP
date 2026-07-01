@@ -17,6 +17,9 @@ namespace YutrelRP
         public TextureHandle probe_irradiance;
         public TextureHandle probe_distance;
         public Vector3Int probe_count;
+        public Vector4 probe_ray_rotation_row0;
+        public Vector4 probe_ray_rotation_row1;
+        public Vector4 probe_ray_rotation_row2;
         public int probe_irradiance_interior_texels;
         public int probe_distance_interior_texels;
 
@@ -29,6 +32,9 @@ namespace YutrelRP
             probe_irradiance = TextureHandle.nullHandle;
             probe_distance = TextureHandle.nullHandle;
             probe_count = Vector3Int.zero;
+            probe_ray_rotation_row0 = new Vector4(1.0f, 0.0f, 0.0f, 0.0f);
+            probe_ray_rotation_row1 = new Vector4(0.0f, 1.0f, 0.0f, 0.0f);
+            probe_ray_rotation_row2 = new Vector4(0.0f, 0.0f, 1.0f, 0.0f);
             probe_irradiance_interior_texels = 0;
             probe_distance_interior_texels = 0;
         }

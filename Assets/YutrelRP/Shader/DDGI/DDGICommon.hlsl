@@ -3,6 +3,10 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Macros.hlsl"
 
+float4 _DDGIProbeRayRotationRow0;
+float4 _DDGIProbeRayRotationRow1;
+float4 _DDGIProbeRayRotationRow2;
+
 float3 DDGISphericalFibonacci(uint sampleIndex, uint sampleCount)
 {
     const float b  = 0.61803398874989484820f;
@@ -10,6 +14,19 @@ float3 DDGISphericalFibonacci(uint sampleIndex, uint sampleCount)
     float cosTheta = 1.0f - (2.0f * (float)sampleIndex + 1.0f) / (float)max(sampleCount, 1u);
     float sinTheta = sqrt(saturate(1.0f - cosTheta * cosTheta));
     return float3(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
+}
+
+float3 DDGIRotateProbeRayDirection(float3 direction)
+{
+    return normalize(float3(
+        dot(direction, float3(_DDGIProbeRayRotationRow0.x, _DDGIProbeRayRotationRow1.x, _DDGIProbeRayRotationRow2.x)),
+        dot(direction, float3(_DDGIProbeRayRotationRow0.y, _DDGIProbeRayRotationRow1.y, _DDGIProbeRayRotationRow2.y)),
+        dot(direction, float3(_DDGIProbeRayRotationRow0.z, _DDGIProbeRayRotationRow1.z, _DDGIProbeRayRotationRow2.z))));
+}
+
+float3 DDGIGetProbeRayDirection(uint rayIndex, uint rayCount)
+{
+    return DDGIRotateProbeRayDirection(DDGISphericalFibonacci(rayIndex, rayCount));
 }
 
 uint DDGIPackRadiance01(float3 value)

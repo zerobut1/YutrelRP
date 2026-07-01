@@ -99,12 +99,15 @@ namespace YutrelRP
             pass.probe_normal_bias = volume.ProbeNormalBias;
             pass.probe_view_bias = volume.ProbeViewBias;
             pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
-            pass.probe_ray_rotation_row0 = new Vector4(probe_ray_rotation.m00, probe_ray_rotation.m01,
+            resources.probe_ray_rotation_row0 = new Vector4(probe_ray_rotation.m00, probe_ray_rotation.m01,
                 probe_ray_rotation.m02, 0.0f);
-            pass.probe_ray_rotation_row1 = new Vector4(probe_ray_rotation.m10, probe_ray_rotation.m11,
+            resources.probe_ray_rotation_row1 = new Vector4(probe_ray_rotation.m10, probe_ray_rotation.m11,
                 probe_ray_rotation.m12, 0.0f);
-            pass.probe_ray_rotation_row2 = new Vector4(probe_ray_rotation.m20, probe_ray_rotation.m21,
+            resources.probe_ray_rotation_row2 = new Vector4(probe_ray_rotation.m20, probe_ray_rotation.m21,
                 probe_ray_rotation.m22, 0.0f);
+            pass.probe_ray_rotation_row0 = resources.probe_ray_rotation_row0;
+            pass.probe_ray_rotation_row1 = resources.probe_ray_rotation_row1;
+            pass.probe_ray_rotation_row2 = resources.probe_ray_rotation_row2;
             pass.dispatch_width = dispatch_width;
             pass.dispatch_height = dispatch_height;
             pass.dispatch_depth = dispatch_depth;

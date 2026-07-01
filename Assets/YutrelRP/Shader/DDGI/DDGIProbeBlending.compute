@@ -115,7 +115,7 @@ void BlendIrradiance(
         uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
         for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
         {
-            float3 rayDirection = DDGISphericalFibonacci(rayIndex, rayCount);
+            float3 rayDirection = DDGIGetProbeRayDirection(rayIndex, rayCount);
             float weight        = max(0.0f, dot(octahedralDirection, rayDirection));
             uint3 rayCoords     = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
             float rayDistance   = LoadProbeRayDistance(rayCoords);
@@ -190,7 +190,7 @@ void BlendDistance(
         uint rayCount      = (uint)max(_DDGIRaysPerProbe, 1.0f);
         for (uint rayIndex = 0u; rayIndex < rayCount; rayIndex++)
         {
-            float3 rayDirection = DDGISphericalFibonacci(rayIndex, rayCount);
+            float3 rayDirection = DDGIGetProbeRayDirection(rayIndex, rayCount);
             float weight        = pow(max(0.0f, dot(octahedralDirection, rayDirection)), _DDGIDistanceExponent);
             uint3 rayCoords     = GetRayDataTexelCoords(rayIndex, probeIndexInPlane, groupID.z);
             float rayDistance   = min(abs(LoadProbeRayDistance(rayCoords)), maxRayDistance);

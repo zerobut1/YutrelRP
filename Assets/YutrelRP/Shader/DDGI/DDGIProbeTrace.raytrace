@@ -30,10 +30,6 @@ float _DDGIProbeRayRadianceMax;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
 float _DDGIIrradianceEncodingGamma;
-float4 _DDGIProbeRayRotationRow0;
-float4 _DDGIProbeRayRotationRow1;
-float4 _DDGIProbeRayRotationRow2;
-
 void StoreRay(uint3 coords, float3 radiance, float distance)
 {
     float3 radiance01 = saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
@@ -51,14 +47,6 @@ uint3 GetProbeCoords(uint probePlaneIndex, uint probeSliceIndex)
 float3 GetProbePosition(uint3 probeCoords)
 {
     return _DDGIProbeBoundsMin + _DDGIProbeSpacing * (float3)probeCoords;
-}
-
-float3 TraceRotateProbeRayDirection(float3 direction)
-{
-    return normalize(float3(
-        dot(_DDGIProbeRayRotationRow0.xyz, direction),
-        dot(_DDGIProbeRayRotationRow1.xyz, direction),
-        dot(_DDGIProbeRayRotationRow2.xyz, direction)));
 }
 
 int3 TraceProbeCount()
@@ -253,7 +241,7 @@ void RayGenDDGIProbeTrace()
     RayDesc ray;
     ray.Origin = GetProbePosition(probeCoords);
     ray.TMin = 0.001f;
-    ray.Direction = TraceRotateProbeRayDirection(DDGISphericalFibonacci(id.x, max(dim.x, 1u)));
+    ray.Direction = DDGIGetProbeRayDirection(id.x, max(dim.x, 1u));
     ray.TMax = _DDGIProbeMaxRayDistance;
 
     DDGIProbeTracePayload payload;
