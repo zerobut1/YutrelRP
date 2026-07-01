@@ -136,6 +136,11 @@ uint DDGIPackRadiance01(float3 value)
            ((uint)round(radiance.b * 1023.0f) << 20);
 }
 
+float DDGIMaxComponent(float3 value)
+{
+    return max(max(value.x, value.y), value.z);
+}
+
 float3 DDGIUnpackRadiance01(uint packedRadiance)
 {
     return float3(
@@ -164,6 +169,12 @@ float2 DDGIEncodeProbeRayMiss(float3 radiance01)
 
 float2 DDGIEncodeProbeRayFrontface(float3 radiance01, float distance)
 {
+    static const float threshold = 1.0f / 255.0f;
+    if (DDGIMaxComponent(radiance01) <= threshold)
+    {
+        radiance01 = 0.0f;
+    }
+
     return DDGIEncodeProbeRayData(radiance01, max(distance, 0.0f));
 }
 

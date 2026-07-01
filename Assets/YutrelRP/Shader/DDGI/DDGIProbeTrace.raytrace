@@ -192,7 +192,7 @@ void RayGenDDGIProbeTrace()
 
     RayDesc ray;
     ray.Origin = DDGIProbeWorldPosition(_DDGIProbeData, probeCoords);
-    ray.TMin = 0.001f;
+    ray.TMin = 0.0f;
     ray.Direction = DDGIGetProbeRayDirection(id.x, max(dim.x, 1u));
     ray.TMax = _DDGIProbeMaxRayDistance;
 

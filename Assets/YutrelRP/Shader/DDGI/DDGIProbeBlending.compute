@@ -50,11 +50,6 @@ float DDGILuminance(float3 color)
     return dot(color, float3(0.2126f, 0.7152f, 0.0722f));
 }
 
-float DDGIMaxComponent(float3 value)
-{
-    return max(max(value.x, value.y), value.z);
-}
-
 uint3 GetRayDataTexelCoords(uint rayIndex, int probeIndexInPlane, uint probeY)
 {
     return uint3(rayIndex, (uint)probeIndexInPlane, probeY);
