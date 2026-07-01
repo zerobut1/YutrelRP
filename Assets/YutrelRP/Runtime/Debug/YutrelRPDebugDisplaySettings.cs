@@ -16,6 +16,7 @@ namespace YutrelRP
         internal DebugViewMode debug_view_mode = DebugViewMode.Disabled;
         internal bool ddgi_ray_data_debug_texture;
         internal DDGIProbeDebugMode ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
+        internal bool ddgi_probe_debug_show_base_position;
         internal float ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
         internal float ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
 
@@ -24,6 +25,7 @@ namespace YutrelRP
             debug_view_mode = DebugViewMode.Disabled;
             ddgi_ray_data_debug_texture = false;
             ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
+            ddgi_probe_debug_show_base_position = false;
             ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
             ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
         }
@@ -195,6 +197,21 @@ namespace YutrelRP
             }
         }
 
+        internal bool DDGIProbeDebugShowBasePosition
+        {
+            get => settings != null && settings.ddgi_probe_debug_show_base_position;
+            set
+            {
+                if (settings == null || settings.ddgi_probe_debug_show_base_position == value)
+                {
+                    return;
+                }
+
+                settings.ddgi_probe_debug_show_base_position = value;
+                RequestRepaint();
+            }
+        }
+
         internal float DDGIProbeDebugRadius
         {
             get => settings != null
@@ -310,6 +327,13 @@ namespace YutrelRP
                         setter = value => data.DDGIRayDataDebugTexture = value
                     },
                     CreateDDGIModeField(data),
+                    new DebugUI.BoolField
+                    {
+                        displayName = "Show Base Probe Positions",
+                        tooltip = "Draw DDGI probe debug spheres at pre-relocation grid positions.",
+                        getter = () => data.DDGIProbeDebugShowBasePosition,
+                        setter = value => data.DDGIProbeDebugShowBasePosition = value
+                    },
                     new DebugUI.FloatField
                     {
                         displayName = "Probe Radius",

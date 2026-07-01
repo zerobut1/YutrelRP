@@ -16,6 +16,8 @@ namespace YutrelRP
         private static readonly int debug_mode_ID = Shader.PropertyToID("_DDGIProbeDebugMode");
         private static readonly int debug_radius_ID = Shader.PropertyToID("_DDGIProbeDebugRadius");
         private static readonly int debug_distance_scale_ID = Shader.PropertyToID("_DDGIProbeDebugDistanceScale");
+        private static readonly int debug_show_base_position_ID =
+            Shader.PropertyToID("_DDGIProbeDebugShowBasePosition");
         private static readonly int scene_depth_ID = RenderTargets.scene_depth_ID;
         private static readonly int probe_bounds_min_ID = Shader.PropertyToID("_DDGIProbeBoundsMin");
         private static readonly int probe_spacing_ID = Shader.PropertyToID("_DDGIProbeSpacing");
@@ -104,6 +106,7 @@ namespace YutrelRP
             pass.probe_ray_data = resources.probe_ray_data;
             pass.probe_data = resources.probe_data;
             pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.debug_show_base_position = debug_settings.ddgi_probe_debug_show_base_position ? 1 : 0;
 
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
@@ -171,6 +174,7 @@ namespace YutrelRP
         private TextureHandle probe_data;
         private TextureHandle scene_depth;
         private int probe_relocation_enabled;
+        private int debug_show_base_position;
 
         private void Render(RasterGraphContext context)
         {
@@ -206,6 +210,7 @@ namespace YutrelRP
             {
                 property_block.SetTexture(probe_data_ID, probe_data);
                 property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
+                property_block.SetInt(debug_show_base_position_ID, debug_show_base_position);
                 property_block.SetTexture(scene_depth_ID, scene_depth);
                 context.cmd.DrawMeshInstancedProcedural(
                     sphere_mesh, 0, material, SpherePassIndex, total_probe_count, property_block);

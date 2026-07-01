@@ -13,6 +13,7 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		Texture2D<float> _SceneDepth;
 
 		int _DDGIProbeDebugMode;
+		int _DDGIProbeDebugShowBasePosition;
 		float _DDGIProbeDebugRadius;
 		float _DDGIProbeDebugDistanceScale;
 		float4 _DDGIProbeIrradianceDimensions;
@@ -67,7 +68,9 @@ Shader "YutrelRP/DDGI/Probe Debug"
 			ProbeDebugVaryings output;
 			int probeIndex       = (int)input.instance_id;
 			int3 probeCoords     = DDGIProbeCoords(probeIndex);
-			float3 probeCenterWS = DDGIProbeWorldPosition(_DDGIProbeData, probeCoords);
+			float3 probeCenterWS = _DDGIProbeDebugShowBasePosition != 0
+				? DDGIProbeBaseWorldPosition(probeCoords)
+				: DDGIProbeWorldPosition(_DDGIProbeData, probeCoords);
 			float3 positionWS    = probeCenterWS + input.position_OS * _DDGIProbeDebugRadius;
 
 			output.position_CS     = mul(UNITY_MATRIX_VP, float4(positionWS, 1.0f));
