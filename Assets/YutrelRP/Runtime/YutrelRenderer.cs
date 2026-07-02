@@ -123,7 +123,7 @@ namespace YutrelRP
                     {
                         var ddgi_settings = settings.ddgiSettings;
                         ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
-                        ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
+                        ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources, ddgi_settings);
                         DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources,
                             ray_tracing_world, ddgi_settings);
                         DDGIProbeBlendingPass.Record(render_graph, ddgi_resources, ddgi_settings);
