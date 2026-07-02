@@ -32,6 +32,7 @@ namespace YutrelRP
             Shader.PropertyToID("_DDGIProbeRayDataDimensions");
         private static readonly int irradiance_encoding_gamma_ID =
             Shader.PropertyToID("_DDGIIrradianceEncodingGamma");
+        private static readonly int lighting_intensity_scale_ID = Shader.PropertyToID("_DDGILightingIntensityScale");
         private static readonly int probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance");
         private static readonly int probe_distance_ID = Shader.PropertyToID("_DDGIProbeDistance");
         private static readonly int probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData");
@@ -102,6 +103,7 @@ namespace YutrelRP
             pass.debug_radius = Mathf.Max(0.001f, debug_settings.ddgi_probe_debug_radius);
             pass.debug_distance_scale = Mathf.Max(0.001f, debug_settings.ddgi_probe_debug_distance_scale);
             pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
+            pass.lighting_intensity_scale = Mathf.Max(0.001f, encoding_settings.lightingIntensityScale);
             pass.probe_irradiance_dimensions = resources.ProbeIrradianceDimensions;
             pass.probe_distance_dimensions = resources.ProbeDistanceDimensions;
             pass.probe_ray_data_dimensions = new Vector4(
@@ -177,6 +179,7 @@ namespace YutrelRP
         private float debug_radius;
         private float debug_distance_scale;
         private float irradiance_encoding_gamma;
+        private float lighting_intensity_scale;
         private Vector4 probe_irradiance_dimensions;
         private Vector4 probe_distance_dimensions;
         private Vector4 probe_ray_data_dimensions;
@@ -204,6 +207,7 @@ namespace YutrelRP
             property_block.SetVector(probe_distance_dimensions_ID, probe_distance_dimensions);
             property_block.SetVector(probe_ray_data_dimensions_ID, probe_ray_data_dimensions);
             property_block.SetFloat(irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
+            property_block.SetFloat(lighting_intensity_scale_ID, lighting_intensity_scale);
 
             if (ReadsIrradiance(mode))
             {

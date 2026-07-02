@@ -55,7 +55,47 @@ MonoBehaviour:
   components:
   - {fileID: 1703330898549218941}
   - {fileID: 2362347213122724940}
-  - {fileID: 1916442555983306410}
+  - {fileID: 727897378366185013}
+--- !u!114 &727897378366185013
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: YutrelShadowSettings
+  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
+  active: 1
+  maxDistance:
+    m_OverrideState: 0
+    m_Value: 100
+  distanceFade:
+    m_OverrideState: 0
+    m_Value: 0.1
+  directionalCascadeCount:
+    m_OverrideState: 0
+    m_Value: 4
+  directionalCascadeRatio1:
+    m_OverrideState: 1
+    m_Value: 0.1
+  directionalCascadeRatio2:
+    m_OverrideState: 0
+    m_Value: 0.25
+  directionalCascadeRatio3:
+    m_OverrideState: 0
+    m_Value: 0.5
+  directionalCascadeFade:
+    m_OverrideState: 0
+    m_Value: 0.1
+  conservativeEnclosingSphere:
+    m_OverrideState: 0
+    m_Value: 1
+  numIterationsEnclosingSphere:
+    m_OverrideState: 0
+    m_Value: 64
 --- !u!114 &1703330898549218941
 MonoBehaviour:
   m_ObjectHideFlags: 3

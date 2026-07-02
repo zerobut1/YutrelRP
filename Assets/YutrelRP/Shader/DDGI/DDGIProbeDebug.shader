@@ -21,6 +21,7 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		float4 _DDGIProbeDistanceDimensions;
 		float4 _DDGIProbeRayDataDimensions;
 		float _DDGIIrradianceEncodingGamma;
+		float _DDGILightingIntensityScale;
 
 		struct ProbeDebugAttributes
 		{
@@ -39,7 +40,7 @@ Shader "YutrelRP/DDGI/Probe Debug"
 		float3 DDGIProbeDebugDecodeIrradiance(float3 value)
 		{
 			float3 color = pow(max(value, 0.0f), _DDGIIrradianceEncodingGamma * 0.5f);
-			return color * color * 2.0f * 1.0989f;
+			return ApplyPreExposure(color * color * 2.0f * 1.0989f * _DDGILightingIntensityScale);
 		}
 
 		float DDGIProbeDebugDecodeDistance(float2 value)
