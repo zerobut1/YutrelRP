@@ -23,17 +23,16 @@ namespace YutrelRP
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
 
         internal static void Record(RenderGraph render_graph, DDGIResources resources,
-            YutrelRPSettings.DDGISettings ddgi_settings)
+            ResolvedDDGISettings ddgi_settings)
         {
             if (resources == null || !resources.is_valid || !resources.probe_ray_data.IsValid() ||
-                !resources.probe_data.IsValid() || ddgi_settings == null)
+                !resources.probe_data.IsValid())
             {
                 return;
             }
 
             var volume = resources.active_volume;
-            var relocation_settings =
-                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            var relocation_settings = ddgi_settings.relocation;
             if (volume == null || !relocation_settings.enabled ||
                 volume.RaysPerProbe <= DDGIResources.FixedRayCount)
             {

@@ -64,6 +64,7 @@ namespace YutrelRP
             var shadow_settings = YutrelShadowSettings.Resolve(settings.shadowSettings, VolumeManager.instance.stack);
             var post_process_settings =
                 YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
+            var ddgi_settings = YutrelDDGISettings.Resolve(settings.ddgiSettings, VolumeManager.instance.stack);
 
             // culling
             if (!camera.TryGetCullingParameters(out var culling_parameters)) return;
@@ -119,9 +120,8 @@ namespace YutrelRP
 
                     //DDGI
                     DDGIResources ddgi_resources = null;
-                    if (settings.ddgiSettings != null && settings.ddgiSettings.enabled)
+                    if (ddgi_settings.enabled)
                     {
-                        var ddgi_settings = settings.ddgiSettings;
                         ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources, ddgi_settings);
                         DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources,
@@ -150,7 +150,7 @@ namespace YutrelRP
 #if UNITY_EDITOR
                     UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
                     DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources,
-                        settings.ddgiSettings, debug_settings, attachment_size);
+                        ddgi_settings, debug_settings, attachment_size);
                     GizmosPass.Record(render_graph, camera, textures.scene_color, textures.scene_depth,
                         GizmoSubset.PreImageEffects);
 #endif

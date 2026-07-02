@@ -35,11 +35,10 @@ namespace YutrelRP
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
 
         internal static void Record(RenderGraph render_graph, DDGIResources resources,
-            YutrelRPSettings.DDGISettings ddgi_settings)
+            ResolvedDDGISettings ddgi_settings)
         {
             if (resources == null || !resources.is_valid || !resources.probe_ray_data.IsValid() ||
-                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid() ||
-                ddgi_settings == null)
+                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid())
             {
                 return;
             }
@@ -62,16 +61,14 @@ namespace YutrelRP
         }
 
         private static void RecordKernel(RenderGraph render_graph, DDGIResources resources, YutrelDDGIVolume volume,
-            YutrelRPSettings.DDGISettings ddgi_settings, ComputeShader shader, string kernel_name,
+            ResolvedDDGISettings ddgi_settings, ComputeShader shader, string kernel_name,
             ProfilingSampler sampler, KernelMode mode)
         {
             using var builder = render_graph.AddComputePass<DDGIProbeBlendingPass>(sampler.name, out var pass, sampler);
-            var encoding_settings = ddgi_settings.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
-            var blending_settings = ddgi_settings.blending ?? new YutrelRPSettings.DDGISettings.BlendingSettings();
-            var relocation_settings =
-                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
-            var classification_settings =
-                ddgi_settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
+            var encoding_settings = ddgi_settings.encoding;
+            var blending_settings = ddgi_settings.blending;
+            var relocation_settings = ddgi_settings.relocation;
+            var classification_settings = ddgi_settings.classification;
             pass.shader = shader;
             pass.kernel = shader.FindKernel(kernel_name);
             pass.mode = mode;

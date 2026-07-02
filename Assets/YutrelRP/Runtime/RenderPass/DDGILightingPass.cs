@@ -26,14 +26,13 @@ namespace YutrelRP
         private static MaterialPropertyBlock property_block;
 
         internal static void Record(RenderGraph render_graph, RenderTargets textures, DDGIResources resources,
-            YutrelRPSettings.DDGISettings ddgi_settings)
+            ResolvedDDGISettings ddgi_settings)
         {
             if (render_graph == null || textures == null || resources == null || !resources.is_valid ||
                 resources.active_volume == null || !textures.scene_color.IsValid() ||
                 !textures.GBuffer_A.IsValid() || !textures.GBuffer_B.IsValid() ||
                 !textures.GBuffer_C.IsValid() || !textures.scene_depth.IsValid() ||
-                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid() ||
-                ddgi_settings == null)
+                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid())
             {
                 return;
             }
@@ -52,12 +51,10 @@ namespace YutrelRP
             var bounds = volume.WorldBounds;
             var probe_count = volume.ProbeCount;
             var probe_spacing = volume.GetWorldProbeSpacing();
-            var encoding_settings = ddgi_settings.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
-            var sampling_settings = ddgi_settings.sampling ?? new YutrelRPSettings.DDGISettings.SamplingSettings();
-            var relocation_settings =
-                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
-            var classification_settings =
-                ddgi_settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
+            var encoding_settings = ddgi_settings.encoding;
+            var sampling_settings = ddgi_settings.sampling;
+            var relocation_settings = ddgi_settings.relocation;
+            var classification_settings = ddgi_settings.classification;
 
             pass.GBuffer_A_ID = RenderTargets.GBuffer_A_ID;
             pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;

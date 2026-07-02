@@ -135,14 +135,25 @@ namespace YutrelRP.Editor
             EditorGUILayout.LabelField("World Probe Spacing", FormatVector3(spacing));
             EditorGUILayout.LabelField("ProbeRayData Layout",
                 $"{volume.RaysPerProbe} x {volume.ProbeCount.x * volume.ProbeCount.z} x {volume.ProbeCount.y}, F32x2");
-            var ddgi_settings = TryGetDDGISettings();
-            if (ddgi_settings != null &&
-                (IsRelocationEnabled(ddgi_settings) || IsClassificationEnabled(ddgi_settings)) &&
+            var ddgi_settings = GetDDGISettings();
+            if ((IsRelocationEnabled(ddgi_settings) || IsClassificationEnabled(ddgi_settings)) &&
                 volume.RaysPerProbe <= DDGIResources.FixedRayCount)
             {
                 EditorGUILayout.HelpBox(
                     $"Probe Relocation or Classification requires more than {DDGIResources.FixedRayCount} rays per probe.",
                     MessageType.Warning);
+            }
+
+            if (!volume.ShowProbeGizmos)
+            {
+                EditorGUILayout.HelpBox("Scene View probe sphere drawing is disabled for this DDGI Volume.",
+                    MessageType.Info);
+            }
+            else if (volume.TotalProbeCount > volume.MaxProbeGizmos)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Scene View probe sphere drawing is skipped because {volume.TotalProbeCount} probes exceeds the {volume.MaxProbeGizmos} limit.",
+                    MessageType.Info);
             }
 
             EditorGUILayout.HelpBox(
@@ -190,6 +201,11 @@ namespace YutrelRP.Editor
 
         private static void DrawProbeGrid(YutrelDDGIVolume volume)
         {
+            if (!volume.ShowProbeGizmos || volume.TotalProbeCount > volume.MaxProbeGizmos)
+            {
+                return;
+            }
+
             var previous_color = Gizmos.color;
             var previous_matrix = Gizmos.matrix;
 
@@ -222,21 +238,22 @@ namespace YutrelRP.Editor
                    !PrefabUtility.IsPartOfPrefabAsset(volume);
         }
 
-        private static YutrelRPSettings.DDGISettings TryGetDDGISettings()
+        private static ResolvedDDGISettings GetDDGISettings()
         {
-            return GraphicsSettings.currentRenderPipeline is YutrelRPAsset asset
+            var fallback = GraphicsSettings.currentRenderPipeline is YutrelRPAsset asset
                 ? asset.Settings?.ddgiSettings
                 : null;
+            return YutrelDDGISettings.Resolve(fallback, VolumeManager.instance.stack);
         }
 
-        private static bool IsRelocationEnabled(YutrelRPSettings.DDGISettings settings)
+        private static bool IsRelocationEnabled(ResolvedDDGISettings settings)
         {
-            return settings.relocation != null && settings.relocation.enabled;
+            return settings.relocation.enabled;
         }
 
-        private static bool IsClassificationEnabled(YutrelRPSettings.DDGISettings settings)
+        private static bool IsClassificationEnabled(ResolvedDDGISettings settings)
         {
-            return settings.classification != null && settings.classification.enabled;
+            return settings.classification.enabled;
         }
 
         private static Vector3 WorldPointToLocalVolumeOffset(Transform transform, Vector3 world_point)

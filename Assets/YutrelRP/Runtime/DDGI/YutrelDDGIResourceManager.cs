@@ -24,7 +24,7 @@ namespace YutrelRP
         private bool has_history_identity;
 
         public void Prepare(RenderGraph render_graph, Camera camera, DDGIResources resources,
-            YutrelRPSettings.DDGISettings ddgi_settings)
+            ResolvedDDGISettings ddgi_settings)
         {
             Prepare(render_graph, ResolveActiveVolume(camera), resources, ddgi_settings);
         }
@@ -35,7 +35,7 @@ namespace YutrelRP
         }
 
         public void Prepare(RenderGraph render_graph, YutrelDDGIVolume volume, DDGIResources resources,
-            YutrelRPSettings.DDGISettings ddgi_settings)
+            ResolvedDDGISettings ddgi_settings)
         {
             if (resources == null)
             {
@@ -44,7 +44,7 @@ namespace YutrelRP
 
             resources.Reset();
             resources.active_volume = volume;
-            if (render_graph == null || volume == null || !volume.isActiveAndEnabled || ddgi_settings == null)
+            if (render_graph == null || volume == null || !volume.isActiveAndEnabled)
             {
                 return;
             }
@@ -245,13 +245,6 @@ namespace YutrelRP
 
         private readonly struct HistoryIdentity
         {
-            private const float DefaultProbeRayRadianceMax = 50000.0f;
-            private const float DefaultIrradianceEncodingGamma = 5.0f;
-            private const float DefaultDistanceExponent = 50.0f;
-            private const float DefaultProbeRandomRayBackfaceThreshold = 0.1f;
-            private const float DefaultProbeMinFrontfaceDistance = 0.1f;
-            private const float DefaultProbeFixedRayBackfaceThreshold = 0.25f;
-
             public readonly YutrelDDGIVolume volume;
             public readonly Vector3 bounds_min;
             public readonly Vector3 probe_spacing;
@@ -266,7 +259,7 @@ namespace YutrelRP
             public readonly float probe_min_frontface_distance;
             public readonly float probe_fixed_ray_backface_threshold;
 
-            public HistoryIdentity(YutrelDDGIVolume volume, YutrelRPSettings.DDGISettings ddgi_settings)
+            public HistoryIdentity(YutrelDDGIVolume volume, ResolvedDDGISettings ddgi_settings)
             {
                 var encoding_settings = ddgi_settings.encoding;
                 var blending_settings = ddgi_settings.blending;
@@ -277,24 +270,16 @@ namespace YutrelRP
                 bounds_min = volume.WorldBounds.min;
                 probe_spacing = volume.GetWorldProbeSpacing();
                 probe_max_ray_distance = volume.ProbeMaxRayDistance;
-                probe_ray_radiance_max = Mathf.Max(0.001f,
-                    encoding_settings?.probeRayRadianceMax ?? DefaultProbeRayRadianceMax);
-                irradiance_encoding_gamma = Mathf.Max(0.01f,
-                    encoding_settings?.irradianceEncodingGamma ?? DefaultIrradianceEncodingGamma);
-                distance_exponent = Mathf.Max(0.01f,
-                    blending_settings?.distanceExponent ?? DefaultDistanceExponent);
-                probe_random_ray_backface_threshold = Mathf.Clamp01(
-                    blending_settings?.probeRandomRayBackfaceThreshold ??
-                    DefaultProbeRandomRayBackfaceThreshold);
-                relocation_enabled = relocation_settings != null && relocation_settings.enabled;
-                classification_enabled = classification_settings != null && classification_settings.enabled;
+                probe_ray_radiance_max = encoding_settings.probeRayRadianceMax;
+                irradiance_encoding_gamma = encoding_settings.irradianceEncodingGamma;
+                distance_exponent = blending_settings.distanceExponent;
+                probe_random_ray_backface_threshold = blending_settings.probeRandomRayBackfaceThreshold;
+                relocation_enabled = relocation_settings.enabled;
+                classification_enabled = classification_settings.enabled;
                 uses_fixed_rays = (relocation_enabled || classification_enabled) &&
                                   volume.RaysPerProbe > DDGIResources.FixedRayCount;
-                probe_min_frontface_distance = Mathf.Max(0.0f,
-                    relocation_settings?.probeMinFrontfaceDistance ?? DefaultProbeMinFrontfaceDistance);
-                probe_fixed_ray_backface_threshold = Mathf.Clamp01(
-                    relocation_settings?.probeFixedRayBackfaceThreshold ??
-                    DefaultProbeFixedRayBackfaceThreshold);
+                probe_min_frontface_distance = relocation_settings.probeMinFrontfaceDistance;
+                probe_fixed_ray_backface_threshold = relocation_settings.probeFixedRayBackfaceThreshold;
             }
 
             public ClearFlags GetClearFlags(HistoryIdentity other)

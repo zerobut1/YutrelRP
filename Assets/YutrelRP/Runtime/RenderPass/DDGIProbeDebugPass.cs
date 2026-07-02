@@ -45,7 +45,7 @@ namespace YutrelRP
         private static Mesh sphere_mesh;
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
-            DDGIResources resources, YutrelRPSettings.DDGISettings ddgi_settings,
+            DDGIResources resources, ResolvedDDGISettings ddgi_settings,
             YutrelRPDebugSettings debug_settings, Vector2Int attachment_size)
         {
             var mode = debug_settings != null
@@ -90,11 +90,9 @@ namespace YutrelRP
             var volume = resources.active_volume;
             var probe_count = volume.ProbeCount;
             var bounds = volume.WorldBounds;
-            var encoding_settings = ddgi_settings?.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
-            var relocation_settings =
-                ddgi_settings?.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
-            var classification_settings =
-                ddgi_settings?.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
+            var encoding_settings = ddgi_settings.encoding;
+            var relocation_settings = ddgi_settings.relocation;
+            var classification_settings = ddgi_settings.classification;
 
             pass.mode = mode;
             pass.probe_count = probe_count;

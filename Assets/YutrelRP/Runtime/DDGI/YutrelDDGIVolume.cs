@@ -42,6 +42,11 @@ namespace YutrelRP
             DefaultProbeDistanceInteriorTexels;
 
         [Header("Editor")]
+        [Tooltip("Draw probe spheres in the Scene View when this DDGI Volume is selected.")]
+        [SerializeField] private bool showProbeGizmos = true;
+        [Tooltip("Maximum probe count allowed for Scene View probe sphere drawing.")]
+        [Min(0)]
+        [SerializeField] private int maxProbeGizmos = 4096;
         [Tooltip("Scene View probe sphere radius in local units.")]
         [Min(MinProbePreviewRadius)]
         [SerializeField] private float probePreviewRadius = 0.1f;
@@ -93,6 +98,10 @@ namespace YutrelRP
             get => probePreviewRadius;
             set => probePreviewRadius = Mathf.Max(MinProbePreviewRadius, value);
         }
+
+        public bool ShowProbeGizmos => showProbeGizmos;
+
+        public int MaxProbeGizmos => Mathf.Max(0, maxProbeGizmos);
 
         public Vector3 ProbeSpacing
         {
@@ -186,6 +195,7 @@ namespace YutrelRP
             probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
             probeIrradianceInteriorTexels = DefaultProbeIrradianceInteriorTexels;
             probeDistanceInteriorTexels = DefaultProbeDistanceInteriorTexels;
+            maxProbeGizmos = Mathf.Max(0, maxProbeGizmos);
             probePreviewRadius = Mathf.Max(MinProbePreviewRadius, probePreviewRadius);
             EnforceAxisAlignedRotation();
         }
