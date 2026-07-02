@@ -1,85 +1,5 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-4513121438814059032
-MonoBehaviour:
-  m_ObjectHideFlags: 3
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: YutrelShadowSettings
-  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
-  active: 1
-  maxDistance:
-    m_OverrideState: 0
-    m_Value: 100
-  distanceFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  directionalCascadeCount:
-    m_OverrideState: 0
-    m_Value: 4
-  directionalCascadeRatio1:
-    m_OverrideState: 1
-    m_Value: 0.1
-  directionalCascadeRatio2:
-    m_OverrideState: 0
-    m_Value: 0.25
-  directionalCascadeRatio3:
-    m_OverrideState: 0
-    m_Value: 0.5
-  directionalCascadeFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  conservativeEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 1
-  numIterationsEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 64
---- !u!114 &-2079773825343707519
-MonoBehaviour:
-  m_ObjectHideFlags: 3
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: YutrelShadowSettings
-  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
-  active: 1
-  maxDistance:
-    m_OverrideState: 1
-    m_Value: 10
-  distanceFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  directionalCascadeCount:
-    m_OverrideState: 0
-    m_Value: 4
-  directionalCascadeRatio1:
-    m_OverrideState: 0
-    m_Value: 0.1
-  directionalCascadeRatio2:
-    m_OverrideState: 0
-    m_Value: 0.25
-  directionalCascadeRatio3:
-    m_OverrideState: 0
-    m_Value: 0.5
-  directionalCascadeFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  conservativeEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 1
-  numIterationsEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 64
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -95,47 +15,7 @@ MonoBehaviour:
   components:
   - {fileID: 1703330898549218941}
   - {fileID: 2362347213122724940}
-  - {fileID: 7170404670485878048}
---- !u!114 &727897378366185013
-MonoBehaviour:
-  m_ObjectHideFlags: 3
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: YutrelShadowSettings
-  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
-  active: 1
-  maxDistance:
-    m_OverrideState: 0
-    m_Value: 100
-  distanceFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  directionalCascadeCount:
-    m_OverrideState: 0
-    m_Value: 4
-  directionalCascadeRatio1:
-    m_OverrideState: 1
-    m_Value: 0.1
-  directionalCascadeRatio2:
-    m_OverrideState: 0
-    m_Value: 0.25
-  directionalCascadeRatio3:
-    m_OverrideState: 0
-    m_Value: 0.5
-  directionalCascadeFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  conservativeEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 1
-  numIterationsEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 64
+  - {fileID: 4653234269507940848}
 --- !u!114 &1703330898549218941
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -158,46 +38,6 @@ MonoBehaviour:
   toneMapping:
     m_OverrideState: 1
     m_Value: 1
---- !u!114 &1916442555983306410
-MonoBehaviour:
-  m_ObjectHideFlags: 3
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: YutrelShadowSettings
-  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
-  active: 1
-  maxDistance:
-    m_OverrideState: 0
-    m_Value: 100
-  distanceFade:
-    m_OverrideState: 0
-    m_Value: 0.1
-  directionalCascadeCount:
-    m_OverrideState: 0
-    m_Value: 4
-  directionalCascadeRatio1:
-    m_OverrideState: 1
-    m_Value: 0.1
-  directionalCascadeRatio2:
-    m_OverrideState: 1
-    m_Value: 0.25
-  directionalCascadeRatio3:
-    m_OverrideState: 1
-    m_Value: 0.5
-  directionalCascadeFade:
-    m_OverrideState: 1
-    m_Value: 0.1
-  conservativeEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 1
-  numIterationsEnclosingSphere:
-    m_OverrideState: 0
-    m_Value: 64
 --- !u!114 &2362347213122724940
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -253,7 +93,7 @@ MonoBehaviour:
   classificationEnabled:
     m_OverrideState: 1
     m_Value: 1
---- !u!114 &7170404670485878048
+--- !u!114 &4653234269507940848
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -262,9 +102,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 9bba6e0b2b8a48f49b1f473bf5e5fe91, type: 3}
   m_Name: YutrelShadowSettings
-  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
+  m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelShadowSettings
   active: 1
   maxDistance:
     m_OverrideState: 0
