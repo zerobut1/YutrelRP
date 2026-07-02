@@ -107,7 +107,7 @@ float3 DDGISphericalFibonacci(uint sampleIndex, uint sampleCount)
     float phi      = TWO_PI * frac((float)sampleIndex * b);
     float cosTheta = 1.0f - (2.0f * (float)sampleIndex + 1.0f) / (float)max(sampleCount, 1u);
     float sinTheta = sqrt(saturate(1.0f - cosTheta * cosTheta));
-    return float3(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
+    return float3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
 float3 DDGIRotateProbeRayDirection(float3 direction)

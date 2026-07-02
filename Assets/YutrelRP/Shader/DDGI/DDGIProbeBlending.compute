@@ -115,11 +115,8 @@ void BlendIrradiance(
     uint firstBlendRay    = DDGIUsesFixedRays(rayCount) ? DDGI_FIXED_RAY_COUNT : 0u;
     uint blendRayCount    = max(rayCount - firstBlendRay, 1u);
 
-    if (_DDGIProbeClassificationEnabled != 0 &&
-        DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE)
-    {
-        return;
-    }
+    bool skipProbe = _DDGIProbeClassificationEnabled != 0 &&
+                     DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE;
 
     LoadSharedRayData(
         groupIndex,
@@ -128,7 +125,7 @@ void BlendIrradiance(
         groupID.z,
         rayCount);
 
-    if (!isBorder)
+    if (!isBorder && !skipProbe)
     {
         float3 octahedralDirection = GetTileOctahedralDirection(local, DDGI_IRRADIANCE_INTERIOR_TEXELS);
 
@@ -218,11 +215,8 @@ void BlendDistance(
     uint firstBlendRay    = DDGIUsesFixedRays(rayCount) ? DDGI_FIXED_RAY_COUNT : 0u;
     uint blendRayCount    = max(rayCount - firstBlendRay, 1u);
 
-    if (_DDGIProbeClassificationEnabled != 0 &&
-        DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE)
-    {
-        return;
-    }
+    bool skipProbe = _DDGIProbeClassificationEnabled != 0 &&
+                     DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE;
 
     LoadSharedRayData(
         groupIndex,
@@ -231,7 +225,7 @@ void BlendDistance(
         groupID.z,
         rayCount);
 
-    if (!isBorder)
+    if (!isBorder && !skipProbe)
     {
         float3 octahedralDirection = GetTileOctahedralDirection(local, DDGI_DISTANCE_INTERIOR_TEXELS);
         float maxRayDistance       = length(_DDGIProbeSpacing) * 1.5f;

@@ -22,6 +22,9 @@ namespace YutrelRP
         private HistoryIdentity history_identity;
         private bool has_allocation_identity;
         private bool has_history_identity;
+        private Pcg32 probe_ray_rng = new(5489u, 54u);
+        private int probe_ray_rotation_frame = -1;
+        private Matrix4x4 probe_ray_rotation = Matrix4x4.identity;
 
         public void Prepare(RenderGraph render_graph, Camera camera, DDGIResources resources,
             ResolvedDDGISettings ddgi_settings)
@@ -86,6 +89,13 @@ namespace YutrelRP
             resources.probe_count = volume.ProbeCount;
             resources.probe_irradiance_interior_texels = volume.ProbeIrradianceInteriorTexels;
             resources.probe_distance_interior_texels = volume.ProbeDistanceInteriorTexels;
+            UpdateProbeRayRotation(Time.frameCount);
+            resources.probe_ray_rotation_row0 = new Vector4(probe_ray_rotation.m00, probe_ray_rotation.m01,
+                probe_ray_rotation.m02, 0.0f);
+            resources.probe_ray_rotation_row1 = new Vector4(probe_ray_rotation.m10, probe_ray_rotation.m11,
+                probe_ray_rotation.m12, 0.0f);
+            resources.probe_ray_rotation_row2 = new Vector4(probe_ray_rotation.m20, probe_ray_rotation.m21,
+                probe_ray_rotation.m22, 0.0f);
             resources.is_valid = resources.probe_irradiance.IsValid() &&
                                  resources.probe_distance.IsValid() &&
                                  resources.probe_data.IsValid();
@@ -178,6 +188,76 @@ namespace YutrelRP
             }
 
             return selected;
+        }
+
+        private void UpdateProbeRayRotation(int frame_index)
+        {
+            if (probe_ray_rotation_frame == frame_index)
+            {
+                return;
+            }
+
+            probe_ray_rotation_frame = frame_index;
+            probe_ray_rotation = ComputeProbeRayRotation(NextRandom01(), NextRandom01(), NextRandom01());
+        }
+
+        private float NextRandom01()
+        {
+            return (probe_ray_rng.NextUInt() >> 8) * (1.0f / 16777216.0f);
+        }
+
+        private static Matrix4x4 ComputeProbeRayRotation(float random0, float random1, float random2)
+        {
+            var u1 = 2.0f * Mathf.PI * random0;
+            var cos1 = Mathf.Cos(u1);
+            var sin1 = Mathf.Sin(u1);
+
+            var u2 = 2.0f * Mathf.PI * random1;
+            var cos2 = Mathf.Cos(u2);
+            var sin2 = Mathf.Sin(u2);
+
+            var u3 = random2;
+            var sq3 = 2.0f * Mathf.Sqrt(u3 * (1.0f - u3));
+
+            var s2 = 2.0f * u3 * sin2 * sin2 - 1.0f;
+            var c2 = 2.0f * u3 * cos2 * cos2 - 1.0f;
+            var sc = 2.0f * u3 * sin2 * cos2;
+
+            var matrix = Matrix4x4.identity;
+            matrix.m00 = cos1 * c2 - sin1 * sc;
+            matrix.m01 = sin1 * c2 + cos1 * sc;
+            matrix.m02 = sq3 * cos2;
+            matrix.m10 = cos1 * sc - sin1 * s2;
+            matrix.m11 = sin1 * sc + cos1 * s2;
+            matrix.m12 = sq3 * sin2;
+            matrix.m20 = cos1 * (sq3 * cos2) - sin1 * (sq3 * sin2);
+            matrix.m21 = sin1 * (sq3 * cos2) + cos1 * (sq3 * sin2);
+            matrix.m22 = 1.0f - 2.0f * u3;
+            return matrix;
+        }
+
+        private struct Pcg32
+        {
+            private ulong state;
+            private readonly ulong inc;
+
+            public Pcg32(uint seed, uint sequence)
+            {
+                state = 0ul;
+                inc = ((ulong)sequence << 1) | 1ul;
+                NextUInt();
+                state += seed;
+                NextUInt();
+            }
+
+            public uint NextUInt()
+            {
+                var old = state;
+                state = old * 6364136223846793005ul + inc;
+                var xorshifted = (uint)(((old >> 18) ^ old) >> 27);
+                var rot = (int)(old >> 59);
+                return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+            }
         }
 
         [Flags]

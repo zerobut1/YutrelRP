@@ -43,6 +43,15 @@ Shader "YutrelRP/DDGI/Probe Debug"
 			return ApplyPreExposure(color * color * 2.0f * 1.0989f * _DDGILightingIntensityScale);
 		}
 
+		float3 DDGIProbeDebugDecodeIrradianceAtlas(float3 value)
+		{
+			float3 color = pow(max(value, 0.0f), _DDGIIrradianceEncodingGamma * 0.5f);
+			color *= color;
+			color *= 2.0f;
+			color *= 1.0989f;
+			return color;
+		}
+
 		float DDGIProbeDebugDecodeDistance(float2 value)
 		{
 			return 2.0f * value.r;
@@ -165,8 +174,11 @@ Shader "YutrelRP/DDGI/Probe Debug"
 					return float4(0.0f, 0.0f, 0.0f, 0.0f);
 				}
 
-				float3 value = _DDGIProbeIrradiance.Load(int4(coords, 0)).rgb;
-				return DDGIProbeDebugOutput(saturate(DDGIProbeDebugDecodeIrradiance(value)), 1.0f);
+				float3 uv = float3(
+					(float2(coords.xy) + 0.5f) / _DDGIProbeIrradianceDimensions.xy,
+					(float)coords.z);
+				float3 value = _DDGIProbeIrradiance.SampleLevel(sampler_point_clamp, uv, 0).rgb;
+				return DDGIProbeDebugOutput(saturate(DDGIProbeDebugDecodeIrradianceAtlas(value)), 1.0f);
 			}
 
 			if (_DDGIProbeDebugMode == 4)
