@@ -17,6 +17,7 @@ namespace YutrelRP
         internal bool ddgi_ray_data_debug_texture;
         internal DDGIProbeDebugMode ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
         internal bool ddgi_probe_debug_show_base_position;
+        internal bool ddgi_probe_debug_hide_inactive_classification;
         internal float ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
         internal float ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
 
@@ -26,6 +27,7 @@ namespace YutrelRP
             ddgi_ray_data_debug_texture = false;
             ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
             ddgi_probe_debug_show_base_position = false;
+            ddgi_probe_debug_hide_inactive_classification = false;
             ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
             ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
         }
@@ -214,6 +216,21 @@ namespace YutrelRP
             }
         }
 
+        internal bool DDGIProbeDebugHideInactiveClassification
+        {
+            get => settings != null && settings.ddgi_probe_debug_hide_inactive_classification;
+            set
+            {
+                if (settings == null || settings.ddgi_probe_debug_hide_inactive_classification == value)
+                {
+                    return;
+                }
+
+                settings.ddgi_probe_debug_hide_inactive_classification = value;
+                RequestRepaint();
+            }
+        }
+
         internal float DDGIProbeDebugRadius
         {
             get => settings != null
@@ -335,6 +352,13 @@ namespace YutrelRP
                         tooltip = "Draw DDGI probe debug spheres at pre-relocation grid positions.",
                         getter = () => data.DDGIProbeDebugShowBasePosition,
                         setter = value => data.DDGIProbeDebugShowBasePosition = value
+                    },
+                    new DebugUI.BoolField
+                    {
+                        displayName = "Hide Inactive Classification Probes",
+                        tooltip = "Hide inactive probes in DDGI probe sphere debug views.",
+                        getter = () => data.DDGIProbeDebugHideInactiveClassification,
+                        setter = value => data.DDGIProbeDebugHideInactiveClassification = value
                     },
                     new DebugUI.FloatField
                     {

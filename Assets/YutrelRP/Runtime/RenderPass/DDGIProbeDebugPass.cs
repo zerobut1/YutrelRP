@@ -18,6 +18,8 @@ namespace YutrelRP
         private static readonly int debug_distance_scale_ID = Shader.PropertyToID("_DDGIProbeDebugDistanceScale");
         private static readonly int debug_show_base_position_ID =
             Shader.PropertyToID("_DDGIProbeDebugShowBasePosition");
+        private static readonly int debug_hide_inactive_classification_ID =
+            Shader.PropertyToID("_DDGIProbeDebugHideInactiveClassification");
         private static readonly int scene_depth_ID = RenderTargets.scene_depth_ID;
         private static readonly int probe_bounds_min_ID = Shader.PropertyToID("_DDGIProbeBoundsMin");
         private static readonly int probe_spacing_ID = Shader.PropertyToID("_DDGIProbeSpacing");
@@ -117,6 +119,8 @@ namespace YutrelRP
             pass.probe_classification_enabled =
                 classification_settings.enabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
             pass.debug_show_base_position = debug_settings.ddgi_probe_debug_show_base_position ? 1 : 0;
+            pass.debug_hide_inactive_classification =
+                debug_settings.ddgi_probe_debug_hide_inactive_classification ? 1 : 0;
 
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
@@ -186,6 +190,7 @@ namespace YutrelRP
         private int probe_relocation_enabled;
         private int probe_classification_enabled;
         private int debug_show_base_position;
+        private int debug_hide_inactive_classification;
 
         private void Render(RasterGraphContext context)
         {
@@ -223,6 +228,7 @@ namespace YutrelRP
                 property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
                 property_block.SetInt(probe_classification_enabled_ID, probe_classification_enabled);
                 property_block.SetInt(debug_show_base_position_ID, debug_show_base_position);
+                property_block.SetInt(debug_hide_inactive_classification_ID, debug_hide_inactive_classification);
                 property_block.SetTexture(scene_depth_ID, scene_depth);
                 context.cmd.DrawMeshInstancedProcedural(
                     sphere_mesh, 0, material, SpherePassIndex, total_probe_count, property_block);

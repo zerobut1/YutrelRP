@@ -14,6 +14,7 @@ Shader "YutrelRP/DDGI/Probe Debug"
 
 		int _DDGIProbeDebugMode;
 		int _DDGIProbeDebugShowBasePosition;
+		int _DDGIProbeDebugHideInactiveClassification;
 		float _DDGIProbeDebugRadius;
 		float _DDGIProbeDebugDistanceScale;
 		float4 _DDGIProbeIrradianceDimensions;
@@ -85,6 +86,16 @@ Shader "YutrelRP/DDGI/Probe Debug"
 			if (!DDGIProbeDebugPassesSceneDepth(input.position_CS))
 			{
 				discard;
+			}
+
+			if (_DDGIProbeDebugHideInactiveClassification != 0 &&
+				_DDGIProbeClassificationEnabled != 0)
+			{
+				int3 probeCoords = DDGIProbeCoords(input.probe_index);
+				if (DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE)
+				{
+					discard;
+				}
 			}
 
 			float3 direction = normalize(input.position_WS - input.probe_center_WS);
