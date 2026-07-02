@@ -85,6 +85,21 @@ DefaultLitAlphaClipData BuildStandardDefaultLitAlphaClip(float alpha)
     return alpha_clip;
 }
 
+float4 SampleDefaultLitRayTracingBaseColorLOD(float2 uv, float lod)
+{
+    return SampleStandardDefaultLitBaseColorLOD(uv, lod);
+}
+
+float3 SampleDefaultLitRayTracingNormalLOD(DefaultLitSurfaceInput input, float lod)
+{
+    return SampleStandardDefaultLitNormalLOD(input, lod);
+}
+
+DefaultLitAlphaClipData BuildDefaultLitRayTracingAlphaClip(float alpha)
+{
+    return BuildStandardDefaultLitAlphaClip(alpha);
+}
+
 DefaultLitAlphaClipData EvaluateDefaultLitAlphaClip(DefaultLitSurfaceInput input)
 {
     return BuildStandardDefaultLitAlphaClip(SampleStandardDefaultLitBaseColor(input.uv).a);

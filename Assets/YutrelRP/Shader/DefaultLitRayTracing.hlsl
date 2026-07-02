@@ -3,7 +3,6 @@
 
 #include "Assets/YutrelRP/Shader/DDGI/DDGIProbeTraceCommon.hlsl"
 #include "Assets/YutrelRP/Shader/DefaultLitSurfaceContract.hlsl"
-#include "Assets/YutrelRP/Shader/StandardDefaultLitSurface.hlsl"
 #include "UnityRayTracingMeshUtils.cginc"
 
 struct DefaultLitRayTracingAttributes
@@ -95,8 +94,8 @@ DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracin
     DefaultLitRayTracingAttributes attributes : SV_IntersectionAttributes)
 {
     DefaultLitSurfaceInput input       = BuildDefaultLitRayTracingSurfaceInput(attributes);
-    float4 base_color                  = SampleStandardDefaultLitBaseColorLOD(input.uv, 0.0f);
-    DefaultLitAlphaClipData alpha_clip = BuildStandardDefaultLitAlphaClip(base_color.a);
+    float4 base_color                  = SampleDefaultLitRayTracingBaseColorLOD(input.uv, 0.0f);
+    DefaultLitAlphaClipData alpha_clip = BuildDefaultLitRayTracingAlphaClip(base_color.a);
 
     if (alpha_clip.enabled > 0.5f && alpha_clip.alpha < alpha_clip.cutoff)
     {
@@ -109,10 +108,10 @@ DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracin
         DefaultLitRayTracingAttributes attributes : SV_IntersectionAttributes)
 {
     DefaultLitSurfaceInput input = BuildDefaultLitRayTracingSurfaceInput(attributes);
-    float4 base_color            = SampleStandardDefaultLitBaseColorLOD(input.uv, 0.0f);
+    float4 base_color            = SampleDefaultLitRayTracingBaseColorLOD(input.uv, 0.0f);
     float3 geometric_normal_WS   = ComputeDefaultLitRayTracingGeometricNormalWS(attributes);
     float3 visibility_normal_WS  = DDGITraceOrientNormal(input.normal_WS, geometric_normal_WS);
-    float3 shading_normal_WS     = SampleStandardDefaultLitNormalLOD(input, 0.0f);
+    float3 shading_normal_WS     = SampleDefaultLitRayTracingNormalLOD(input, 0.0f);
     shading_normal_WS            = DDGITraceKeepSameHemisphere(shading_normal_WS, visibility_normal_WS);
     float3 position_WS           = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
     DDGITraceCommitClosestHit(payload, base_color.rgb, position_WS, visibility_normal_WS, shading_normal_WS);

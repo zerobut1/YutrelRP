@@ -56,6 +56,21 @@ DefaultLitAlphaClipData BuildSponzaDefaultLitAlphaClip(float alpha)
     return alpha_clip;
 }
 
+float4 SampleDefaultLitRayTracingBaseColorLOD(float2 uv, float lod)
+{
+    return SampleSponzaDefaultLitBaseColorLOD(uv, lod);
+}
+
+float3 SampleDefaultLitRayTracingNormalLOD(DefaultLitSurfaceInput input, float lod)
+{
+    return SampleSponzaDefaultLitNormalLOD(input, lod);
+}
+
+DefaultLitAlphaClipData BuildDefaultLitRayTracingAlphaClip(float alpha)
+{
+    return BuildSponzaDefaultLitAlphaClip(alpha);
+}
+
 DefaultLitAlphaClipData EvaluateDefaultLitAlphaClip(DefaultLitSurfaceInput input)
 {
     float alpha = SampleSponzaDefaultLitBaseColor(input.uv).a;

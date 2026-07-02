@@ -50,5 +50,18 @@
 			#include "Assets/YutrelRP/Shader/DefaultLit.hlsl"
 			ENDHLSL
 		}
+
+		Pass
+		{
+			Name "DDGIProbeTrace"
+			Tags { "LightMode" = "DDGIProbeTrace" }
+
+			HLSLPROGRAM
+			#pragma target 5.0
+			#pragma multi_compile_instancing
+			#pragma raytracing DDGIProbeTrace
+			#include "Assets/YutrelRP/Shader/DefaultLitRayTracing.hlsl"
+			ENDHLSL
+		}
 	}
 }

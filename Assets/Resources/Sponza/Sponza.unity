@@ -1284,17 +1284,10 @@ MonoBehaviour:
   center: {x: 0.0026350021, y: -0.17211962, z: -0.026195526}
   size: {x: 10.561758, y: 11.06129, z: 24.03762}
   probeCount: {x: 10, y: 11, z: 24}
-  raysPerProbe: 64
-  probeMaxRayDistance: 100
+  raysPerProbe: 256
+  probeMaxRayDistance: 10
   probeIrradianceInteriorTexels: 6
   probeDistanceInteriorTexels: 14
-  probeHysteresis: 0.97
-  probeNormalBias: 0.2
-  probeViewBias: 0.1
-  irradianceEncodingGamma: 5
-  distanceExponent: 50
-  irradianceThreshold: 0.2
-  brightnessThreshold: 2
   probePreviewRadius: 0.075
 --- !u!1 &964583431
 GameObject:
@@ -1498,13 +1491,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1406267502}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.70368445, y: -0.5468309, z: 0.04335487, w: 0.45158014}
+  m_LocalRotation: {x: 0.76928353, y: -0.44988775, z: 0.10216576, w: 0.44200242}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 43.075, y: -143.659, z: -89.537}
+  m_LocalEulerAnglesHint: {x: 50.532, y: -157.767, z: -108.764}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
