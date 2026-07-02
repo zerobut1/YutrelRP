@@ -15,7 +15,7 @@ namespace YutrelRP
         private static readonly int probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias");
         private static readonly int probe_view_bias_ID = Shader.PropertyToID("_DDGIProbeViewBias");
-        private static readonly int probe_ray_radiance_max_ID = Shader.PropertyToID("_DDGIProbeRayRadianceMax");
+        private static readonly int lighting_intensity_scale_ID = Shader.PropertyToID("_DDGILightingIntensityScale");
         private static readonly int irradiance_encoding_gamma_ID =
             Shader.PropertyToID("_DDGIIrradianceEncodingGamma");
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
@@ -72,7 +72,7 @@ namespace YutrelRP
             pass.probe_count = probe_count;
             pass.probe_normal_bias = Mathf.Max(0.0f, sampling_settings.probeNormalBias);
             pass.probe_view_bias = Mathf.Max(0.0f, sampling_settings.probeViewBias);
-            pass.probe_ray_radiance_max = Mathf.Max(0.001f, encoding_settings.probeRayRadianceMax);
+            pass.lighting_intensity_scale = Mathf.Max(0.001f, encoding_settings.lightingIntensityScale);
             pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
             pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.probe_classification_enabled =
@@ -113,7 +113,7 @@ namespace YutrelRP
         private Vector3Int probe_count;
         private float probe_normal_bias;
         private float probe_view_bias;
-        private float probe_ray_radiance_max;
+        private float lighting_intensity_scale;
         private float irradiance_encoding_gamma;
         private int probe_relocation_enabled;
         private int probe_classification_enabled;
@@ -134,7 +134,7 @@ namespace YutrelRP
                 new Vector4(probe_count.x, probe_count.y, probe_count.z, 0.0f));
             property_block.SetFloat(probe_normal_bias_ID, probe_normal_bias);
             property_block.SetFloat(probe_view_bias_ID, probe_view_bias);
-            property_block.SetFloat(probe_ray_radiance_max_ID, probe_ray_radiance_max);
+            property_block.SetFloat(lighting_intensity_scale_ID, lighting_intensity_scale);
             property_block.SetFloat(irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
             property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
             property_block.SetInt(probe_classification_enabled_ID, probe_classification_enabled);

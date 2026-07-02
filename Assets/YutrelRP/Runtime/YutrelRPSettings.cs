@@ -26,7 +26,7 @@ namespace YutrelRP
             [System.Serializable]
             public class EncodingSettings
             {
-                [Min(0.001f)] public float probeRayRadianceMax = 50000.0f;
+                [Min(0.001f)] public float lightingIntensityScale = 100000.0f;
                 [Min(0.01f)] public float irradianceEncodingGamma = 5.0f;
             }
 

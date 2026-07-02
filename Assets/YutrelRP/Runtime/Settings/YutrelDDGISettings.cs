@@ -41,7 +41,7 @@ namespace YutrelRP
 
             return new ResolvedDDGISettings(
                 settings.enabled,
-                new EncodingSettings(encoding.probeRayRadianceMax, encoding.irradianceEncodingGamma),
+                new EncodingSettings(encoding.lightingIntensityScale, encoding.irradianceEncodingGamma),
                 new SamplingSettings(sampling.probeNormalBias, sampling.probeViewBias),
                 new BlendingSettings(
                     blending.probeHysteresis,
@@ -58,12 +58,12 @@ namespace YutrelRP
 
         public readonly struct EncodingSettings
         {
-            public readonly float probeRayRadianceMax;
+            public readonly float lightingIntensityScale;
             public readonly float irradianceEncodingGamma;
 
-            public EncodingSettings(float probeRayRadianceMax, float irradianceEncodingGamma)
+            public EncodingSettings(float lightingIntensityScale, float irradianceEncodingGamma)
             {
-                this.probeRayRadianceMax = Mathf.Max(0.001f, probeRayRadianceMax);
+                this.lightingIntensityScale = Mathf.Max(0.001f, lightingIntensityScale);
                 this.irradianceEncodingGamma = Mathf.Max(0.01f, irradianceEncodingGamma);
             }
         }
@@ -138,8 +138,8 @@ namespace YutrelRP
         public BoolParameter enabled = new(false);
 
         [Header("Encoding")]
-        [Tooltip("Maximum radiance represented by probe ray data.")]
-        public MinFloatParameter probeRayRadianceMax = new(50000.0f, 0.001f);
+        [Tooltip("Physical light intensity mapped to 1.0 in the RTXGI DDGI lighting domain.")]
+        public MinFloatParameter lightingIntensityScale = new(100000.0f, 0.001f);
 
         [Tooltip("Gamma used to encode probe irradiance.")]
         public MinFloatParameter irradianceEncodingGamma = new(5.0f, 0.01f);
@@ -193,9 +193,9 @@ namespace YutrelRP
             return new ResolvedDDGISettings(
                 enabled.overrideState ? enabled.value : fallback.enabled,
                 new ResolvedDDGISettings.EncodingSettings(
-                    probeRayRadianceMax.overrideState
-                        ? probeRayRadianceMax.value
-                        : fallback.encoding.probeRayRadianceMax,
+                    lightingIntensityScale.overrideState
+                        ? lightingIntensityScale.value
+                        : fallback.encoding.lightingIntensityScale,
                     irradianceEncodingGamma.overrideState
                         ? irradianceEncodingGamma.value
                         : fallback.encoding.irradianceEncodingGamma),

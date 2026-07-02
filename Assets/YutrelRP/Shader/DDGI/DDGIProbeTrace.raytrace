@@ -33,14 +33,14 @@ float4 _DDGIEnvironmentCube_HDR;
 float _EnvironmentIntensity;
 float _EnvironmentDiffuseMultiplier;
 float _DDGIProbeMaxRayDistance;
-float _DDGIProbeRayRadianceMax;
+float _DDGILightingIntensityScale;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
 float _DDGIIrradianceEncodingGamma;
 
-float3 EncodeRayRadiance01(float3 radiance)
+float DDGILightingIntensityInvScale()
 {
-    return saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
+    return rcp(max(_DDGILightingIntensityScale, 1.0e-6f));
 }
 
 float3 TraceEnvironmentRadiance(float3 directionWS)
@@ -55,7 +55,8 @@ float3 TraceEnvironmentRadiance(float3 directionWS)
         normalize(directionWS),
         0.0f);
     float3 radiance = DecodeHDREnvironment(encodedEnvironment, _DDGIEnvironmentCube_HDR);
-    return max(radiance, 0.0f) * _EnvironmentIntensity * _EnvironmentDiffuseMultiplier;
+    return max(radiance, 0.0f) * (_EnvironmentIntensity * DDGILightingIntensityInvScale()) *
+           _EnvironmentDiffuseMultiplier;
 }
 
 float3 TraceSafeNormalize(float3 value)
@@ -164,7 +165,6 @@ float3 TraceGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias, float3
     irradiance *= irradiance;
     irradiance *= TWO_PI;
     irradiance *= 1.0989f;
-    irradiance *= _DDGIProbeRayRadianceMax;
     return irradiance;
 }
 
@@ -246,7 +246,7 @@ void RayGenDDGIProbeTrace()
     if (payload.hitKind == DDGI_TRACE_HIT_KIND_MISS)
     {
         float3 radiance = TraceEnvironmentRadiance(ray.Direction);
-        _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayMiss(EncodeRayRadiance01(radiance));
+        _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayMiss(saturate(radiance));
         return;
     }
 
@@ -274,7 +274,8 @@ void RayGenDDGIProbeTrace()
         if (noL > 0.0f)
         {
             float visibility = TraceDirectionalVisibility(hitPositionWS, payload.normalWS, lightDirectionWS);
-            directRadiance = payload.baseColor * light.color * light.illuminance * noL * visibility * INV_PI;
+            float illuminance = light.illuminance * DDGILightingIntensityInvScale();
+            directRadiance = payload.baseColor * light.color * illuminance * noL * visibility * INV_PI;
         }
     }
 
@@ -288,5 +289,5 @@ void RayGenDDGIProbeTrace()
 
     float3 bounceAlbedo = min(payload.baseColor, float3(0.9f, 0.9f, 0.9f));
     float3 radiance = directRadiance + bounceAlbedo * INV_PI * indirectIrradiance;
-    _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayFrontface(EncodeRayRadiance01(radiance), payload.rayT);
+    _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayFrontface(saturate(radiance), payload.rayT);
 }

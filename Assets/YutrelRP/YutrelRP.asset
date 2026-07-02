@@ -54,7 +54,7 @@ MonoBehaviour:
     ddgiSettings:
       enabled: 1
       encoding:
-        probeRayRadianceMax: 50000
+        lightingIntensityScale: 100000
         irradianceEncodingGamma: 5
       sampling:
         probeNormalBias: 0.02

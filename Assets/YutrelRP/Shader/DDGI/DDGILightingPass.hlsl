@@ -10,7 +10,7 @@ Texture2DArray<float4> _DDGIProbeData;
 
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
-float _DDGIProbeRayRadianceMax;
+float _DDGILightingIntensityScale;
 float _DDGIIrradianceEncodingGamma;
 
 float3 DDGILightingSafeNormalize(float3 value)
@@ -119,7 +119,7 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
     irradiance *= irradiance;
     irradiance *= TWO_PI;
     irradiance *= 1.0989f;
-    irradiance *= _DDGIProbeRayRadianceMax;
+    irradiance *= _DDGILightingIntensityScale;
     return irradiance;
 }
 

@@ -249,7 +249,7 @@ namespace YutrelRP
             public readonly Vector3 bounds_min;
             public readonly Vector3 probe_spacing;
             public readonly float probe_max_ray_distance;
-            public readonly float probe_ray_radiance_max;
+            public readonly float lighting_intensity_scale;
             public readonly float irradiance_encoding_gamma;
             public readonly float distance_exponent;
             public readonly float probe_random_ray_backface_threshold;
@@ -270,7 +270,7 @@ namespace YutrelRP
                 bounds_min = volume.WorldBounds.min;
                 probe_spacing = volume.GetWorldProbeSpacing();
                 probe_max_ray_distance = volume.ProbeMaxRayDistance;
-                probe_ray_radiance_max = encoding_settings.probeRayRadianceMax;
+                lighting_intensity_scale = encoding_settings.lightingIntensityScale;
                 irradiance_encoding_gamma = encoding_settings.irradianceEncodingGamma;
                 distance_exponent = blending_settings.distanceExponent;
                 probe_random_ray_backface_threshold = blending_settings.probeRandomRayBackfaceThreshold;
@@ -298,7 +298,7 @@ namespace YutrelRP
                     flags |= ClearFlags.All;
                 }
 
-                if (probe_ray_radiance_max != other.probe_ray_radiance_max ||
+                if (lighting_intensity_scale != other.lighting_intensity_scale ||
                     irradiance_encoding_gamma != other.irradiance_encoding_gamma ||
                     probe_random_ray_backface_threshold != other.probe_random_ray_backface_threshold)
                 {

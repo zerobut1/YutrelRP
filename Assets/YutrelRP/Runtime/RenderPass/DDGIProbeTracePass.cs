@@ -18,7 +18,7 @@ namespace YutrelRP
         private static readonly int probe_spacing_ID = Shader.PropertyToID("_DDGIProbeSpacing");
         private static readonly int probe_count_ID = Shader.PropertyToID("_DDGIProbeCount");
         private static readonly int probe_max_ray_distance_ID = Shader.PropertyToID("_DDGIProbeMaxRayDistance");
-        private static readonly int probe_ray_radiance_max_ID = Shader.PropertyToID("_DDGIProbeRayRadianceMax");
+        private static readonly int lighting_intensity_scale_ID = Shader.PropertyToID("_DDGILightingIntensityScale");
         private static readonly int probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias");
         private static readonly int probe_view_bias_ID = Shader.PropertyToID("_DDGIProbeViewBias");
         private static readonly int irradiance_encoding_gamma_ID =
@@ -116,7 +116,7 @@ namespace YutrelRP
             pass.probe_spacing = volume.GetWorldProbeSpacing();
             pass.probe_count = probe_count;
             pass.probe_max_ray_distance = volume.ProbeMaxRayDistance;
-            pass.probe_ray_radiance_max = Mathf.Max(0.001f, encoding_settings.probeRayRadianceMax);
+            pass.lighting_intensity_scale = Mathf.Max(0.001f, encoding_settings.lightingIntensityScale);
             pass.probe_normal_bias = Mathf.Max(0.0f, sampling_settings.probeNormalBias);
             pass.probe_view_bias = Mathf.Max(0.0f, sampling_settings.probeViewBias);
             pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
@@ -171,7 +171,7 @@ namespace YutrelRP
         private Vector3 probe_spacing;
         private Vector3Int probe_count;
         private float probe_max_ray_distance;
-        private float probe_ray_radiance_max;
+        private float lighting_intensity_scale;
         private float probe_normal_bias;
         private float probe_view_bias;
         private float irradiance_encoding_gamma;
@@ -215,7 +215,7 @@ namespace YutrelRP
             cmd.SetRayTracingVectorParam(shader, probe_count_ID,
                 new Vector4(probe_count.x, probe_count.y, probe_count.z, 0.0f));
             cmd.SetRayTracingFloatParam(shader, probe_max_ray_distance_ID, probe_max_ray_distance);
-            cmd.SetRayTracingFloatParam(shader, probe_ray_radiance_max_ID, probe_ray_radiance_max);
+            cmd.SetRayTracingFloatParam(shader, lighting_intensity_scale_ID, lighting_intensity_scale);
             cmd.SetRayTracingFloatParam(shader, probe_normal_bias_ID, probe_normal_bias);
             cmd.SetRayTracingFloatParam(shader, probe_view_bias_ID, probe_view_bias);
             cmd.SetRayTracingFloatParam(shader, irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
