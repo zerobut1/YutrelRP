@@ -32,6 +32,9 @@ namespace YutrelRP
         private static readonly int probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0");
         private static readonly int probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1");
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
+        private static readonly int environment_cube_ID = Shader.PropertyToID("_DDGIEnvironmentCube");
+        private static readonly int environment_cube_hdr_ID = Shader.PropertyToID("_DDGIEnvironmentCube_HDR");
+        private static readonly int environment_enabled_ID = Shader.PropertyToID("_DDGIEnvironmentEnabled");
         private static RayTracingShader probe_trace_shader;
 
         internal static void Record(RenderGraph render_graph, DDGIResources resources,
@@ -101,6 +104,14 @@ namespace YutrelRP
             pass.probe_data = resources.probe_data;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
             pass.directional_light_count = light_resources.directional_light_count;
+            pass.environment_enabled = light_resources.has_environment_reflection &&
+                                       light_resources.environment_reflection_cube.IsValid()
+                ? 1
+                : 0;
+            pass.environment_cube = light_resources.environment_reflection_cube;
+            pass.environment_cube_hdr = light_resources.environment_reflection_cube_hdr;
+            pass.environment_intensity = light_resources.environment_intensity;
+            pass.environment_diffuse_multiplier = light_resources.environment_diffuse_multiplier;
             pass.probe_bounds_min = bounds.min;
             pass.probe_spacing = volume.GetWorldProbeSpacing();
             pass.probe_count = probe_count;
@@ -129,6 +140,11 @@ namespace YutrelRP
             builder.UseTexture(resources.probe_distance, AccessFlags.Read);
             builder.UseTexture(resources.probe_data, AccessFlags.Read);
             builder.UseBuffer(light_resources.directional_light_data_buffer, AccessFlags.Read);
+            if (pass.environment_enabled != 0)
+            {
+                builder.UseTexture(pass.environment_cube, AccessFlags.Read);
+            }
+
             builder.AllowPassCulling(false);
             builder.SetRenderFunc<DDGIProbeTracePass>(static (pass, context) => pass.Render(context));
         }
@@ -146,6 +162,11 @@ namespace YutrelRP
         private TextureHandle probe_data;
         private BufferHandle directional_light_data_buffer;
         private int directional_light_count;
+        private TextureHandle environment_cube;
+        private Vector4 environment_cube_hdr;
+        private float environment_intensity;
+        private float environment_diffuse_multiplier;
+        private int environment_enabled;
         private Vector3 probe_bounds_min;
         private Vector3 probe_spacing;
         private Vector3Int probe_count;
@@ -177,6 +198,16 @@ namespace YutrelRP
             cmd.SetRayTracingBufferParam(shader, LightResources.directional_light_data_ID,
                 directional_light_data_buffer);
             cmd.SetRayTracingIntParam(shader, directional_light_count_ID, directional_light_count);
+            cmd.SetRayTracingIntParam(shader, environment_enabled_ID, environment_enabled);
+            cmd.SetRayTracingVectorParam(shader, environment_cube_hdr_ID, environment_cube_hdr);
+            cmd.SetRayTracingFloatParam(shader, LightResources.environment_intensity_ID, environment_intensity);
+            cmd.SetRayTracingFloatParam(shader, LightResources.environment_diffuse_multiplier_ID,
+                environment_diffuse_multiplier);
+            if (environment_enabled != 0)
+            {
+                cmd.SetRayTracingTextureParam(shader, environment_cube_ID, environment_cube);
+            }
+
             cmd.SetRayTracingVectorParam(shader, probe_bounds_min_ID,
                 new Vector4(probe_bounds_min.x, probe_bounds_min.y, probe_bounds_min.z, 0.0f));
             cmd.SetRayTracingVectorParam(shader, probe_spacing_ID,

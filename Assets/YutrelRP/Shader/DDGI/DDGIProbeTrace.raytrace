@@ -1,6 +1,7 @@
 #pragma max_recursion_depth 1
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
 #include "DDGICommon.hlsl"
 #include "DDGIProbeTraceCommon.hlsl"
 
@@ -22,10 +23,15 @@ RWTexture2DArray<float2> _DDGIProbeRayData;
 Texture2DArray<float4> _DDGIProbeIrradiance;
 Texture2DArray<float2> _DDGIProbeDistance;
 Texture2DArray<float4> _DDGIProbeData;
+TextureCube<float4> _DDGIEnvironmentCube;
 RaytracingAccelerationStructure _DDGIAccelerationStructure;
 SamplerState sampler_linear_clamp;
 
 int _DirectionalLightCount;
+int _DDGIEnvironmentEnabled;
+float4 _DDGIEnvironmentCube_HDR;
+float _EnvironmentIntensity;
+float _EnvironmentDiffuseMultiplier;
 float _DDGIProbeMaxRayDistance;
 float _DDGIProbeRayRadianceMax;
 float _DDGIProbeNormalBias;
@@ -35,6 +41,21 @@ float _DDGIIrradianceEncodingGamma;
 float3 EncodeRayRadiance01(float3 radiance)
 {
     return saturate(radiance / max(_DDGIProbeRayRadianceMax, 1.0e-6f));
+}
+
+float3 TraceEnvironmentRadiance(float3 directionWS)
+{
+    if (_DDGIEnvironmentEnabled == 0)
+    {
+        return float3(0.0f, 0.0f, 0.0f);
+    }
+
+    float4 encodedEnvironment = _DDGIEnvironmentCube.SampleLevel(
+        sampler_linear_clamp,
+        normalize(directionWS),
+        0.0f);
+    float3 radiance = DecodeHDREnvironment(encodedEnvironment, _DDGIEnvironmentCube_HDR);
+    return max(radiance, 0.0f) * _EnvironmentIntensity * _EnvironmentDiffuseMultiplier;
 }
 
 float3 TraceSafeNormalize(float3 value)
@@ -224,7 +245,8 @@ void RayGenDDGIProbeTrace()
 
     if (payload.hitKind == DDGI_TRACE_HIT_KIND_MISS)
     {
-        _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayMiss(float3(0.0f, 0.0f, 0.0f));
+        float3 radiance = TraceEnvironmentRadiance(ray.Direction);
+        _DDGIProbeRayData[outputCoords] = DDGIEncodeProbeRayMiss(EncodeRayRadiance01(radiance));
         return;
     }
 
