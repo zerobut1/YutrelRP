@@ -67,7 +67,9 @@ namespace YutrelRP
             [InspectorName("Distance Atlas")]
             DistanceAtlas = 4,
             [InspectorName("Ray Data Radiance")]
-            RayDataRadiance = 5
+            RayDataRadiance = 5,
+            [InspectorName("Probe Classification")]
+            ProbeClassification = 6
         }
     }
 

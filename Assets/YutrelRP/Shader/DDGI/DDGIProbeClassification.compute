@@ -1,0 +1,70 @@
+#pragma kernel ClassifyProbes
+
+#include "DDGICommon.hlsl"
+
+Texture2DArray<float2> _DDGIProbeRayData;
+RWTexture2DArray<float4> _DDGIProbeData;
+
+float _DDGIProbeFixedRayBackfaceThreshold;
+
+float DDGIProbeClassificationLoadRayDistance(int raySampleIndex, int3 probeCoords)
+{
+    int3 rayCoords = int3(raySampleIndex, DDGIProbePlaneIndex(probeCoords), probeCoords.y);
+    return DDGIDecodeProbeRayData(_DDGIProbeRayData.Load(int4(rayCoords, 0))).signedDistance;
+}
+
+[numthreads(4, 4, 4)]
+void ClassifyProbes(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    uint3 probeCount = DDGIProbeCountU();
+    if (any(dispatchThreadID >= probeCount))
+    {
+        return;
+    }
+
+    int3 probeCoords = int3(dispatchThreadID);
+    int3 dataCoords  = DDGIProbeDataCoords(probeCoords);
+    float4 probeData = _DDGIProbeData[dataCoords];
+
+    int backfaceCount = 0;
+    float hitDistances[DDGI_FIXED_RAY_COUNT];
+
+    for (uint loadRayIndex = 0u; loadRayIndex < (uint)DDGI_FIXED_RAY_COUNT; loadRayIndex++)
+    {
+        float hitDistance          = DDGIProbeClassificationLoadRayDistance((int)loadRayIndex, probeCoords);
+        hitDistances[loadRayIndex] = hitDistance;
+        if (hitDistance < 0.0f)
+        {
+            backfaceCount++;
+        }
+    }
+
+    if ((float)backfaceCount / (float)DDGI_FIXED_RAY_COUNT > _DDGIProbeFixedRayBackfaceThreshold)
+    {
+        probeData.w                = DDGI_PROBE_STATE_INACTIVE;
+        _DDGIProbeData[dataCoords] = probeData;
+        return;
+    }
+
+    for (uint classifyRayIndex = 0u; classifyRayIndex < (uint)DDGI_FIXED_RAY_COUNT; classifyRayIndex++)
+    {
+        float hitDistance = hitDistances[classifyRayIndex];
+        if (hitDistance < 0.0f)
+        {
+            continue;
+        }
+
+        float3 direction  = DDGISphericalFibonacci(classifyRayIndex, (uint)DDGI_FIXED_RAY_COUNT);
+        float3 distances  = abs(_DDGIProbeSpacing) / max(abs(direction), 1.0e-6f);
+        float maxDistance = min(distances.x, min(distances.y, distances.z));
+        if (hitDistance <= maxDistance)
+        {
+            probeData.w                = DDGI_PROBE_STATE_ACTIVE;
+            _DDGIProbeData[dataCoords] = probeData;
+            return;
+        }
+    }
+
+    probeData.w                = DDGI_PROBE_STATE_INACTIVE;
+    _DDGIProbeData[dataCoords] = probeData;
+}

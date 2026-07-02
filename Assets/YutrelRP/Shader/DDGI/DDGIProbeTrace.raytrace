@@ -83,6 +83,12 @@ float3 TraceGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias, float3
             int3(0, 0, 0),
             DDGIProbeCount() - int3(1, 1, 1));
         int adjacentProbeIndex            = DDGIProbeIndex(adjacentProbeCoords);
+        if (_DDGIProbeClassificationEnabled != 0 &&
+            DDGILoadProbeState(_DDGIProbeData, adjacentProbeCoords) == DDGI_PROBE_STATE_INACTIVE)
+        {
+            continue;
+        }
+
         float3 adjacentProbeWorldPosition = DDGIProbeWorldPosition(_DDGIProbeData, adjacentProbeCoords);
 
         float3 worldPosToAdjProbe     = TraceSafeNormalize(adjacentProbeWorldPosition - worldPosition);
@@ -189,11 +195,19 @@ void RayGenDDGIProbeTrace()
     uint3 dim = DispatchRaysDimensions();
     int3 probeCoords = DDGIProbeCoordsFromPlaneIndex((int)id.y, (int)id.z);
     uint3 outputCoords = uint3(id.x, id.y, id.z);
+    uint rayCount = max(dim.x, 1u);
+
+    if (_DDGIProbeClassificationEnabled != 0 &&
+        DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE &&
+        !DDGIIsFixedRay(id.x, rayCount))
+    {
+        return;
+    }
 
     RayDesc ray;
     ray.Origin = DDGIProbeWorldPosition(_DDGIProbeData, probeCoords);
     ray.TMin = 0.0f;
-    ray.Direction = DDGIGetProbeRayDirection(id.x, max(dim.x, 1u));
+    ray.Direction = DDGIGetProbeRayDirection(id.x, rayCount);
     ray.TMax = _DDGIProbeMaxRayDistance;
 
     DDGIProbeTracePayload payload;
@@ -220,7 +234,7 @@ void RayGenDDGIProbeTrace()
         return;
     }
 
-    if (DDGIIsFixedRay(id.x, max(dim.x, 1u)))
+    if (DDGIIsFixedRay(id.x, rayCount))
     {
         _DDGIProbeRayData[outputCoords] =
             DDGIEncodeProbeRayFrontface(float3(0.0f, 0.0f, 0.0f), payload.rayT);

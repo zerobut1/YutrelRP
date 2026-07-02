@@ -10,8 +10,11 @@ float3 _DDGIProbeBoundsMin;
 float3 _DDGIProbeSpacing;
 float3 _DDGIProbeCount;
 int _DDGIProbeRelocationEnabled;
+int _DDGIProbeClassificationEnabled;
 
-#define DDGI_FIXED_RAY_COUNT 32u
+#define DDGI_FIXED_RAY_COUNT 32
+#define DDGI_PROBE_STATE_ACTIVE 0.0f
+#define DDGI_PROBE_STATE_INACTIVE 1.0f
 
 static const float DDGI_PROBE_RAY_MISS_DISTANCE  = 1.0e27f;
 static const float DDGI_PROBE_RAY_BACKFACE_SCALE = 0.2f;
@@ -25,6 +28,11 @@ struct DDGIProbeRayData
 int3 DDGIProbeCount()
 {
     return (int3)_DDGIProbeCount;
+}
+
+uint3 DDGIProbeCountU()
+{
+    return (uint3)max(DDGIProbeCount(), int3(1, 1, 1));
 }
 
 int DDGIProbeIndex(int3 coords)
@@ -41,17 +49,19 @@ int DDGIProbePlaneIndex(int3 coords)
 
 int3 DDGIProbeCoords(int index)
 {
-    int3 count = DDGIProbeCount();
+    uint3 count    = DDGIProbeCountU();
+    uint safeIndex = (uint)max(index, 0);
     return int3(
-        index % count.x,
-        index / (count.x * count.z),
-        (index / count.x) % count.z);
+        safeIndex % count.x,
+        safeIndex / (count.x * count.z),
+        (safeIndex / count.x) % count.z);
 }
 
 int3 DDGIProbeCoordsFromPlaneIndex(int planeIndex, int probeY)
 {
-    int3 count = DDGIProbeCount();
-    return int3(planeIndex % count.x, probeY, planeIndex / count.x);
+    uint3 count         = DDGIProbeCountU();
+    uint safePlaneIndex = (uint)max(planeIndex, 0);
+    return int3(safePlaneIndex % count.x, probeY, safePlaneIndex / count.x);
 }
 
 int3 DDGIProbeDataCoords(int3 coords)
@@ -73,6 +83,11 @@ float3 DDGIProbeWorldPosition(Texture2DArray<float4> probeData, int3 coords)
     }
 
     return position;
+}
+
+float DDGILoadProbeState(Texture2DArray<float4> probeData, int3 coords)
+{
+    return probeData.Load(int4(DDGIProbeDataCoords(coords), 0)).w;
 }
 
 float3 DDGIProbeAtlasUV(int probeIndex, float2 octantCoordinates, int interiorTexels)
@@ -103,29 +118,41 @@ float3 DDGIRotateProbeRayDirection(float3 direction)
         dot(direction, float3(_DDGIProbeRayRotationRow0.z, _DDGIProbeRayRotationRow1.z, _DDGIProbeRayRotationRow2.z))));
 }
 
+bool DDGIUsesFixedRays(uint rayCount)
+{
+    return (_DDGIProbeRelocationEnabled != 0 || _DDGIProbeClassificationEnabled != 0) &&
+           rayCount > (uint)DDGI_FIXED_RAY_COUNT;
+}
+
 bool DDGIIsFixedRay(uint rayIndex, uint rayCount)
 {
-    return _DDGIProbeRelocationEnabled != 0 &&
-           rayCount > DDGI_FIXED_RAY_COUNT &&
-           rayIndex < DDGI_FIXED_RAY_COUNT;
+    return DDGIUsesFixedRays(rayCount) && rayIndex < (uint)DDGI_FIXED_RAY_COUNT;
 }
 
 float3 DDGIGetProbeRayDirection(uint rayIndex, uint rayCount)
 {
-    if (DDGIIsFixedRay(rayIndex, rayCount))
+    uint safeRayCount = max(rayCount, 1u);
+    float3 direction  = DDGISphericalFibonacci(rayIndex, safeRayCount);
+
+    if (DDGIUsesFixedRays(safeRayCount))
     {
-        return normalize(DDGISphericalFibonacci(rayIndex, DDGI_FIXED_RAY_COUNT));
+        if (rayIndex < (uint)DDGI_FIXED_RAY_COUNT)
+        {
+            direction = DDGISphericalFibonacci(rayIndex, (uint)DDGI_FIXED_RAY_COUNT);
+        }
+        else
+        {
+            uint randomIndex = rayIndex - (uint)DDGI_FIXED_RAY_COUNT;
+            uint randomCount = safeRayCount - (uint)DDGI_FIXED_RAY_COUNT;
+            direction        = DDGIRotateProbeRayDirection(DDGISphericalFibonacci(randomIndex, randomCount));
+        }
+    }
+    else
+    {
+        direction = DDGIRotateProbeRayDirection(direction);
     }
 
-    uint randomIndex = rayIndex;
-    uint randomCount = rayCount;
-    if (_DDGIProbeRelocationEnabled != 0 && rayCount > DDGI_FIXED_RAY_COUNT)
-    {
-        randomIndex = rayIndex - DDGI_FIXED_RAY_COUNT;
-        randomCount = rayCount - DDGI_FIXED_RAY_COUNT;
-    }
-
-    return DDGIRotateProbeRayDirection(DDGISphericalFibonacci(randomIndex, randomCount));
+    return normalize(direction);
 }
 
 uint DDGIPackRadiance01(float3 value)

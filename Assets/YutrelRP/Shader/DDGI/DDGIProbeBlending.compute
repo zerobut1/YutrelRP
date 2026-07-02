@@ -109,12 +109,17 @@ void BlendIrradiance(
     uint2 local           = groupThreadID.xy;
     bool isBorder         = IsBorderTexel(local, DDGI_IRRADIANCE_TILE_TEXELS);
     uint3 atlasCoord      = uint3(dispatchThreadID.xy, groupID.z);
+    int3 probeCoords      = int3(groupID.x, groupID.z, groupID.y);
     int probeIndexInPlane = GetProbeIndexInPlane(groupID);
     uint rayCount         = min((uint)max(_DDGIRaysPerProbe, 1.0f), (uint)DDGI_BLEND_MAX_RAYS_PER_PROBE);
-    uint firstBlendRay    = (_DDGIProbeRelocationEnabled != 0 && rayCount > DDGI_FIXED_RAY_COUNT)
-                                ? DDGI_FIXED_RAY_COUNT
-                                : 0u;
+    uint firstBlendRay    = DDGIUsesFixedRays(rayCount) ? DDGI_FIXED_RAY_COUNT : 0u;
     uint blendRayCount    = max(rayCount - firstBlendRay, 1u);
+
+    if (_DDGIProbeClassificationEnabled != 0 &&
+        DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE)
+    {
+        return;
+    }
 
     LoadSharedRayData(
         groupIndex,
@@ -207,12 +212,17 @@ void BlendDistance(
     uint2 local           = groupThreadID.xy;
     bool isBorder         = IsBorderTexel(local, DDGI_DISTANCE_TILE_TEXELS);
     uint3 atlasCoord      = uint3(dispatchThreadID.xy, groupID.z);
+    int3 probeCoords      = int3(groupID.x, groupID.z, groupID.y);
     int probeIndexInPlane = GetProbeIndexInPlane(groupID);
     uint rayCount         = min((uint)max(_DDGIRaysPerProbe, 1.0f), (uint)DDGI_BLEND_MAX_RAYS_PER_PROBE);
-    uint firstBlendRay    = (_DDGIProbeRelocationEnabled != 0 && rayCount > DDGI_FIXED_RAY_COUNT)
-                                ? DDGI_FIXED_RAY_COUNT
-                                : 0u;
+    uint firstBlendRay    = DDGIUsesFixedRays(rayCount) ? DDGI_FIXED_RAY_COUNT : 0u;
     uint blendRayCount    = max(rayCount - firstBlendRay, 1u);
+
+    if (_DDGIProbeClassificationEnabled != 0 &&
+        DDGILoadProbeState(_DDGIProbeData, probeCoords) == DDGI_PROBE_STATE_INACTIVE)
+    {
+        return;
+    }
 
     LoadSharedRayData(
         groupIndex,

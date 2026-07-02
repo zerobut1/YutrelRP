@@ -134,10 +134,11 @@ namespace YutrelRP.Editor
             EditorGUILayout.LabelField("World Probe Spacing", FormatVector3(spacing));
             EditorGUILayout.LabelField("ProbeRayData Layout",
                 $"{volume.RaysPerProbe} x {volume.ProbeCount.x * volume.ProbeCount.z} x {volume.ProbeCount.y}, F32x2");
-            if (volume.ProbeRelocationEnabled && volume.RaysPerProbe <= DDGIResources.FixedRayCount)
+            if ((volume.ProbeRelocationEnabled || volume.ProbeClassificationEnabled) &&
+                volume.RaysPerProbe <= DDGIResources.FixedRayCount)
             {
                 EditorGUILayout.HelpBox(
-                    $"Probe Relocation requires more than {DDGIResources.FixedRayCount} rays per probe.",
+                    $"Probe Relocation or Classification requires more than {DDGIResources.FixedRayCount} rays per probe.",
                     MessageType.Warning);
             }
 

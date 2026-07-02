@@ -27,6 +27,8 @@ namespace YutrelRP
         private static readonly int probe_distance_ID = Shader.PropertyToID("_DDGIProbeDistance");
         private static readonly int probe_data_ID = Shader.PropertyToID("_DDGIProbeData");
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
+        private static readonly int probe_classification_enabled_ID =
+            Shader.PropertyToID("_DDGIProbeClassificationEnabled");
         private static readonly int probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0");
         private static readonly int probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1");
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
@@ -103,6 +105,8 @@ namespace YutrelRP
             pass.probe_view_bias = volume.ProbeViewBias;
             pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
             pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_classification_enabled =
+                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
             resources.probe_ray_rotation_row0 = new Vector4(probe_ray_rotation.m00, probe_ray_rotation.m01,
                 probe_ray_rotation.m02, 0.0f);
             resources.probe_ray_rotation_row1 = new Vector4(probe_ray_rotation.m10, probe_ray_rotation.m11,
@@ -146,6 +150,7 @@ namespace YutrelRP
         private float probe_view_bias;
         private float irradiance_encoding_gamma;
         private int probe_relocation_enabled;
+        private int probe_classification_enabled;
         private Vector4 probe_ray_rotation_row0;
         private Vector4 probe_ray_rotation_row1;
         private Vector4 probe_ray_rotation_row2;
@@ -179,6 +184,7 @@ namespace YutrelRP
             cmd.SetRayTracingFloatParam(shader, probe_view_bias_ID, probe_view_bias);
             cmd.SetRayTracingFloatParam(shader, irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
             cmd.SetRayTracingIntParam(shader, probe_relocation_enabled_ID, probe_relocation_enabled);
+            cmd.SetRayTracingIntParam(shader, probe_classification_enabled_ID, probe_classification_enabled);
             cmd.SetRayTracingVectorParam(shader, probe_ray_rotation_row0_ID, probe_ray_rotation_row0);
             cmd.SetRayTracingVectorParam(shader, probe_ray_rotation_row1_ID, probe_ray_rotation_row1);
             cmd.SetRayTracingVectorParam(shader, probe_ray_rotation_row2_ID, probe_ray_rotation_row2);

@@ -35,6 +35,8 @@ namespace YutrelRP
         private static readonly int probe_ray_data_ID = Shader.PropertyToID("_DDGIProbeRayData");
         private static readonly int probe_data_ID = Shader.PropertyToID("_DDGIProbeData");
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
+        private static readonly int probe_classification_enabled_ID =
+            Shader.PropertyToID("_DDGIProbeClassificationEnabled");
 
         private static Material material;
         private static MaterialPropertyBlock property_block;
@@ -106,6 +108,8 @@ namespace YutrelRP
             pass.probe_ray_data = resources.probe_ray_data;
             pass.probe_data = resources.probe_data;
             pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_classification_enabled =
+                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
             pass.debug_show_base_position = debug_settings.ddgi_probe_debug_show_base_position ? 1 : 0;
 
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
@@ -174,6 +178,7 @@ namespace YutrelRP
         private TextureHandle probe_data;
         private TextureHandle scene_depth;
         private int probe_relocation_enabled;
+        private int probe_classification_enabled;
         private int debug_show_base_position;
 
         private void Render(RasterGraphContext context)
@@ -210,6 +215,7 @@ namespace YutrelRP
             {
                 property_block.SetTexture(probe_data_ID, probe_data);
                 property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
+                property_block.SetInt(probe_classification_enabled_ID, probe_classification_enabled);
                 property_block.SetInt(debug_show_base_position_ID, debug_show_base_position);
                 property_block.SetTexture(scene_depth_ID, scene_depth);
                 context.cmd.DrawMeshInstancedProcedural(
@@ -246,7 +252,8 @@ namespace YutrelRP
         private static bool IsProbeMode(YutrelRPDebugSettings.DDGIProbeDebugMode mode)
         {
             return mode == YutrelRPDebugSettings.DDGIProbeDebugMode.ProbeIrradiance ||
-                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.ProbeDistance;
+                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.ProbeDistance ||
+                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.ProbeClassification;
         }
 
         private static bool ReadsIrradiance(YutrelRPDebugSettings.DDGIProbeDebugMode mode)

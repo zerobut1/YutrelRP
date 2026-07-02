@@ -58,7 +58,13 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
             baseProbeCoords + adjacentProbeOffset,
             int3(0, 0, 0),
             DDGIProbeCount() - int3(1, 1, 1));
-        int adjacentProbeIndex            = DDGIProbeIndex(adjacentProbeCoords);
+        int adjacentProbeIndex = DDGIProbeIndex(adjacentProbeCoords);
+        if (_DDGIProbeClassificationEnabled != 0 &&
+            DDGILoadProbeState(_DDGIProbeData, adjacentProbeCoords) == DDGI_PROBE_STATE_INACTIVE)
+        {
+            continue;
+        }
+
         float3 adjacentProbeWorldPosition = DDGIProbeWorldPosition(_DDGIProbeData, adjacentProbeCoords);
 
         float3 worldPosToAdjProbe     = DDGILightingSafeNormalize(adjacentProbeWorldPosition - worldPosition);

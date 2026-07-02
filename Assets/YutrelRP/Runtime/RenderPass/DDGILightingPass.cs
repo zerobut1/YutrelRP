@@ -19,6 +19,8 @@ namespace YutrelRP
         private static readonly int irradiance_encoding_gamma_ID =
             Shader.PropertyToID("_DDGIIrradianceEncodingGamma");
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
+        private static readonly int probe_classification_enabled_ID =
+            Shader.PropertyToID("_DDGIProbeClassificationEnabled");
 
         private static Material material;
         private static MaterialPropertyBlock property_block;
@@ -68,6 +70,8 @@ namespace YutrelRP
             pass.probe_ray_radiance_max = volume.ProbeRayRadianceMax;
             pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
             pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_classification_enabled =
+                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
 
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);
@@ -107,6 +111,7 @@ namespace YutrelRP
         private float probe_ray_radiance_max;
         private float irradiance_encoding_gamma;
         private int probe_relocation_enabled;
+        private int probe_classification_enabled;
 
         private void Render(RasterGraphContext context)
         {
@@ -127,6 +132,7 @@ namespace YutrelRP
             property_block.SetFloat(probe_ray_radiance_max_ID, probe_ray_radiance_max);
             property_block.SetFloat(irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
             property_block.SetInt(probe_relocation_enabled_ID, probe_relocation_enabled);
+            property_block.SetInt(probe_classification_enabled_ID, probe_classification_enabled);
 
             CoreUtils.DrawFullScreen(context.cmd, material, property_block);
         }

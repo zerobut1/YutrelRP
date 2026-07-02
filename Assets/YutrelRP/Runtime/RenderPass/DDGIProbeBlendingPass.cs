@@ -28,6 +28,8 @@ namespace YutrelRP
         private static readonly int probe_random_ray_backface_threshold_ID =
             Shader.PropertyToID("_DDGIProbeRandomRayBackfaceThreshold");
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
+        private static readonly int probe_classification_enabled_ID =
+            Shader.PropertyToID("_DDGIProbeClassificationEnabled");
         private static readonly int probe_ray_rotation_row0_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow0");
         private static readonly int probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1");
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
@@ -81,6 +83,8 @@ namespace YutrelRP
             pass.brightness_threshold = volume.BrightnessThreshold;
             pass.probe_random_ray_backface_threshold = volume.ProbeRandomRayBackfaceThreshold;
             pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_classification_enabled =
+                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
 
             builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);
             builder.UseTexture(pass.probe_data, AccessFlags.Read);
@@ -119,6 +123,7 @@ namespace YutrelRP
         private float brightness_threshold;
         private float probe_random_ray_backface_threshold;
         private int probe_relocation_enabled;
+        private int probe_classification_enabled;
 
         private void Render(ComputeGraphContext context)
         {
@@ -159,6 +164,7 @@ namespace YutrelRP
             cmd.SetComputeFloatParam(shader, probe_random_ray_backface_threshold_ID,
                 probe_random_ray_backface_threshold);
             cmd.SetComputeIntParam(shader, probe_relocation_enabled_ID, probe_relocation_enabled);
+            cmd.SetComputeIntParam(shader, probe_classification_enabled_ID, probe_classification_enabled);
         }
 
         private void Dispatch(ComputeCommandBuffer cmd)

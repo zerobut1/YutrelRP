@@ -81,6 +81,10 @@ namespace YutrelRP
         [Range(0.0f, 1.0f)]
         [SerializeField] private float probeFixedRayBackfaceThreshold = 0.25f;
 
+        [Header("Classification")]
+        [Tooltip("Disable probes that do not contribute to DDGI lighting.")]
+        [SerializeField] private bool probeClassificationEnabled;
+
         [Header("Editor")]
         [Tooltip("Scene View probe sphere radius in local units.")]
         [Min(MinProbePreviewRadius)]
@@ -198,6 +202,12 @@ namespace YutrelRP
         {
             get => probeFixedRayBackfaceThreshold;
             set => probeFixedRayBackfaceThreshold = Mathf.Clamp01(value);
+        }
+
+        public bool ProbeClassificationEnabled
+        {
+            get => probeClassificationEnabled;
+            set => probeClassificationEnabled = value;
         }
 
         public float ProbePreviewRadius

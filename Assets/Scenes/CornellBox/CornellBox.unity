@@ -834,6 +834,7 @@ MonoBehaviour:
   probeRelocationEnabled: 1
   probeMinFrontfaceDistance: 0.1
   probeFixedRayBackfaceThreshold: 0.25
+  probeClassificationEnabled: 1
   probePreviewRadius: 0.03
 --- !u!1 &1352061749
 GameObject:

@@ -105,6 +105,18 @@ Shader "YutrelRP/DDGI/Probe Debug"
 				return DDGIProbeDebugOutput(value.xxx, 1.0f);
 			}
 
+			if (_DDGIProbeDebugMode == 6)
+			{
+				int3 probeCoords = DDGIProbeCoords(input.probe_index);
+				float state = _DDGIProbeClassificationEnabled != 0
+					? DDGILoadProbeState(_DDGIProbeData, probeCoords)
+					: DDGI_PROBE_STATE_ACTIVE;
+				float3 color = state == DDGI_PROBE_STATE_INACTIVE
+					? float3(0.1f, 0.35f, 1.0f)
+					: float3(0.0f, 1.0f, 0.15f);
+				return DDGIProbeDebugOutput(color, 1.0f);
+			}
+
 			return DDGIProbeDebugOutput(float3(1.0f, 0.0f, 1.0f), 1.0f);
 		}
 
