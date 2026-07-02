@@ -121,13 +121,15 @@ namespace YutrelRP
                     DDGIResources ddgi_resources = null;
                     if (settings.ddgiSettings != null && settings.ddgiSettings.enabled)
                     {
+                        var ddgi_settings = settings.ddgiSettings;
                         ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
                         ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources);
-                        DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources, ray_tracing_world);
-                        DDGIProbeBlendingPass.Record(render_graph, ddgi_resources);
-                        DDGIProbeRelocationPass.Record(render_graph, ddgi_resources);
-                        DDGIProbeClassificationPass.Record(render_graph, ddgi_resources);
-                        DDGILightingPass.Record(render_graph, textures, ddgi_resources);
+                        DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources,
+                            ray_tracing_world, ddgi_settings);
+                        DDGIProbeBlendingPass.Record(render_graph, ddgi_resources, ddgi_settings);
+                        DDGIProbeRelocationPass.Record(render_graph, ddgi_resources, ddgi_settings);
+                        DDGIProbeClassificationPass.Record(render_graph, ddgi_resources, ddgi_settings);
+                        DDGILightingPass.Record(render_graph, textures, ddgi_resources, ddgi_settings);
 #if UNITY_EDITOR
                         if (debug_settings.ddgi_ray_data_debug_texture)
                         {
@@ -147,8 +149,8 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
-                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources, debug_settings,
-                        attachment_size);
+                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources,
+                        settings.ddgiSettings, debug_settings, attachment_size);
                     GizmosPass.Record(render_graph, camera, textures.scene_color, textures.scene_depth,
                         GizmoSubset.PreImageEffects);
 #endif

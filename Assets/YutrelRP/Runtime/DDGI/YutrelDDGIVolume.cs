@@ -14,7 +14,6 @@ namespace YutrelRP
         public const int MaxRaysPerProbe = 1024;
         public const float MinProbePreviewRadius = 0.01f;
         public const float MinProbeMaxRayDistance = 0.001f;
-        public const float MinProbeRayRadianceMax = 0.001f;
         public const int DefaultProbeIrradianceInteriorTexels = 6;
         public const int DefaultProbeDistanceInteriorTexels = 14;
 
@@ -33,57 +32,14 @@ namespace YutrelRP
         [Tooltip("Maximum world-space distance that probe rays may trace.")]
         [Min(MinProbeMaxRayDistance)]
         [SerializeField] private float probeMaxRayDistance = 100.0f;
-        [Tooltip("Maximum physical radiance used to encode probe ray radiance into ProbeRayData.")]
-        [Min(MinProbeRayRadianceMax)]
-        [SerializeField] private float probeRayRadianceMax = 50000.0f;
         // Persistent atlas identity: probeCount rebuilds DDGI history atlases.
         // Frame-only: raysPerProbe changes ProbeRayData dimensions/metadata without clearing persistent atlas history.
-        // Constant-only: max ray distance, bias, hysteresis, gamma/exponent/thresholds update shader constants without clearing atlas history.
+        // Constant-only: max ray distance updates shader constants without clearing atlas history.
 
         [HideInInspector] [SerializeField] private int probeIrradianceInteriorTexels =
             DefaultProbeIrradianceInteriorTexels;
         [HideInInspector] [SerializeField] private int probeDistanceInteriorTexels =
             DefaultProbeDistanceInteriorTexels;
-
-        [Header("Blending")]
-        [Tooltip("History weight used when blending new probe data into persistent probe atlases.")]
-        [Range(0.0f, 1.0f)]
-        [SerializeField] private float probeHysteresis = 0.97f;
-        [Tooltip("World-space normal bias used when sampling DDGI irradiance and tracing secondary visibility rays.")]
-        [Min(0.0f)]
-        [SerializeField] private float probeNormalBias = 0.2f;
-        [Tooltip("World-space view bias used when sampling DDGI irradiance and tracing secondary visibility rays.")]
-        [Min(0.0f)]
-        [SerializeField] private float probeViewBias = 0.1f;
-        [Tooltip("Gamma exponent used to perceptually encode probe irradiance.")]
-        [Min(0.01f)]
-        [SerializeField] private float irradianceEncodingGamma = 5.0f;
-        [Tooltip("Exponent used when filtering probe distance data for visibility.")]
-        [Min(0.01f)]
-        [SerializeField] private float distanceExponent = 50.0f;
-        [Tooltip("Irradiance delta threshold that lowers hysteresis for large lighting changes.")]
-        [Min(0.0f)]
-        [SerializeField] private float irradianceThreshold = 0.2f;
-        [Tooltip("Brightness delta threshold that clamps large per-update irradiance changes.")]
-        [Min(0.0f)]
-        [SerializeField] private float brightnessThreshold = 2.0f;
-        [Tooltip("Backface ray ratio that stops irradiance blending for a probe texel.")]
-        [Range(0.0f, 1.0f)]
-        [SerializeField] private float probeRandomRayBackfaceThreshold = 0.1f;
-
-        [Header("Relocation")]
-        [Tooltip("Enable fixed probe rays and the probe relocation compute pass.")]
-        [SerializeField] private bool probeRelocationEnabled;
-        [Tooltip("Minimum world-space distance a relocated probe should keep from front-facing geometry.")]
-        [Min(0.0f)]
-        [SerializeField] private float probeMinFrontfaceDistance = 0.1f;
-        [Tooltip("Fixed-ray backface ratio used to decide whether a probe is inside geometry.")]
-        [Range(0.0f, 1.0f)]
-        [SerializeField] private float probeFixedRayBackfaceThreshold = 0.25f;
-
-        [Header("Classification")]
-        [Tooltip("Disable probes that do not contribute to DDGI lighting.")]
-        [SerializeField] private bool probeClassificationEnabled;
 
         [Header("Editor")]
         [Tooltip("Scene View probe sphere radius in local units.")]
@@ -120,12 +76,6 @@ namespace YutrelRP
             set => probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, value);
         }
 
-        public float ProbeRayRadianceMax
-        {
-            get => probeRayRadianceMax;
-            set => probeRayRadianceMax = Mathf.Max(MinProbeRayRadianceMax, value);
-        }
-
         public int ProbeIrradianceInteriorTexels
         {
             get => probeIrradianceInteriorTexels;
@@ -136,78 +86,6 @@ namespace YutrelRP
         {
             get => probeDistanceInteriorTexels;
             set => probeDistanceInteriorTexels = DefaultProbeDistanceInteriorTexels;
-        }
-
-        public float ProbeHysteresis
-        {
-            get => probeHysteresis;
-            set => probeHysteresis = Mathf.Clamp01(value);
-        }
-
-        public float ProbeNormalBias
-        {
-            get => probeNormalBias;
-            set => probeNormalBias = Mathf.Max(0.0f, value);
-        }
-
-        public float ProbeViewBias
-        {
-            get => probeViewBias;
-            set => probeViewBias = Mathf.Max(0.0f, value);
-        }
-
-        public float IrradianceEncodingGamma
-        {
-            get => irradianceEncodingGamma;
-            set => irradianceEncodingGamma = Mathf.Max(0.01f, value);
-        }
-
-        public float DistanceExponent
-        {
-            get => distanceExponent;
-            set => distanceExponent = Mathf.Max(0.01f, value);
-        }
-
-        public float IrradianceThreshold
-        {
-            get => irradianceThreshold;
-            set => irradianceThreshold = Mathf.Max(0.0f, value);
-        }
-
-        public float BrightnessThreshold
-        {
-            get => brightnessThreshold;
-            set => brightnessThreshold = Mathf.Max(0.0f, value);
-        }
-
-        public float ProbeRandomRayBackfaceThreshold
-        {
-            get => probeRandomRayBackfaceThreshold;
-            set => probeRandomRayBackfaceThreshold = Mathf.Clamp01(value);
-        }
-
-        public bool ProbeRelocationEnabled
-        {
-            get => probeRelocationEnabled;
-            set => probeRelocationEnabled = value;
-        }
-
-        public float ProbeMinFrontfaceDistance
-        {
-            get => probeMinFrontfaceDistance;
-            set => probeMinFrontfaceDistance = Mathf.Max(0.0f, value);
-        }
-
-        public float ProbeFixedRayBackfaceThreshold
-        {
-            get => probeFixedRayBackfaceThreshold;
-            set => probeFixedRayBackfaceThreshold = Mathf.Clamp01(value);
-        }
-
-        public bool ProbeClassificationEnabled
-        {
-            get => probeClassificationEnabled;
-            set => probeClassificationEnabled = value;
         }
 
         public float ProbePreviewRadius
@@ -306,19 +184,8 @@ namespace YutrelRP
             probeCount = ClampProbeCount(probeCount);
             raysPerProbe = Mathf.Clamp(raysPerProbe, MinRaysPerProbe, MaxRaysPerProbe);
             probeMaxRayDistance = Mathf.Max(MinProbeMaxRayDistance, probeMaxRayDistance);
-            probeRayRadianceMax = Mathf.Max(MinProbeRayRadianceMax, probeRayRadianceMax);
             probeIrradianceInteriorTexels = DefaultProbeIrradianceInteriorTexels;
             probeDistanceInteriorTexels = DefaultProbeDistanceInteriorTexels;
-            probeHysteresis = Mathf.Clamp01(probeHysteresis);
-            probeNormalBias = Mathf.Max(0.0f, probeNormalBias);
-            probeViewBias = Mathf.Max(0.0f, probeViewBias);
-            irradianceEncodingGamma = Mathf.Max(0.01f, irradianceEncodingGamma);
-            distanceExponent = Mathf.Max(0.01f, distanceExponent);
-            irradianceThreshold = Mathf.Max(0.0f, irradianceThreshold);
-            brightnessThreshold = Mathf.Max(0.0f, brightnessThreshold);
-            probeRandomRayBackfaceThreshold = Mathf.Clamp01(probeRandomRayBackfaceThreshold);
-            probeMinFrontfaceDistance = Mathf.Max(0.0f, probeMinFrontfaceDistance);
-            probeFixedRayBackfaceThreshold = Mathf.Clamp01(probeFixedRayBackfaceThreshold);
             probePreviewRadius = Mathf.Max(MinProbePreviewRadius, probePreviewRadius);
             EnforceAxisAlignedRotation();
         }

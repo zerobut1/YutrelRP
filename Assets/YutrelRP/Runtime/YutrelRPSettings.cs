@@ -16,6 +16,50 @@ namespace YutrelRP
         public class DDGISettings
         {
             public bool enabled;
+
+            public EncodingSettings encoding = new();
+            public SamplingSettings sampling = new();
+            public BlendingSettings blending = new();
+            public RelocationSettings relocation = new();
+            public ClassificationSettings classification = new();
+
+            [System.Serializable]
+            public class EncodingSettings
+            {
+                [Min(0.001f)] public float probeRayRadianceMax = 50000.0f;
+                [Min(0.01f)] public float irradianceEncodingGamma = 5.0f;
+            }
+
+            [System.Serializable]
+            public class SamplingSettings
+            {
+                [Min(0.0f)] public float probeNormalBias = 0.2f;
+                [Min(0.0f)] public float probeViewBias = 0.1f;
+            }
+
+            [System.Serializable]
+            public class BlendingSettings
+            {
+                [Range(0.0f, 1.0f)] public float probeHysteresis = 0.97f;
+                [Min(0.01f)] public float distanceExponent = 50.0f;
+                [Min(0.0f)] public float irradianceThreshold = 0.2f;
+                [Min(0.0f)] public float brightnessThreshold = 2.0f;
+                [Range(0.0f, 1.0f)] public float probeRandomRayBackfaceThreshold = 0.1f;
+            }
+
+            [System.Serializable]
+            public class RelocationSettings
+            {
+                public bool enabled;
+                [Min(0.0f)] public float probeMinFrontfaceDistance = 0.1f;
+                [Range(0.0f, 1.0f)] public float probeFixedRayBackfaceThreshold = 0.25f;
+            }
+
+            [System.Serializable]
+            public class ClassificationSettings
+            {
+                public bool enabled;
+            }
         }
     }
 

@@ -25,13 +25,15 @@ namespace YutrelRP
         private static Material material;
         private static MaterialPropertyBlock property_block;
 
-        internal static void Record(RenderGraph render_graph, RenderTargets textures, DDGIResources resources)
+        internal static void Record(RenderGraph render_graph, RenderTargets textures, DDGIResources resources,
+            YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (render_graph == null || textures == null || resources == null || !resources.is_valid ||
                 resources.active_volume == null || !textures.scene_color.IsValid() ||
                 !textures.GBuffer_A.IsValid() || !textures.GBuffer_B.IsValid() ||
                 !textures.GBuffer_C.IsValid() || !textures.scene_depth.IsValid() ||
-                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid())
+                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid() ||
+                ddgi_settings == null)
             {
                 return;
             }
@@ -50,6 +52,12 @@ namespace YutrelRP
             var bounds = volume.WorldBounds;
             var probe_count = volume.ProbeCount;
             var probe_spacing = volume.GetWorldProbeSpacing();
+            var encoding_settings = ddgi_settings.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
+            var sampling_settings = ddgi_settings.sampling ?? new YutrelRPSettings.DDGISettings.SamplingSettings();
+            var relocation_settings =
+                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            var classification_settings =
+                ddgi_settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
 
             pass.GBuffer_A_ID = RenderTargets.GBuffer_A_ID;
             pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
@@ -65,13 +73,13 @@ namespace YutrelRP
             pass.probe_bounds_min = bounds.min;
             pass.probe_spacing = probe_spacing;
             pass.probe_count = probe_count;
-            pass.probe_normal_bias = volume.ProbeNormalBias;
-            pass.probe_view_bias = volume.ProbeViewBias;
-            pass.probe_ray_radiance_max = volume.ProbeRayRadianceMax;
-            pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
-            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_normal_bias = Mathf.Max(0.0f, sampling_settings.probeNormalBias);
+            pass.probe_view_bias = Mathf.Max(0.0f, sampling_settings.probeViewBias);
+            pass.probe_ray_radiance_max = Mathf.Max(0.001f, encoding_settings.probeRayRadianceMax);
+            pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
+            pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.probe_classification_enabled =
-                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
+                classification_settings.enabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
 
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);

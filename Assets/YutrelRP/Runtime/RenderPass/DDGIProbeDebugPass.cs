@@ -43,7 +43,8 @@ namespace YutrelRP
         private static Mesh sphere_mesh;
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
-            DDGIResources resources, YutrelRPDebugSettings debug_settings, Vector2Int attachment_size)
+            DDGIResources resources, YutrelRPSettings.DDGISettings ddgi_settings,
+            YutrelRPDebugSettings debug_settings, Vector2Int attachment_size)
         {
             var mode = debug_settings != null
                 ? debug_settings.ddgi_probe_debug_mode
@@ -87,6 +88,11 @@ namespace YutrelRP
             var volume = resources.active_volume;
             var probe_count = volume.ProbeCount;
             var bounds = volume.WorldBounds;
+            var encoding_settings = ddgi_settings?.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
+            var relocation_settings =
+                ddgi_settings?.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            var classification_settings =
+                ddgi_settings?.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
 
             pass.mode = mode;
             pass.probe_count = probe_count;
@@ -95,7 +101,7 @@ namespace YutrelRP
             pass.probe_spacing = volume.GetWorldProbeSpacing();
             pass.debug_radius = Mathf.Max(0.001f, debug_settings.ddgi_probe_debug_radius);
             pass.debug_distance_scale = Mathf.Max(0.001f, debug_settings.ddgi_probe_debug_distance_scale);
-            pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
+            pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
             pass.probe_irradiance_dimensions = resources.ProbeIrradianceDimensions;
             pass.probe_distance_dimensions = resources.ProbeDistanceDimensions;
             pass.probe_ray_data_dimensions = new Vector4(
@@ -107,9 +113,9 @@ namespace YutrelRP
             pass.probe_distance = resources.probe_distance;
             pass.probe_ray_data = resources.probe_ray_data;
             pass.probe_data = resources.probe_data;
-            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.probe_classification_enabled =
-                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
+                classification_settings.enabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
             pass.debug_show_base_position = debug_settings.ddgi_probe_debug_show_base_position ? 1 : 0;
 
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);

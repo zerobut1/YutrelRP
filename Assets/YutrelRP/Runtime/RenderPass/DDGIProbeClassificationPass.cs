@@ -20,16 +20,21 @@ namespace YutrelRP
         private static readonly int probe_classification_enabled_ID =
             Shader.PropertyToID("_DDGIProbeClassificationEnabled");
 
-        internal static void Record(RenderGraph render_graph, DDGIResources resources)
+        internal static void Record(RenderGraph render_graph, DDGIResources resources,
+            YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (resources == null || !resources.is_valid || !resources.probe_ray_data.IsValid() ||
-                !resources.probe_data.IsValid())
+                !resources.probe_data.IsValid() || ddgi_settings == null)
             {
                 return;
             }
 
             var volume = resources.active_volume;
-            if (volume == null || !volume.ProbeClassificationEnabled ||
+            var relocation_settings =
+                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            var classification_settings =
+                ddgi_settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
+            if (volume == null || !classification_settings.enabled ||
                 volume.RaysPerProbe <= DDGIResources.FixedRayCount)
             {
                 return;
@@ -49,8 +54,9 @@ namespace YutrelRP
             pass.probe_data = resources.probe_data;
             pass.probe_count = volume.ProbeCount;
             pass.probe_spacing = volume.GetWorldProbeSpacing();
-            pass.probe_fixed_ray_backface_threshold = volume.ProbeFixedRayBackfaceThreshold;
-            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_fixed_ray_backface_threshold =
+                Mathf.Clamp01(relocation_settings.probeFixedRayBackfaceThreshold);
+            pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.dispatch_groups = new Vector3Int(
                 Mathf.CeilToInt((float)volume.ProbeCount.x / ThreadGroupSize),
                 Mathf.CeilToInt((float)volume.ProbeCount.y / ThreadGroupSize),

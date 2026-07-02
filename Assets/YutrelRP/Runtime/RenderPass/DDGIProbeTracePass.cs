@@ -35,10 +35,11 @@ namespace YutrelRP
         private static RayTracingShader probe_trace_shader;
 
         internal static void Record(RenderGraph render_graph, DDGIResources resources,
-            LightResources light_resources, YutrelRayTracingWorld ray_tracing_world)
+            LightResources light_resources, YutrelRayTracingWorld ray_tracing_world,
+            YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (resources == null || !resources.is_valid || light_resources == null ||
-                ray_tracing_world == null || !SystemInfo.supportsRayTracing)
+                ray_tracing_world == null || ddgi_settings == null || !SystemInfo.supportsRayTracing)
             {
                 return;
             }
@@ -88,6 +89,12 @@ namespace YutrelRP
             using var builder = render_graph.AddComputePass<DDGIProbeTracePass>(sampler.name, out var pass, sampler);
             var bounds = volume.WorldBounds;
             var probe_ray_rotation = ComputeProbeRayRotation((uint)Mathf.Max(Time.frameCount, 0));
+            var encoding_settings = ddgi_settings.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
+            var sampling_settings = ddgi_settings.sampling ?? new YutrelRPSettings.DDGISettings.SamplingSettings();
+            var relocation_settings =
+                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            var classification_settings =
+                ddgi_settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
             pass.shader = probe_trace_shader;
             pass.scene_accel_struct = ray_tracing_world.SceneAccelStruct;
             pass.probe_ray_data = resources.probe_ray_data;
@@ -100,13 +107,13 @@ namespace YutrelRP
             pass.probe_spacing = volume.GetWorldProbeSpacing();
             pass.probe_count = probe_count;
             pass.probe_max_ray_distance = volume.ProbeMaxRayDistance;
-            pass.probe_ray_radiance_max = volume.ProbeRayRadianceMax;
-            pass.probe_normal_bias = volume.ProbeNormalBias;
-            pass.probe_view_bias = volume.ProbeViewBias;
-            pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
-            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_ray_radiance_max = Mathf.Max(0.001f, encoding_settings.probeRayRadianceMax);
+            pass.probe_normal_bias = Mathf.Max(0.0f, sampling_settings.probeNormalBias);
+            pass.probe_view_bias = Mathf.Max(0.0f, sampling_settings.probeViewBias);
+            pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
+            pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.probe_classification_enabled =
-                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
+                classification_settings.enabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
             resources.probe_ray_rotation_row0 = new Vector4(probe_ray_rotation.m00, probe_ray_rotation.m01,
                 probe_ray_rotation.m02, 0.0f);
             resources.probe_ray_rotation_row1 = new Vector4(probe_ray_rotation.m10, probe_ray_rotation.m11,

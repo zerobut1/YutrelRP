@@ -34,10 +34,12 @@ namespace YutrelRP
         private static readonly int probe_ray_rotation_row1_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow1");
         private static readonly int probe_ray_rotation_row2_ID = Shader.PropertyToID("_DDGIProbeRayRotationRow2");
 
-        internal static void Record(RenderGraph render_graph, DDGIResources resources)
+        internal static void Record(RenderGraph render_graph, DDGIResources resources,
+            YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (resources == null || !resources.is_valid || !resources.probe_ray_data.IsValid() ||
-                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid())
+                !resources.probe_irradiance.IsValid() || !resources.probe_distance.IsValid() ||
+                ddgi_settings == null)
             {
                 return;
             }
@@ -53,16 +55,23 @@ namespace YutrelRP
                 return;
             }
 
-            RecordKernel(render_graph, resources, volume, shader, BlendIrradianceKernelName,
+            RecordKernel(render_graph, resources, volume, ddgi_settings, shader, BlendIrradianceKernelName,
                 blend_irradiance_sampler, KernelMode.BlendIrradiance);
-            RecordKernel(render_graph, resources, volume, shader, BlendDistanceKernelName,
+            RecordKernel(render_graph, resources, volume, ddgi_settings, shader, BlendDistanceKernelName,
                 blend_distance_sampler, KernelMode.BlendDistance);
         }
 
         private static void RecordKernel(RenderGraph render_graph, DDGIResources resources, YutrelDDGIVolume volume,
-            ComputeShader shader, string kernel_name, ProfilingSampler sampler, KernelMode mode)
+            YutrelRPSettings.DDGISettings ddgi_settings, ComputeShader shader, string kernel_name,
+            ProfilingSampler sampler, KernelMode mode)
         {
             using var builder = render_graph.AddComputePass<DDGIProbeBlendingPass>(sampler.name, out var pass, sampler);
+            var encoding_settings = ddgi_settings.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
+            var blending_settings = ddgi_settings.blending ?? new YutrelRPSettings.DDGISettings.BlendingSettings();
+            var relocation_settings =
+                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            var classification_settings =
+                ddgi_settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
             pass.shader = shader;
             pass.kernel = shader.FindKernel(kernel_name);
             pass.mode = mode;
@@ -76,15 +85,16 @@ namespace YutrelRP
             pass.probe_ray_rotation_row2 = resources.probe_ray_rotation_row2;
             pass.rays_per_probe = volume.RaysPerProbe;
             pass.probe_spacing = volume.GetWorldProbeSpacing();
-            pass.probe_hysteresis = volume.ProbeHysteresis;
-            pass.irradiance_encoding_gamma = volume.IrradianceEncodingGamma;
-            pass.distance_exponent = volume.DistanceExponent;
-            pass.irradiance_threshold = volume.IrradianceThreshold;
-            pass.brightness_threshold = volume.BrightnessThreshold;
-            pass.probe_random_ray_backface_threshold = volume.ProbeRandomRayBackfaceThreshold;
-            pass.probe_relocation_enabled = volume.ProbeRelocationEnabled ? 1 : 0;
+            pass.probe_hysteresis = Mathf.Clamp01(blending_settings.probeHysteresis);
+            pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
+            pass.distance_exponent = Mathf.Max(0.01f, blending_settings.distanceExponent);
+            pass.irradiance_threshold = Mathf.Max(0.0f, blending_settings.irradianceThreshold);
+            pass.brightness_threshold = Mathf.Max(0.0f, blending_settings.brightnessThreshold);
+            pass.probe_random_ray_backface_threshold =
+                Mathf.Clamp01(blending_settings.probeRandomRayBackfaceThreshold);
+            pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.probe_classification_enabled =
-                volume.ProbeClassificationEnabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
+                classification_settings.enabled && volume.RaysPerProbe > DDGIResources.FixedRayCount ? 1 : 0;
 
             builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);
             builder.UseTexture(pass.probe_data, AccessFlags.Read);

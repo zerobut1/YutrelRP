@@ -53,3 +53,21 @@ MonoBehaviour:
         denoiseRadius: 1
     ddgiSettings:
       enabled: 1
+      encoding:
+        probeRayRadianceMax: 50000
+        irradianceEncodingGamma: 5
+      sampling:
+        probeNormalBias: 0.02
+        probeViewBias: 0.1
+      blending:
+        probeHysteresis: 0.97
+        distanceExponent: 50
+        irradianceThreshold: 0.2
+        brightnessThreshold: 2
+        probeRandomRayBackfaceThreshold: 0.1
+      relocation:
+        enabled: 1
+        probeMinFrontfaceDistance: 0.1
+        probeFixedRayBackfaceThreshold: 0.25
+      classification:
+        enabled: 1

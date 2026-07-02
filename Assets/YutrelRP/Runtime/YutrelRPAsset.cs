@@ -8,6 +8,8 @@ namespace YutrelRP
     {
         [SerializeField] private YutrelRPSettings settings;
 
+        public YutrelRPSettings Settings => settings;
+
         protected override RenderPipeline CreatePipeline()
         {
 #if UNITY_EDITOR

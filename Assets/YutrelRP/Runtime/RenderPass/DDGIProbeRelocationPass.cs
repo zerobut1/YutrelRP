@@ -22,16 +22,19 @@ namespace YutrelRP
             Shader.PropertyToID("_DDGIProbeFixedRayBackfaceThreshold");
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
 
-        internal static void Record(RenderGraph render_graph, DDGIResources resources)
+        internal static void Record(RenderGraph render_graph, DDGIResources resources,
+            YutrelRPSettings.DDGISettings ddgi_settings)
         {
             if (resources == null || !resources.is_valid || !resources.probe_ray_data.IsValid() ||
-                !resources.probe_data.IsValid())
+                !resources.probe_data.IsValid() || ddgi_settings == null)
             {
                 return;
             }
 
             var volume = resources.active_volume;
-            if (volume == null || !volume.ProbeRelocationEnabled ||
+            var relocation_settings =
+                ddgi_settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
+            if (volume == null || !relocation_settings.enabled ||
                 volume.RaysPerProbe <= DDGIResources.FixedRayCount)
             {
                 return;
@@ -53,8 +56,10 @@ namespace YutrelRP
             pass.rays_per_probe = volume.RaysPerProbe;
             pass.total_probe_count = volume.TotalProbeCount;
             pass.probe_spacing = volume.GetWorldProbeSpacing();
-            pass.probe_min_frontface_distance = volume.ProbeMinFrontfaceDistance;
-            pass.probe_fixed_ray_backface_threshold = volume.ProbeFixedRayBackfaceThreshold;
+            pass.probe_min_frontface_distance =
+                Mathf.Max(0.0f, relocation_settings.probeMinFrontfaceDistance);
+            pass.probe_fixed_ray_backface_threshold =
+                Mathf.Clamp01(relocation_settings.probeFixedRayBackfaceThreshold);
             pass.dispatch_groups = Mathf.CeilToInt((float)volume.TotalProbeCount / ThreadGroupSize);
 
             builder.UseTexture(pass.probe_ray_data, AccessFlags.Read);

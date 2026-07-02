@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
+using UnityEngine.Rendering;
 using YutrelRP;
 
 namespace YutrelRP.Editor
@@ -134,7 +135,9 @@ namespace YutrelRP.Editor
             EditorGUILayout.LabelField("World Probe Spacing", FormatVector3(spacing));
             EditorGUILayout.LabelField("ProbeRayData Layout",
                 $"{volume.RaysPerProbe} x {volume.ProbeCount.x * volume.ProbeCount.z} x {volume.ProbeCount.y}, F32x2");
-            if ((volume.ProbeRelocationEnabled || volume.ProbeClassificationEnabled) &&
+            var ddgi_settings = TryGetDDGISettings();
+            if (ddgi_settings != null &&
+                (IsRelocationEnabled(ddgi_settings) || IsClassificationEnabled(ddgi_settings)) &&
                 volume.RaysPerProbe <= DDGIResources.FixedRayCount)
             {
                 EditorGUILayout.HelpBox(
@@ -217,6 +220,23 @@ namespace YutrelRP.Editor
                    volume.isActiveAndEnabled &&
                    !EditorUtility.IsPersistent(volume.gameObject) &&
                    !PrefabUtility.IsPartOfPrefabAsset(volume);
+        }
+
+        private static YutrelRPSettings.DDGISettings TryGetDDGISettings()
+        {
+            return GraphicsSettings.currentRenderPipeline is YutrelRPAsset asset
+                ? asset.Settings?.ddgiSettings
+                : null;
+        }
+
+        private static bool IsRelocationEnabled(YutrelRPSettings.DDGISettings settings)
+        {
+            return settings.relocation != null && settings.relocation.enabled;
+        }
+
+        private static bool IsClassificationEnabled(YutrelRPSettings.DDGISettings settings)
+        {
+            return settings.classification != null && settings.classification.enabled;
         }
 
         private static Vector3 WorldPointToLocalVolumeOffset(Transform transform, Vector3 world_point)
