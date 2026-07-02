@@ -1281,7 +1281,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c31f8bb32da4ed190f66c4e5d5caa21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelDDGIVolume
-  center: {x: 0.0026350021, y: -0.17211962, z: -0.026195526}
+  center: {x: -0.28173113, y: -0.20475112, z: -0.37890473}
   size: {x: 9.45, y: 10.5, z: 21.42}
   probeCount: {x: 22, y: 22, z: 22}
   raysPerProbe: 256
