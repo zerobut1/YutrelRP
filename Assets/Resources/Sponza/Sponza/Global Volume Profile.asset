@@ -95,7 +95,7 @@ MonoBehaviour:
   components:
   - {fileID: 1703330898549218941}
   - {fileID: 2362347213122724940}
-  - {fileID: -4513121438814059032}
+  - {fileID: 7170404670485878048}
 --- !u!114 &727897378366185013
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -216,7 +216,7 @@ MonoBehaviour:
     m_Value: 1
   lightingIntensityScale:
     m_OverrideState: 1
-    m_Value: 100000
+    m_Value: 31847.135
   irradianceEncodingGamma:
     m_OverrideState: 1
     m_Value: 5
@@ -253,3 +253,43 @@ MonoBehaviour:
   classificationEnabled:
     m_OverrideState: 1
     m_Value: 1
+--- !u!114 &7170404670485878048
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: YutrelShadowSettings
+  m_EditorClassIdentifier: Assembly-CSharp:YutrelRP:YutrelShadowSettings
+  active: 1
+  maxDistance:
+    m_OverrideState: 0
+    m_Value: 100
+  distanceFade:
+    m_OverrideState: 0
+    m_Value: 0.1
+  directionalCascadeCount:
+    m_OverrideState: 0
+    m_Value: 4
+  directionalCascadeRatio1:
+    m_OverrideState: 1
+    m_Value: 0.1
+  directionalCascadeRatio2:
+    m_OverrideState: 0
+    m_Value: 0.25
+  directionalCascadeRatio3:
+    m_OverrideState: 0
+    m_Value: 0.5
+  directionalCascadeFade:
+    m_OverrideState: 0
+    m_Value: 0.1
+  conservativeEnclosingSphere:
+    m_OverrideState: 0
+    m_Value: 1
+  numIterationsEnclosingSphere:
+    m_OverrideState: 0
+    m_Value: 64

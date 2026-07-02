@@ -1219,7 +1219,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelEnvironmentLight
   iblAsset: {fileID: 11400000, guid: a51e1a4d1241fe84ca9bd323012568ec, type: 2}
-  intensity: 10000
+  intensity: 3184.7134
   diffuseMultiplier: 1
   specularMultiplier: 1
 --- !u!4 &675938002
