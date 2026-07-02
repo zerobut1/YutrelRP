@@ -54,7 +54,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
   - {fileID: 1703330898549218941}
-  - {fileID: -2079773825343707519}
+  - {fileID: 2362347213122724940}
 --- !u!114 &1703330898549218941
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -75,5 +75,60 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0
   toneMapping:
+    m_OverrideState: 1
+    m_Value: 1
+--- !u!114 &2362347213122724940
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e6f327ddae244e589c05ab2cd11b5a7, type: 3}
+  m_Name: YutrelDDGISettings
+  m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelDDGISettings
+  active: 1
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  probeRayRadianceMax:
+    m_OverrideState: 1
+    m_Value: 50000
+  irradianceEncodingGamma:
+    m_OverrideState: 1
+    m_Value: 5
+  probeNormalBias:
+    m_OverrideState: 1
+    m_Value: 0.1
+  probeViewBias:
+    m_OverrideState: 1
+    m_Value: 0.3
+  probeHysteresis:
+    m_OverrideState: 1
+    m_Value: 0.97
+  distanceExponent:
+    m_OverrideState: 1
+    m_Value: 50
+  irradianceThreshold:
+    m_OverrideState: 1
+    m_Value: 0.2
+  brightnessThreshold:
+    m_OverrideState: 1
+    m_Value: 1
+  probeRandomRayBackfaceThreshold:
+    m_OverrideState: 1
+    m_Value: 0.1
+  relocationEnabled:
+    m_OverrideState: 1
+    m_Value: 1
+  probeMinFrontfaceDistance:
+    m_OverrideState: 1
+    m_Value: 0.3
+  probeFixedRayBackfaceThreshold:
+    m_OverrideState: 1
+    m_Value: 0.25
+  classificationEnabled:
     m_OverrideState: 1
     m_Value: 1

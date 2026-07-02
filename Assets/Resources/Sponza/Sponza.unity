@@ -1282,13 +1282,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelDDGIVolume
   center: {x: 0.0026350021, y: -0.17211962, z: -0.026195526}
-  size: {x: 10.561758, y: 11.06129, z: 24.03762}
-  probeCount: {x: 10, y: 11, z: 24}
+  size: {x: 9.45, y: 10.5, z: 21.42}
+  probeCount: {x: 22, y: 22, z: 22}
   raysPerProbe: 256
-  probeMaxRayDistance: 10
+  probeMaxRayDistance: 10000
   probeIrradianceInteriorTexels: 6
   probeDistanceInteriorTexels: 14
-  probePreviewRadius: 0.075
+  showProbeGizmos: 1
+  maxProbeGizmos: 4096
+  probePreviewRadius: 0.05
 --- !u!1 &964583431
 GameObject:
   m_ObjectHideFlags: 0

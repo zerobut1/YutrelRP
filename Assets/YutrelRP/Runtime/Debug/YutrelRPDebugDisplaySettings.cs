@@ -17,7 +17,7 @@ namespace YutrelRP
         internal bool ddgi_ray_data_debug_texture;
         internal DDGIProbeDebugMode ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
         internal bool ddgi_probe_debug_show_base_position;
-        internal bool ddgi_probe_debug_hide_inactive_classification;
+        internal bool ddgi_probe_debug_hide_inactive_classification = true;
         internal float ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
         internal float ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
 
@@ -27,7 +27,7 @@ namespace YutrelRP
             ddgi_ray_data_debug_texture = false;
             ddgi_probe_debug_mode = DDGIProbeDebugMode.Disabled;
             ddgi_probe_debug_show_base_position = false;
-            ddgi_probe_debug_hide_inactive_classification = false;
+            ddgi_probe_debug_hide_inactive_classification = true;
             ddgi_probe_debug_radius = DefaultDDGIProbeDebugRadius;
             ddgi_probe_debug_distance_scale = DefaultDDGIProbeDebugDistanceScale;
         }
