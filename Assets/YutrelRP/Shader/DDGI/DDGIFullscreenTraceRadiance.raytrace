@@ -1,0 +1,81 @@
+#pragma max_recursion_depth 1
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "DDGICommon.hlsl"
+#define YUTREL_DDGI_PROBE_TRACE_RADIANCE_COMMON
+#include "DDGIProbeTraceCommon.hlsl"
+
+RWTexture2D<float4> _DDGIFullscreenTraceRadiance;
+
+float4x4 _DDGIDebugInvViewProj;
+float4 _DDGIDebugCameraPositionWS;
+float _DDGIDebugCameraFarClip;
+float _DDGIDebugProjectionParamsX;
+
+float2 DDGITraceFullScreenUVToPositionNDC(float2 uv)
+{
+    float2 positionNDC = uv;
+#if UNITY_UV_STARTS_AT_TOP
+    positionNDC.y = 1.0f - positionNDC.y;
+#endif
+    if (_DDGIDebugProjectionParamsX < 0.0f)
+    {
+        positionNDC.y = 1.0f - positionNDC.y;
+    }
+    return positionNDC;
+}
+
+RayDesc DDGITraceBuildCameraRay(uint2 pixel, uint2 dimensions)
+{
+    float2 uv = ((float2)pixel + 0.5f) / max((float2)dimensions, 1.0f);
+    float3 farPositionWS = ComputeWorldSpacePosition(
+        DDGITraceFullScreenUVToPositionNDC(uv),
+        UNITY_RAW_FAR_CLIP_VALUE,
+        _DDGIDebugInvViewProj);
+
+    RayDesc ray;
+    ray.Origin    = _DDGIDebugCameraPositionWS.xyz;
+    ray.Direction = normalize(farPositionWS - ray.Origin);
+    ray.TMin      = 0.0f;
+    ray.TMax      = _DDGIDebugCameraFarClip;
+    return ray;
+}
+
+[shader("miss")]
+void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
+{
+    DDGITraceMiss(payload);
+}
+
+[shader("raygeneration")]
+void RayGenDDGIFullscreenTraceRadiance()
+{
+    uint2 pixel      = DispatchRaysIndex().xy;
+    uint2 dimensions = DispatchRaysDimensions().xy;
+    RayDesc ray      = DDGITraceBuildCameraRay(pixel, dimensions);
+
+    DDGIProbeTracePayload payload;
+    DDGITraceInitPayload(payload);
+
+    TraceRay(
+        _DDGIAccelerationStructure,
+        RAY_FLAG_NONE,
+        DDGI_RAY_MASK,
+        0,
+        1,
+        0,
+        ray,
+        payload);
+
+    float3 radiance = 0.0f;
+    if (payload.hitKind == DDGI_TRACE_HIT_KIND_MISS)
+    {
+        radiance = saturate(DDGITraceEnvironmentRadiance(ray.Direction));
+    }
+    else if (payload.hitKind == DDGI_TRACE_HIT_KIND_FRONT_FACE)
+    {
+        radiance = DDGITraceEvaluateDirectRadiance01(payload);
+    }
+
+    _DDGIFullscreenTraceRadiance[pixel] = float4(radiance, 1.0f);
+}

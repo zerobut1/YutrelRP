@@ -71,7 +71,9 @@ namespace YutrelRP
             [InspectorName("Ray Data Radiance")]
             RayDataRadiance = 5,
             [InspectorName("Probe Classification")]
-            ProbeClassification = 6
+            ProbeClassification = 6,
+            [InspectorName("Fullscreen Trace Radiance")]
+            FullscreenTraceRadiance = 7
         }
     }
 

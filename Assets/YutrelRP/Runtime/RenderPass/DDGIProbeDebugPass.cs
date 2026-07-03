@@ -57,6 +57,11 @@ namespace YutrelRP
                 return;
             }
 
+            if (mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance)
+            {
+                return;
+            }
+
             if (camera.cameraType != CameraType.SceneView && camera.cameraType != CameraType.Game)
             {
                 return;

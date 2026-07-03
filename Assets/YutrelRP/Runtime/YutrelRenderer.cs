@@ -41,6 +41,7 @@ namespace YutrelRP
             ToneMappingPass.Cleanup();
 #if UNITY_EDITOR
             DDGIProbeDebugPass.Cleanup();
+            DDGIFullscreenTraceRadianceDebugPass.Cleanup();
             DebugViewPass.Cleanup();
             UnsupportedShadersPass.Cleanup();
 #endif
@@ -158,6 +159,14 @@ namespace YutrelRP
                     ToneMappingPass.Record(render_graph, textures, post_process_settings);
 
 #if UNITY_EDITOR
+                    if (ddgi_settings.enabled &&
+                        debug_settings.ddgi_probe_debug_mode ==
+                        YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance)
+                    {
+                        DDGIFullscreenTraceRadianceDebugPass.Record(render_graph, camera, textures, ddgi_resources,
+                            light_resources, ray_tracing_world, ddgi_settings, debug_settings, attachment_size);
+                    }
+
                     DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
                         shadow_settings, debug_settings, attachment_size);
 

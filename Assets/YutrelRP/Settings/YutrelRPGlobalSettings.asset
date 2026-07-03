@@ -186,6 +186,7 @@ MonoBehaviour:
       data:
         m_Version: 0
         probeTraceRayTracing: {fileID: 4807578003741378534, guid: 3b55ee3fb62847c08546b5962e23f9b7, type: 3}
+        fullscreenTraceRadiance: {fileID: 4807578003741378534, guid: 6ad769bdbf52411bbf4ef9be69fb0fc2, type: 3}
         probeBlending: {fileID: 7200000, guid: 09b0a2f22ed346b79396d8d4331dcad1, type: 3}
         probeRelocation: {fileID: 7200000, guid: 8f5f28b7bcd34a26a7376ee766cb39d1, type: 3}
         probeClassification: {fileID: 7200000, guid: 2be8a78550a04b4fa0f38b2c6378f0c1, type: 3}
