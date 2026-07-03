@@ -160,8 +160,8 @@ namespace YutrelRP
 
 #if UNITY_EDITOR
                     if (ddgi_settings.enabled &&
-                        debug_settings.ddgi_probe_debug_mode ==
-                        YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance)
+                        DDGIFullscreenTraceRadianceDebugPass.IsFullscreenTraceMode(
+                            debug_settings.ddgi_probe_debug_mode))
                     {
                         DDGIFullscreenTraceRadianceDebugPass.Record(render_graph, camera, textures, ddgi_resources,
                             light_resources, ray_tracing_world, ddgi_settings, debug_settings, attachment_size);

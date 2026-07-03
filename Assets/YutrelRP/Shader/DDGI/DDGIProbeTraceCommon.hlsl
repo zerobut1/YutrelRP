@@ -30,7 +30,7 @@ float3 DDGITraceKeepSameHemisphere(float3 normalWS, float3 referenceNormalWS)
 {
     float3 referenceNormal = DDGITraceSafeNormalize(referenceNormalWS, DDGITraceFallbackNormalWS());
     float3 normal          = DDGITraceSafeNormalize(normalWS, referenceNormal);
-    return dot(normal, referenceNormal) >= 0.0f ? normal : referenceNormal;
+    return dot(normal, referenceNormal) >= 0.0f ? normal : -normal;
 }
 
 float3 DDGITraceOrientNormal(float3 normalWS, float3 referenceNormalWS)

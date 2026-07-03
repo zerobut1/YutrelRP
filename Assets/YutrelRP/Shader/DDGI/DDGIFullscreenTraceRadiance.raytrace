@@ -7,10 +7,14 @@
 
 RWTexture2D<float4> _DDGIFullscreenTraceRadiance;
 
+static const int DDGI_FULLSCREEN_TRACE_DEBUG_RADIANCE = 7;
+static const int DDGI_FULLSCREEN_TRACE_DEBUG_NORMAL   = 8;
+
 float4x4 _DDGIDebugInvViewProj;
 float4 _DDGIDebugCameraPositionWS;
 float _DDGIDebugCameraFarClip;
 float _DDGIDebugProjectionParamsX;
+int _DDGIFullscreenTraceDebugMode;
 
 float2 DDGITraceFullScreenUVToPositionNDC(float2 uv)
 {
@@ -41,6 +45,11 @@ RayDesc DDGITraceBuildCameraRay(uint2 pixel, uint2 dimensions)
     return ray;
 }
 
+float3 DDGITraceEncodeNormal01(float3 normalWS)
+{
+    return saturate(DDGITraceSafeNormalize(normalWS, float3(0.0f, 1.0f, 0.0f)) * 0.5f + 0.5f);
+}
+
 [shader("miss")]
 void Miss(inout DDGIProbeTracePayload payload : SV_RayPayload)
 {
@@ -66,6 +75,22 @@ void RayGenDDGIFullscreenTraceRadiance()
         0,
         ray,
         payload);
+
+    if (_DDGIFullscreenTraceDebugMode == DDGI_FULLSCREEN_TRACE_DEBUG_NORMAL)
+    {
+        float3 normalRGB = 0.0f;
+        if (payload.hitKind == DDGI_TRACE_HIT_KIND_FRONT_FACE)
+        {
+            normalRGB = DDGITraceEncodeNormal01(payload.shadingNormalWS);
+        }
+        else if (payload.hitKind == DDGI_TRACE_HIT_KIND_BACK_FACE)
+        {
+            normalRGB = float3(1.0f, 0.0f, 0.0f);
+        }
+
+        _DDGIFullscreenTraceRadiance[pixel] = float4(normalRGB, 1.0f);
+        return;
+    }
 
     float3 radiance = 0.0f;
     if (payload.hitKind == DDGI_TRACE_HIT_KIND_MISS)

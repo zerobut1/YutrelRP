@@ -57,7 +57,7 @@ namespace YutrelRP
                 return;
             }
 
-            if (mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance)
+            if (DDGIFullscreenTraceRadianceDebugPass.IsFullscreenTraceMode(mode))
             {
                 return;
             }

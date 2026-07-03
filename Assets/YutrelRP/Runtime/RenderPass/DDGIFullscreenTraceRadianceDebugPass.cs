@@ -25,16 +25,24 @@ namespace YutrelRP
         private static readonly int debug_camera_far_clip_ID = Shader.PropertyToID("_DDGIDebugCameraFarClip");
         private static readonly int debug_projection_params_x_ID =
             Shader.PropertyToID("_DDGIDebugProjectionParamsX");
+        private static readonly int debug_mode_ID = Shader.PropertyToID("_DDGIFullscreenTraceDebugMode");
 
         private static RayTracingShader cached_shader;
+
+        internal static bool IsFullscreenTraceMode(YutrelRPDebugSettings.DDGIProbeDebugMode mode)
+        {
+            return mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance ||
+                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceNormal;
+        }
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
             DDGIResources resources, LightResources light_resources, YutrelRayTracingWorld ray_tracing_world,
             ResolvedDDGISettings ddgi_settings, YutrelRPDebugSettings debug_settings, Vector2Int attachment_size)
         {
-            if (debug_settings == null ||
-                debug_settings.ddgi_probe_debug_mode !=
-                YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance)
+            var debug_mode = debug_settings != null
+                ? debug_settings.ddgi_probe_debug_mode
+                : YutrelRPDebugSettings.DDGIProbeDebugMode.Disabled;
+            if (!IsFullscreenTraceMode(debug_mode))
             {
                 return;
             }
@@ -44,8 +52,8 @@ namespace YutrelRP
                 return;
             }
 
-            if (resources == null || !resources.is_valid || light_resources == null ||
-                ray_tracing_world == null || !SystemInfo.supportsRayTracing)
+            if (resources == null || light_resources == null || ray_tracing_world == null ||
+                !SystemInfo.supportsRayTracing)
             {
                 return;
             }
@@ -86,7 +94,7 @@ namespace YutrelRP
                 clearColor = Color.black,
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
-                name = "DDGI Fullscreen Trace Radiance"
+                name = "DDGI Fullscreen Trace Debug"
             };
             var output = render_graph.CreateTexture(output_desc);
 
@@ -98,6 +106,7 @@ namespace YutrelRP
             var projection_matrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
 
             pass.shader = cached_shader;
+            pass.debug_mode = (int)debug_mode;
             pass.scene_accel_struct = ray_tracing_world.SceneAccelStruct;
             pass.output = output;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
@@ -138,6 +147,7 @@ namespace YutrelRP
         }
 
         private RayTracingShader shader;
+        private int debug_mode;
         private YutrelRayTracingAccelStruct scene_accel_struct;
         private TextureHandle output;
         private BufferHandle directional_light_data_buffer;
@@ -160,6 +170,7 @@ namespace YutrelRP
             var cmd = context.cmd;
             scene_accel_struct.BuildIfNeeded(cmd);
             cmd.SetRayTracingShaderPass(shader, ShaderPassName);
+            cmd.SetRayTracingIntParam(shader, debug_mode_ID, debug_mode);
             cmd.SetRayTracingAccelerationStructure(shader, acceleration_structure_ID,
                 scene_accel_struct.AccelerationStructure);
             cmd.SetRayTracingTextureParam(shader, output_ID, output);

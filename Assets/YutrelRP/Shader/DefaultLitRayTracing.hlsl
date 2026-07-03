@@ -76,14 +76,34 @@ float3 ComputeDefaultLitRayTracingGeometricNormalWS(DefaultLitRayTracingAttribut
     return DDGITraceSafeNormalize(normal_WS, DDGITraceFallbackNormalWS());
 }
 
+float3 TransformDefaultLitRayTracingObjectToWorldNormal(float3 normal_OS)
+{
+    return DDGITraceSafeNormalize(
+        mul(normal_OS, (float3x3)WorldToObject3x4()),
+        DDGITraceFallbackNormalWS());
+}
+
+float3 DefaultLitRayTracingAnyPerpendicularVector(float3 normal_WS)
+{
+    float3 axis = abs(normal_WS.y) < 0.9f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+    return DDGITraceSafeNormalize(cross(axis, normal_WS), float3(1.0f, 0.0f, 0.0f));
+}
+
+float3 TransformDefaultLitRayTracingObjectToWorldTangent(float3 tangent_OS, float3 normal_WS)
+{
+    float3 tangent_WS = mul((float3x3)ObjectToWorld3x4(), tangent_OS);
+    tangent_WS        = tangent_WS - normal_WS * dot(tangent_WS, normal_WS);
+    return DDGITraceSafeNormalize(tangent_WS, DefaultLitRayTracingAnyPerpendicularVector(normal_WS));
+}
+
 DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracingAttributes attributes)
 {
     DefaultLitRayTracingVertex vertex = InterpolateDefaultLitRayTracingVertex(attributes);
 
     DefaultLitSurfaceInput input;
     input.uv           = vertex.uv;
-    input.normal_WS    = normalize(TransformObjectToWorldNormal(vertex.normal_OS));
-    input.tangent_WS   = normalize(TransformObjectToWorldDir(vertex.tangent_OS.xyz));
+    input.normal_WS    = TransformDefaultLitRayTracingObjectToWorldNormal(vertex.normal_OS);
+    input.tangent_WS   = TransformDefaultLitRayTracingObjectToWorldTangent(vertex.tangent_OS.xyz, input.normal_WS);
     float tangent_sign = vertex.tangent_OS.w * GetOddNegativeScale();
     input.bitangent_WS = normalize(cross(input.normal_WS, input.tangent_WS) * tangent_sign);
     return input;
