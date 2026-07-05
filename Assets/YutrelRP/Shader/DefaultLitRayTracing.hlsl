@@ -114,7 +114,8 @@ DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracin
     DefaultLitRayTracingAttributes attributes : SV_IntersectionAttributes)
 {
     DefaultLitSurfaceInput input       = BuildDefaultLitRayTracingSurfaceInput(attributes);
-    float4 base_color                  = SampleDefaultLitRayTracingBaseColorLOD(input.uv, 0.0f);
+    float alpha_clip_lod               = GetDefaultLitRayTracingAlphaClipGIMipLevel();
+    float4 base_color                  = SampleDefaultLitRayTracingBaseColorLOD(input.uv, alpha_clip_lod);
     DefaultLitAlphaClipData alpha_clip = BuildDefaultLitRayTracingAlphaClip(base_color.a);
 
     if (alpha_clip.enabled > 0.5f && alpha_clip.alpha < alpha_clip.cutoff)

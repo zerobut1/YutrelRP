@@ -21,6 +21,8 @@ namespace YutrelRP
         private static readonly int lighting_intensity_scale_ID = Shader.PropertyToID("_DDGILightingIntensityScale");
         private static readonly int probe_normal_bias_ID = Shader.PropertyToID("_DDGIProbeNormalBias");
         private static readonly int probe_view_bias_ID = Shader.PropertyToID("_DDGIProbeViewBias");
+        private static readonly int direct_lighting_normal_bias_ID =
+            Shader.PropertyToID("_DDGIDirectLightingNormalBias");
         private static readonly int irradiance_encoding_gamma_ID =
             Shader.PropertyToID("_DDGIIrradianceEncodingGamma");
         private static readonly int probe_irradiance_ID = Shader.PropertyToID("_DDGIProbeIrradiance");
@@ -118,6 +120,7 @@ namespace YutrelRP
             pass.lighting_intensity_scale = Mathf.Max(0.001f, encoding_settings.lightingIntensityScale);
             pass.probe_normal_bias = Mathf.Max(0.0f, sampling_settings.probeNormalBias);
             pass.probe_view_bias = Mathf.Max(0.0f, sampling_settings.probeViewBias);
+            pass.direct_lighting_normal_bias = Mathf.Max(0.0f, sampling_settings.directLightingNormalBias);
             pass.irradiance_encoding_gamma = Mathf.Max(0.01f, encoding_settings.irradianceEncodingGamma);
             pass.probe_relocation_enabled = relocation_settings.enabled ? 1 : 0;
             pass.probe_classification_enabled =
@@ -167,6 +170,7 @@ namespace YutrelRP
         private float lighting_intensity_scale;
         private float probe_normal_bias;
         private float probe_view_bias;
+        private float direct_lighting_normal_bias;
         private float irradiance_encoding_gamma;
         private int probe_relocation_enabled;
         private int probe_classification_enabled;
@@ -211,6 +215,7 @@ namespace YutrelRP
             cmd.SetRayTracingFloatParam(shader, lighting_intensity_scale_ID, lighting_intensity_scale);
             cmd.SetRayTracingFloatParam(shader, probe_normal_bias_ID, probe_normal_bias);
             cmd.SetRayTracingFloatParam(shader, probe_view_bias_ID, probe_view_bias);
+            cmd.SetRayTracingFloatParam(shader, direct_lighting_normal_bias_ID, direct_lighting_normal_bias);
             cmd.SetRayTracingFloatParam(shader, irradiance_encoding_gamma_ID, irradiance_encoding_gamma);
             cmd.SetRayTracingIntParam(shader, probe_relocation_enabled_ID, probe_relocation_enabled);
             cmd.SetRayTracingIntParam(shader, probe_classification_enabled_ID, probe_classification_enabled);

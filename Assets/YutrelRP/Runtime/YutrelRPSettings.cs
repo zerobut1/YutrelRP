@@ -35,6 +35,7 @@ namespace YutrelRP
             {
                 [Min(0.0f)] public float probeNormalBias = 0.2f;
                 [Min(0.0f)] public float probeViewBias = 0.1f;
+                [Min(0.0f)] public float directLightingNormalBias = 0.0001f;
             }
 
             [System.Serializable]

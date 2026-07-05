@@ -55,6 +55,11 @@ float DefaultLitRayTracingGIMipLevel(uint mipCount)
     return (float)mipCount * 0.5f;
 }
 
+float DefaultLitRayTracingGIAlphaClipMipLevel(uint mipCount)
+{
+    return (float)mipCount * 0.6667f;
+}
+
 void ClipDefaultLitSurface(DefaultLitAlphaClipData alpha_clip)
 {
     if (alpha_clip.enabled > 0.5f)

@@ -38,8 +38,8 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0.2
   brightnessThreshold:
-    m_OverrideState: 0
-    m_Value: 2
+    m_OverrideState: 1
+    m_Value: 1
   probeRandomRayBackfaceThreshold:
     m_OverrideState: 0
     m_Value: 0.1

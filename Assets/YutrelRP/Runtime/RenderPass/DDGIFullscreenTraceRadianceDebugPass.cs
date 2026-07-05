@@ -16,6 +16,8 @@ namespace YutrelRP
         private static readonly int output_ID = Shader.PropertyToID("_DDGIFullscreenTraceRadiance");
         private static readonly int directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount");
         private static readonly int lighting_intensity_scale_ID = Shader.PropertyToID("_DDGILightingIntensityScale");
+        private static readonly int direct_lighting_normal_bias_ID =
+            Shader.PropertyToID("_DDGIDirectLightingNormalBias");
         private static readonly int environment_cube_ID = Shader.PropertyToID("_DDGIEnvironmentCube");
         private static readonly int environment_cube_hdr_ID = Shader.PropertyToID("_DDGIEnvironmentCube_HDR");
         private static readonly int environment_enabled_ID = Shader.PropertyToID("_DDGIEnvironmentEnabled");
@@ -32,7 +34,8 @@ namespace YutrelRP
         internal static bool IsFullscreenTraceMode(YutrelRPDebugSettings.DDGIProbeDebugMode mode)
         {
             return mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceRadiance ||
-                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceNormal;
+                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceNormal ||
+                   mode == YutrelRPDebugSettings.DDGIProbeDebugMode.FullscreenTraceShadowVisibility;
         }
 
         internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures,
@@ -103,6 +106,7 @@ namespace YutrelRP
                     sampler.name, out var pass, sampler);
 
             var encoding_settings = ddgi_settings.encoding;
+            var sampling_settings = ddgi_settings.sampling;
             var projection_matrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true);
 
             pass.shader = cached_shader;
@@ -120,6 +124,7 @@ namespace YutrelRP
             pass.environment_intensity = light_resources.environment_intensity;
             pass.environment_diffuse_multiplier = light_resources.environment_diffuse_multiplier;
             pass.lighting_intensity_scale = Mathf.Max(0.001f, encoding_settings.lightingIntensityScale);
+            pass.direct_lighting_normal_bias = Mathf.Max(0.0f, sampling_settings.directLightingNormalBias);
             pass.inv_view_proj = (projection_matrix * camera.worldToCameraMatrix).inverse;
             pass.camera_position_WS = camera.transform.position;
             pass.camera_far_clip = Mathf.Max(camera.nearClipPlane, camera.farClipPlane);
@@ -158,6 +163,7 @@ namespace YutrelRP
         private float environment_diffuse_multiplier;
         private int environment_enabled;
         private float lighting_intensity_scale;
+        private float direct_lighting_normal_bias;
         private Matrix4x4 inv_view_proj;
         private Vector3 camera_position_WS;
         private float camera_far_clip;
@@ -188,6 +194,7 @@ namespace YutrelRP
             }
 
             cmd.SetRayTracingFloatParam(shader, lighting_intensity_scale_ID, lighting_intensity_scale);
+            cmd.SetRayTracingFloatParam(shader, direct_lighting_normal_bias_ID, direct_lighting_normal_bias);
             cmd.SetRayTracingMatrixParam(shader, debug_inv_view_proj_ID, inv_view_proj);
             cmd.SetRayTracingVectorParam(shader, debug_camera_position_WS_ID,
                 new Vector4(camera_position_WS.x, camera_position_WS.y, camera_position_WS.z, 1.0f));

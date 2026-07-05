@@ -9,6 +9,7 @@ RWTexture2D<float4> _DDGIFullscreenTraceRadiance;
 
 static const int DDGI_FULLSCREEN_TRACE_DEBUG_RADIANCE = 7;
 static const int DDGI_FULLSCREEN_TRACE_DEBUG_NORMAL   = 8;
+static const int DDGI_FULLSCREEN_TRACE_DEBUG_SHADOW_VISIBILITY = 9;
 
 float4x4 _DDGIDebugInvViewProj;
 float4 _DDGIDebugCameraPositionWS;
@@ -89,6 +90,30 @@ void RayGenDDGIFullscreenTraceRadiance()
         }
 
         _DDGIFullscreenTraceRadiance[pixel] = float4(normalRGB, 1.0f);
+        return;
+    }
+
+    if (_DDGIFullscreenTraceDebugMode == DDGI_FULLSCREEN_TRACE_DEBUG_SHADOW_VISIBILITY)
+    {
+        float3 color = 0.0f;
+
+        if (payload.hitKind == DDGI_TRACE_HIT_KIND_FRONT_FACE && _DirectionalLightCount > 0)
+        {
+            DirectionalLightData light = _DirectionalLightData[0];
+            float3 lightDirectionWS    = normalize(light.direction.xyz);
+            float visibility           = DDGITraceDirectionalVisibility(
+                payload.positionWS,
+                payload.normalWS,
+                lightDirectionWS);
+
+            color = visibility.xxx;
+        }
+        else if (payload.hitKind == DDGI_TRACE_HIT_KIND_BACK_FACE)
+        {
+            color = float3(1.0f, 0.0f, 0.0f);
+        }
+
+        _DDGIFullscreenTraceRadiance[pixel] = float4(color, 1.0f);
         return;
     }
 

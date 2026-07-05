@@ -42,7 +42,10 @@ namespace YutrelRP
             return new ResolvedDDGISettings(
                 settings.enabled,
                 new EncodingSettings(encoding.lightingIntensityScale, encoding.irradianceEncodingGamma),
-                new SamplingSettings(sampling.probeNormalBias, sampling.probeViewBias),
+                new SamplingSettings(
+                    sampling.probeNormalBias,
+                    sampling.probeViewBias,
+                    sampling.directLightingNormalBias),
                 new BlendingSettings(
                     blending.probeHysteresis,
                     blending.distanceExponent,
@@ -72,11 +75,13 @@ namespace YutrelRP
         {
             public readonly float probeNormalBias;
             public readonly float probeViewBias;
+            public readonly float directLightingNormalBias;
 
-            public SamplingSettings(float probeNormalBias, float probeViewBias)
+            public SamplingSettings(float probeNormalBias, float probeViewBias, float directLightingNormalBias)
             {
                 this.probeNormalBias = Mathf.Max(0.0f, probeNormalBias);
                 this.probeViewBias = Mathf.Max(0.0f, probeViewBias);
+                this.directLightingNormalBias = Mathf.Max(0.0f, directLightingNormalBias);
             }
         }
 
@@ -151,6 +156,9 @@ namespace YutrelRP
         [Tooltip("View bias applied when sampling DDGI probes.")]
         public MinFloatParameter probeViewBias = new(0.1f, 0.0f);
 
+        [Tooltip("Normal bias applied to DDGI probe trace direct shadow rays.")]
+        public MinFloatParameter directLightingNormalBias = new(0.0001f, 0.0f);
+
         [Header("Blending")]
         [Tooltip("Probe history hysteresis for irradiance and distance blending.")]
         public ClampedFloatParameter probeHysteresis = new(0.97f, 0.0f, 1.0f);
@@ -201,7 +209,10 @@ namespace YutrelRP
                         : fallback.encoding.irradianceEncodingGamma),
                 new ResolvedDDGISettings.SamplingSettings(
                     probeNormalBias.overrideState ? probeNormalBias.value : fallback.sampling.probeNormalBias,
-                    probeViewBias.overrideState ? probeViewBias.value : fallback.sampling.probeViewBias),
+                    probeViewBias.overrideState ? probeViewBias.value : fallback.sampling.probeViewBias,
+                    directLightingNormalBias.overrideState
+                        ? directLightingNormalBias.value
+                        : fallback.sampling.directLightingNormalBias),
                 new ResolvedDDGISettings.BlendingSettings(
                     probeHysteresis.overrideState ? probeHysteresis.value : fallback.blending.probeHysteresis,
                     distanceExponent.overrideState ? distanceExponent.value : fallback.blending.distanceExponent,

@@ -48,6 +48,15 @@ float GetSponzaDefaultLitBaseColorGIMipLevel()
     return DefaultLitRayTracingGIMipLevel(mipCount);
 }
 
+float GetSponzaDefaultLitAlphaClipGIMipLevel()
+{
+    uint width;
+    uint height;
+    uint mipCount;
+    _BaseColorTex.GetDimensions(0, width, height, mipCount);
+    return DefaultLitRayTracingGIAlphaClipMipLevel(mipCount);
+}
+
 float GetSponzaDefaultLitNormalGIMipLevel()
 {
     uint width;
@@ -82,6 +91,11 @@ float4 SampleDefaultLitRayTracingBaseColorLOD(float2 uv, float lod)
 float GetDefaultLitRayTracingBaseColorGIMipLevel()
 {
     return GetSponzaDefaultLitBaseColorGIMipLevel();
+}
+
+float GetDefaultLitRayTracingAlphaClipGIMipLevel()
+{
+    return GetSponzaDefaultLitAlphaClipGIMipLevel();
 }
 
 float3 SampleDefaultLitRayTracingNormalLOD(DefaultLitSurfaceInput input, float lod)

@@ -67,8 +67,7 @@ void DDGITraceCommitClosestHit(
 
 #define DDGI_RAY_MASK 0xFFu
 
-static const float DDGI_DIRECTIONAL_SHADOW_RAY_TMAX        = 1.0e27f;
-static const float DDGI_DIRECTIONAL_SHADOW_RAY_NORMAL_BIAS = 1.0e-4f;
+static const float DDGI_DIRECTIONAL_SHADOW_RAY_TMAX = 1.0e27f;
 
 struct DirectionalLightData
 {
@@ -95,6 +94,7 @@ float _DDGIProbeMaxRayDistance;
 float _DDGILightingIntensityScale;
 float _DDGIProbeNormalBias;
 float _DDGIProbeViewBias;
+float _DDGIDirectLightingNormalBias;
 float _DDGIIrradianceEncodingGamma;
 
 float DDGITraceLightingIntensityInvScale()
@@ -240,7 +240,7 @@ void DDGITraceInitPayload(out DDGIProbeTracePayload payload)
 float DDGITraceDirectionalVisibility(float3 hitPositionWS, float3 normalWS, float3 lightDirectionWS)
 {
     RayDesc shadowRay;
-    shadowRay.Origin    = DDGITraceOffsetRayOrigin(hitPositionWS, normalWS, DDGI_DIRECTIONAL_SHADOW_RAY_NORMAL_BIAS);
+    shadowRay.Origin    = DDGITraceOffsetRayOrigin(hitPositionWS, normalWS, _DDGIDirectLightingNormalBias);
     shadowRay.TMin      = 0.001f;
     shadowRay.Direction = lightDirectionWS;
     shadowRay.TMax      = DDGI_DIRECTIONAL_SHADOW_RAY_TMAX;

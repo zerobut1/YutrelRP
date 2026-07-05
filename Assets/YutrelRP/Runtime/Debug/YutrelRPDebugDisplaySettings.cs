@@ -75,7 +75,9 @@ namespace YutrelRP
             [InspectorName("Fullscreen Trace Radiance")]
             FullscreenTraceRadiance = 7,
             [InspectorName("Fullscreen Trace Normal")]
-            FullscreenTraceNormal = 8
+            FullscreenTraceNormal = 8,
+            [InspectorName("Fullscreen Trace Shadow Visibility")]
+            FullscreenTraceShadowVisibility = 9
         }
     }
 

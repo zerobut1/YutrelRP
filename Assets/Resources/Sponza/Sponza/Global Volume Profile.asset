@@ -66,6 +66,9 @@ MonoBehaviour:
   probeViewBias:
     m_OverrideState: 1
     m_Value: 0.3
+  directLightingNormalBias:
+    m_OverrideState: 1
+    m_Value: 0.008
   probeHysteresis:
     m_OverrideState: 1
     m_Value: 0.97
