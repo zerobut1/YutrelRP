@@ -64,6 +64,32 @@ float4 SampleStandardDefaultLitBaseColorLOD(float2 uv, float lod)
 #endif
 }
 
+float GetStandardDefaultLitBaseColorGIMipLevel()
+{
+#if defined(_USE_BASECOLOR_TEX)
+    uint width;
+    uint height;
+    uint mipCount;
+    _BaseColorTex.GetDimensions(0, width, height, mipCount);
+    return DefaultLitRayTracingGIMipLevel(mipCount);
+#else
+    return 0.0f;
+#endif
+}
+
+float GetStandardDefaultLitNormalGIMipLevel()
+{
+#if defined(_USE_NORMAL_TEX)
+    uint width;
+    uint height;
+    uint mipCount;
+    _NormalTex.GetDimensions(0, width, height, mipCount);
+    return DefaultLitRayTracingGIMipLevel(mipCount);
+#else
+    return 0.0f;
+#endif
+}
+
 float3 SampleStandardDefaultLitNormalLOD(DefaultLitSurfaceInput input, float lod)
 {
 #if defined(_USE_NORMAL_TEX)
@@ -90,9 +116,19 @@ float4 SampleDefaultLitRayTracingBaseColorLOD(float2 uv, float lod)
     return SampleStandardDefaultLitBaseColorLOD(uv, lod);
 }
 
+float GetDefaultLitRayTracingBaseColorGIMipLevel()
+{
+    return GetStandardDefaultLitBaseColorGIMipLevel();
+}
+
 float3 SampleDefaultLitRayTracingNormalLOD(DefaultLitSurfaceInput input, float lod)
 {
     return SampleStandardDefaultLitNormalLOD(input, lod);
+}
+
+float GetDefaultLitRayTracingNormalGIMipLevel()
+{
+    return GetStandardDefaultLitNormalGIMipLevel();
 }
 
 DefaultLitAlphaClipData BuildDefaultLitRayTracingAlphaClip(float alpha)

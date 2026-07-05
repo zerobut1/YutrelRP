@@ -50,6 +50,11 @@ float2 TransformDefaultLitTextureUV(float2 uv, float4 texture_ST)
     return uv * texture_ST.xy + texture_ST.zw;
 }
 
+float DefaultLitRayTracingGIMipLevel(uint mipCount)
+{
+    return (float)mipCount * 0.5f;
+}
+
 void ClipDefaultLitSurface(DefaultLitAlphaClipData alpha_clip)
 {
     if (alpha_clip.enabled > 0.5f)

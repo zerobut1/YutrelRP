@@ -128,10 +128,12 @@ DefaultLitSurfaceInput BuildDefaultLitRayTracingSurfaceInput(DefaultLitRayTracin
         DefaultLitRayTracingAttributes attributes : SV_IntersectionAttributes)
 {
     DefaultLitSurfaceInput input = BuildDefaultLitRayTracingSurfaceInput(attributes);
-    float4 base_color            = SampleDefaultLitRayTracingBaseColorLOD(input.uv, 0.0f);
+    float base_color_lod         = GetDefaultLitRayTracingBaseColorGIMipLevel();
+    float normal_lod             = GetDefaultLitRayTracingNormalGIMipLevel();
+    float4 base_color            = SampleDefaultLitRayTracingBaseColorLOD(input.uv, base_color_lod);
     float3 geometric_normal_WS   = ComputeDefaultLitRayTracingGeometricNormalWS(attributes);
     float3 visibility_normal_WS  = DDGITraceOrientNormal(input.normal_WS, geometric_normal_WS);
-    float3 shading_normal_WS     = SampleDefaultLitRayTracingNormalLOD(input, 0.0f);
+    float3 shading_normal_WS     = SampleDefaultLitRayTracingNormalLOD(input, normal_lod);
     shading_normal_WS            = DDGITraceKeepSameHemisphere(shading_normal_WS, visibility_normal_WS);
     float3 position_WS           = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
     DDGITraceCommitClosestHit(payload, base_color.rgb, position_WS, visibility_normal_WS, shading_normal_WS);
