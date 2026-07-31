@@ -134,7 +134,7 @@ ShadowPass
 `BasePass` 的 RendererList 同时接受：
 
 ```csharp
-private static readonly ShaderTagId[] shaderTagIds =
+private static readonly ShaderTagId[] shader_tag_ids =
 {
     new("GBuffer"),
     new("EndfieldBase")
@@ -150,18 +150,28 @@ private static readonly ShaderTagId[] shaderTagIds =
 - 采样 Normal Map，写入 `GBuffer_B`
 - 将其余 GBuffer 写成不会触发延迟光照的中性值
 
-建议输出：
+当前输出：
 
 ```hlsl
-sceneColor = 0;
-GBufferA   = 0; // ShadingModelID = 0
-GBufferB   = EncodeNormal(normalWS);
-GBufferC   = 0;
+GBufferData gbuffer      = (GBufferData)0;
+gbuffer.normal_WS        = normal_WS;
+gbuffer.shading_model_id = SHADING_MODEL_ENDFIELD;
+EncodedGBuffer encoded   = EncodeGBuffer(gbuffer);
 ```
 
 不能只写 Depth 和 Normal 而保留其他 MRT 的旧内容，否则 Endfield 表面可能继承后方物体的 GBuffer 数据。
 
-当前 YutrelRP 的延迟光照只处理 `ShadingModelID == 1`，因此 `GBuffer_A.a = 0` 可以作为最初的 ForwardOnly 标记，使延迟光照在这些像素上 discard。
+当前 ShadingModel ID 契约定义在 `Assets/YutrelRP/Shader/Utils/ShadingModel.hlsl`：
+
+```hlsl
+#define SHADING_MODEL_NONE      0
+#define SHADING_MODEL_STANDARD  1
+#define SHADING_MODEL_ENDFIELD  2
+```
+
+`GBuffer_A.a` 是 8-bit UNorm，因此 ID 使用 `id / 255.0` 编码并通过 `round(encoded * 255.0)` 解码。Endfield 实际写入 `GBuffer_A.a = 2 / 255`，而不是复用背景的 ID 0。
+
+Directional、Environment 和 DDGI 全屏光照只处理 `SHADING_MODEL_STANDARD`，遇到 Endfield ID 时 discard。SSAO 不属于材质光照，它将 Standard 和 Endfield 都视为具有有效深度、法线的表面。
 
 ### 3.2 新增 EndfieldForwardPass
 
@@ -187,13 +197,28 @@ RenderGraph 资源：
 
 ### 3.3 ShadowCaster
 
-Endfield Shader 必须提供 `ShadowCaster` Pass：
+Endfield Shader 已提供 `ShadowCaster` Pass：
 
 - 使用与 `EndfieldBase` 一致的 Base UV 和 Alpha Clip
 - Cull Off
 - 使用 YutrelRP 现有 ShadowPass 和 Shadow Pancaking 约定
+- 当前 Base 与 ShadowCaster 共用 `_EndfieldAlphaCutoff`，默认值为 `0.177`
 
-否则主画面轮廓和阴影轮廓会不一致。
+现有 Shadow RendererList 会自动收集该 Pass，不需要新增 RenderGraph Pass 或修改 `ShadowPass.cs`。
+
+### 3.4 当前实现状态
+
+截至 2026-07-31，已完成：
+
+- 公共 ShadingModel ID 编解码契约
+- `BasePass` 接入 `EndfieldBase`
+- BaseColor Alpha Clip、Depth、切线空间 Normal Map 和 Endfield ID 写入
+- 双面法线、负缩放切线符号和 GPU Instancing
+- `ShadowCaster` 及 Shadow Pancaking
+- Endfield 法线接入 ShadowMask、SSAO 和 GBuffer World Normal Debug
+- AO Debug 对 Endfield 直接显示 Screen Space AO，不读取未写入的 Material AO
+
+尚未实现 `EndfieldForwardPass`，因此普通画面中 Endfield 像素当前保持黑色，这是本阶段的预期结果。
 
 ## 4. 法线缓冲的职责
 
@@ -218,22 +243,30 @@ EID 6346 又写出一次法线，可能是包含湿润、雨滴等扰动后的�
 
 ## 5. Shader 文件组织
 
-初始建议：
+当前已经建立：
 
 ```text
 Assets/YutrelRP/Shader/Endfield/
   EndfieldCharacter.shader
-  EndfieldMaterialInput.hlsl
-  EndfieldSurface.hlsl
-  EndfieldBasePass.hlsl
-  EndfieldForwardPass.hlsl
-  EndfieldLighting.hlsl
-  EndfieldShadowCasterPass.hlsl
+  EndfieldCharacterInput.hlsl
+  EndfieldCharacterSurface.hlsl
+  EndfieldCharacterBasePass.hlsl
+  EndfieldCharacterShadowCasterPass.hlsl
 ```
 
-湿润功能开始增长后再增加：
+Shader 名称为 `YutrelRP/Endfield/Character`，材质属性使用 `_Endfield` 前缀，HLSL 类型和函数使用 `EndfieldCharacter` 前缀。当前公开材质输入为：
+
+- `_EndfieldBaseMap`
+- `_EndfieldBaseColor`
+- `_EndfieldNormalMap`
+- `_EndfieldNormalScale`
+- `_EndfieldAlphaCutoff`
+
+实现 Forward 和湿润功能时按需增加：
 
 ```text
+  EndfieldCharacterForwardPass.hlsl
+  EndfieldCharacterLighting.hlsl
   EndfieldWetness.hlsl
   EndfieldRain.hlsl
   EndfieldColorGrading.hlsl
@@ -255,11 +288,12 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 
 实现：
 
-- `BasePass` 支持 `EndfieldBase`
-- Alpha Clip、Depth、Normal、ForwardOnly 标记
-- `EndfieldForwardPass`
-- 先输出固定颜色或简单 BaseColor
-- ShadowCaster
+- [x] `BasePass` 支持 `EndfieldBase`
+- [x] Alpha Clip、Depth、Normal、Endfield ShadingModel ID
+- [x] ShadowCaster
+- [x] SSAO、ShadowMask 和 World Normal Debug 使用 Endfield Base 数据
+- [ ] `EndfieldForwardPass`
+- [ ] 前向阶段先输出固定颜色或简单 BaseColor
 
 验收：
 
@@ -267,6 +301,8 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 - 遮挡关系正确
 - Alpha Cutout 轮廓在主画面和阴影中一致
 - GBuffer Normal Debug 正确
+
+当前 Base 部分已经完成；阶段 1 的剩余目标是补齐最小 `EndfieldForwardPass`，验证 `ZTest Equal` 和 Base + Forward 双绘制闭环。
 
 ### 阶段 2：基础材质与光照
 
@@ -426,4 +462,3 @@ python tools\agent_harness.py compile
 python tools\agent_harness.py shader-format
 python tools\agent_harness.py compile
 ```
-
