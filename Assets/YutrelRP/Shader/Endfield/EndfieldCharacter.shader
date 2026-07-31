@@ -7,6 +7,10 @@ Shader "YutrelRP/Endfield/Character"
 		[Normal] _EndfieldNormalMap ("Normal Map", 2D) = "bump" {}
 		_EndfieldNormalScale ("Normal Scale", Range(0, 2)) = 1
 		_EndfieldAlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.177
+		[NoScaleOffset] _EndfieldDirectRamp ("Direct Ramp", 2D) = "white" {}
+		_EndfieldRampOffset ("Ramp Offset", Range(-1, 1)) = 0
+		[Min(0)] _EndfieldDirectIntensity ("Direct Intensity", Float) = 1
+		[Min(1)] _EndfieldReferenceIlluminance ("Reference Illuminance", Float) = 50000
 	}
 
 	SubShader
@@ -76,6 +80,7 @@ Shader "YutrelRP/Endfield/Character"
 			Cull Off
 			ZWrite On
 			ColorMask 0
+
 
 			HLSLPROGRAM
 			#pragma target 5.0

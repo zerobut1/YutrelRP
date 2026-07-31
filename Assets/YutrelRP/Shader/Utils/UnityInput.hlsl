@@ -43,6 +43,7 @@ float3 _WorldSpaceCameraPos;
 float4 unity_OrthoParams;
 float4 _ProjectionParams;
 float4 _ScreenParams;
+float4 _CameraBufferSize;
 float4 _ZBufferParams;
 
 #endif
