@@ -1,23 +1,11 @@
-Shader "YutrelRP/Skybox/Equirectangular"
+Shader "Hidden/YutrelRP/Skybox/Equirectangular"
 {
-	Properties
-	{
-		_Tex("HDR Equirectangular Map", 2D) = "grey" {}
-		_Exposure("Local Multiplier", Float) = 1.0
-		_Rotation("Rotation", Range(0, 360)) = 0.0
-	}
-
 	SubShader
 	{
-		Tags
-		{
-			"Queue" = "Background"
-			"RenderType" = "Background"
-			"PreviewType" = "Skybox"
-		}
-
 		Cull Off
 		ZWrite Off
+		ZTest Equal
+		Blend Off
 
 		Pass
 		{
@@ -28,36 +16,25 @@ Shader "YutrelRP/Skybox/Equirectangular"
 
 			#include "Utils/Common.hlsl"
 
-			TEXTURE2D(_Tex);
-			SAMPLER(sampler_Tex);
+			TEXTURE2D(_EnvironmentSkybox);
+			SAMPLER(sampler_EnvironmentSkybox);
 
-			float _Exposure;
 			float _EnvironmentIntensity;
-			float _Rotation;
+			float _EnvironmentSkyboxMultiplier;
 
-			#define SKYBOX_PI 3.14159265358979323846f
 			#define SKYBOX_INV_PI 0.31830988618379067154f
 			#define SKYBOX_INV_TWO_PI 0.15915494309189533577f
 
 			struct Attributes
 			{
-				float3 position_OS : POSITION;
+				uint vertex_ID : SV_VertexID;
 			};
 
 			struct Varyings
 			{
 				float4 position_CS : SV_POSITION;
-				float3 direction_WS : TEXCOORD0;
+				float2 uv : TEXCOORD0;
 			};
-
-			float3 RotateDirectionY(float3 direction, float degrees)
-			{
-				float angle = degrees * (SKYBOX_PI / 180.0f);
-				float s;
-				float c;
-				sincos(angle, s, c);
-				return float3(c * direction.x - s * direction.z, direction.y, s * direction.x + c * direction.z);
-			}
 
 			float2 DirectionToEquirectangularUV(float3 direction)
 			{
@@ -70,16 +47,19 @@ Shader "YutrelRP/Skybox/Equirectangular"
 			Varyings SkyboxVertex(Attributes input)
 			{
 				Varyings output;
-				output.position_CS  = TransformObjectToHClip(input.position_OS);
-				output.direction_WS = input.position_OS;
+				output.position_CS = GetFullScreenTriangleVertexPosition(input.vertex_ID, UNITY_RAW_FAR_CLIP_VALUE);
+				output.uv = GetFullScreenTriangleTexCoord(input.vertex_ID);
 				return output;
 			}
 
 			float4 SkyboxFragment(Varyings input) : SV_Target
 			{
-				float3 direction = RotateDirectionY(input.direction_WS, _Rotation);
-				float2 uv        = DirectionToEquirectangularUV(direction);
-				float3 color     = SAMPLE_TEXTURE2D(_Tex, sampler_Tex, uv).rgb * _Exposure * _EnvironmentIntensity;
+				float3 position_WS = ComputeWorldSpacePositionFromFullScreenUV(input.uv, UNITY_RAW_FAR_CLIP_VALUE);
+				float3 direction_WS = -GetWorldSpaceViewDirectionForSurface(position_WS);
+				float2 environment_uv = DirectionToEquirectangularUV(direction_WS);
+				float3 color = SAMPLE_TEXTURE2D_LOD(
+					_EnvironmentSkybox, sampler_EnvironmentSkybox, environment_uv, 0.0f).rgb;
+				color *= _EnvironmentIntensity * _EnvironmentSkyboxMultiplier;
 				return float4(ApplyPreExposure(color), 1.0f);
 			}
 			ENDHLSL

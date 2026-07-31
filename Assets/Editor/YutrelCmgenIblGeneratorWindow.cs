@@ -17,12 +17,10 @@ namespace YutrelRP.Editor
     {
         private const string defaultOutputDirectory = "Assets/YutrelRP/GeneratedIBL";
         private const string defaultOutputName = "Skybox";
-        private const string skyboxTexturePropertyName = "_Tex";
-        private const string mainTexturePropertyName = "_MainTex";
         private const int defaultCubemapSize = 256;
         private const int defaultSampleCount = 1024;
 
-        [SerializeField] private Texture sourceTexture;
+        [SerializeField] private Texture2D sourceTexture;
         private ulong targetSceneHandle;
         [SerializeField] private string outputDirectory = defaultOutputDirectory;
         [SerializeField] private string outputName = defaultOutputName;
@@ -53,18 +51,43 @@ namespace YutrelRP.Editor
         [MenuItem("Assets/YutrelRP/Generate IBL with cmgen", true)]
         private static bool ValidateGenerateFromSelection()
         {
-            return Selection.activeObject is Texture;
+            return Selection.activeObject is Texture2D;
         }
 
         [MenuItem("Assets/YutrelRP/Generate IBL with cmgen")]
         private static void GenerateFromSelection()
         {
             var window = GetWindow<YutrelCmgenIblGeneratorWindow>("Yutrel Environment Light");
-            window.sourceTexture = Selection.activeObject as Texture;
+            window.sourceTexture = Selection.activeObject as Texture2D;
             window.outputDirectoryManuallyEdited = false;
             window.EnsureTargetScene();
             window.ApplySuggestedOutput(force: true);
             window.Show();
+        }
+
+        internal static void ShowForEnvironmentLight(YutrelEnvironmentLight binding, bool regenerate)
+        {
+            var window = GetWindow<YutrelCmgenIblGeneratorWindow>("Yutrel Environment Light");
+            window.targetSceneHandle = binding.gameObject.scene.handle.GetRawData();
+            window.sourceTexture = regenerate ? binding.IblAsset?.SourceEnvironmentTexture : null;
+            window.bindGeneratedAssetToScene = true;
+            window.overwrite = regenerate;
+
+            var existing_output = regenerate ? binding.IblAsset?.outputRootPath : null;
+            if (!string.IsNullOrWhiteSpace(existing_output))
+            {
+                window.outputDirectory = existing_output;
+                window.outputDirectoryManuallyEdited = true;
+                window.ApplySuggestedOutput(force: false);
+            }
+            else
+            {
+                window.outputDirectoryManuallyEdited = false;
+                window.ApplySuggestedOutput(force: true);
+            }
+
+            window.Show();
+            window.Focus();
         }
 
         private void OnEnable()
@@ -80,7 +103,7 @@ namespace YutrelRP.Editor
 
             if (sourceTexture == null)
             {
-                sourceTexture = GetDefaultSourceTexture();
+                sourceTexture = GetBoundSourceTexture();
             }
 
             ApplySuggestedOutput(force: outputDirectory == defaultOutputDirectory);
@@ -91,30 +114,16 @@ namespace YutrelRP.Editor
             EnsureTargetScene();
             scroll = EditorGUILayout.BeginScrollView(scroll);
 
-            DrawSceneBindingSection();
+            DrawTargetSceneSection();
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Source", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            sourceTexture = (Texture)EditorGUILayout.ObjectField("Environment Texture", sourceTexture, typeof(Texture), false);
+            sourceTexture = (Texture2D)EditorGUILayout.ObjectField(
+                "Environment Texture", sourceTexture, typeof(Texture2D), false);
             if (EditorGUI.EndChangeCheck())
             {
                 ApplySuggestedOutput(force: false);
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Use Scene Skybox", GUILayout.Width(160)))
-                {
-                    sourceTexture = GetDefaultSourceTexture();
-                    ApplySuggestedOutput(force: false);
-                    if (sourceTexture == null)
-                    {
-                        EditorUtility.DisplayDialog("Default skybox missing",
-                            "Could not find a texture on RenderSettings.skybox.", "OK");
-                    }
-                }
             }
 
             EditorGUILayout.Space();
@@ -195,7 +204,6 @@ namespace YutrelRP.Editor
                 new[] { "64", "128", "256", "512", "1024" },
                 new[] { 64, 128, 256, 512, 1024 });
             sampleCount = Mathf.Max(1, EditorGUILayout.IntField("Sample Count", sampleCount));
-            EditorGUILayout.LabelField("DFG LUT", "Assets/YutrelRP/Resources/Texture/DFG_LUT.exr");
             EditorGUILayout.LabelField("Output Format", "Unity Cubemap + parsed SH metadata");
 
             EditorGUILayout.Space();
@@ -217,13 +225,13 @@ namespace YutrelRP.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        private void DrawSceneBindingSection()
+        private void DrawTargetSceneSection()
         {
-            EditorGUILayout.LabelField("EnvironmentLight Binding", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Target Scene", EditorStyles.boldLabel);
             YutrelEnvironmentLightEditorUtility.GetLoadedScenes(loadedScenes);
             if (loadedScenes.Count == 0)
             {
-                EditorGUILayout.HelpBox("Open a scene before editing EnvironmentLight data.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Open a scene before generating EnvironmentLight data.", MessageType.Warning);
                 return;
             }
 
@@ -244,12 +252,9 @@ namespace YutrelRP.Editor
             YutrelEnvironmentLight.GetEnvironmentLights(target_scene, sceneBindings, include_inactive: true);
             if (sceneBindings.Count == 0)
             {
-                EditorGUILayout.HelpBox("This scene has no YutrelEnvironmentLight binding.", MessageType.Info);
-                if (GUILayout.Button("Create EnvironmentLight Binding"))
-                {
-                    YutrelEnvironmentLightEditorUtility.GetOrCreateBinding(target_scene);
-                }
-
+                EditorGUILayout.HelpBox(
+                    "Binding the generated asset will create a YutrelEnvironmentLight in this scene.",
+                    MessageType.Info);
                 return;
             }
 
@@ -268,31 +273,6 @@ namespace YutrelRP.Editor
                 {
                     EditorGUIUtility.PingObject(binding);
                 }
-            }
-
-            EditorGUI.BeginChangeCheck();
-            var ibl_asset = (YutrelIBLAsset)EditorGUILayout.ObjectField("IBL Asset", binding.IblAsset,
-                typeof(YutrelIBLAsset), false);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(binding, "Assign Yutrel IBL Asset");
-                binding.IblAsset = ibl_asset;
-                YutrelEnvironmentLightEditorUtility.MarkBindingDirty(binding);
-            }
-
-            EditorGUI.BeginChangeCheck();
-            var intensity = Mathf.Max(0.0f, EditorGUILayout.FloatField("IBL Intensity", binding.Intensity));
-            var diffuse_multiplier =
-                Mathf.Max(0.0f, EditorGUILayout.FloatField("Diffuse Multiplier", binding.DiffuseMultiplier));
-            var specular_multiplier =
-                Mathf.Max(0.0f, EditorGUILayout.FloatField("Specular Multiplier", binding.SpecularMultiplier));
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(binding, "Adjust Yutrel Environment Light Intensity");
-                binding.Intensity = intensity;
-                binding.DiffuseMultiplier = diffuse_multiplier;
-                binding.SpecularMultiplier = specular_multiplier;
-                YutrelEnvironmentLightEditorUtility.MarkBindingDirty(binding);
             }
 
             for (var i = 1; i < sceneBindings.Count; i++)
@@ -350,25 +330,18 @@ namespace YutrelRP.Editor
             return MakeSafeFileName($"{scene_name}_{source_name}_IBL");
         }
 
-        private static Texture GetDefaultSourceTexture()
+        private Texture2D GetBoundSourceTexture()
         {
-            var skybox = RenderSettings.skybox;
-            if (skybox == null)
+            var target_scene = GetTargetScene();
+            if (!target_scene.IsValid() || !target_scene.isLoaded)
             {
                 return null;
             }
 
-            if (skybox.HasProperty(skyboxTexturePropertyName))
-            {
-                var texture = skybox.GetTexture(skyboxTexturePropertyName);
-                if (texture != null)
-                {
-                    return texture;
-                }
-            }
-
-            return skybox.HasProperty(mainTexturePropertyName)
-                ? skybox.GetTexture(mainTexturePropertyName)
+            YutrelEnvironmentLight.InvalidateScene(target_scene);
+            YutrelEnvironmentLight.GetEnvironmentLights(target_scene, sceneBindings, include_inactive: true);
+            return sceneBindings.Count > 0
+                ? sceneBindings[0].IblAsset?.SourceEnvironmentTexture
                 : null;
         }
 
@@ -590,7 +563,7 @@ namespace YutrelRP.Editor
 
     internal struct CmgenIblGenerationRequest
     {
-        public Texture SourceTexture;
+        public Texture2D SourceTexture;
         public Scene TargetScene;
         public string OutputDirectory;
         public string CmgenExecutablePath;
@@ -620,12 +593,10 @@ namespace YutrelRP.Editor
     internal static class YutrelCmgenIblGenerator
     {
         private const string outputFormat = "exr";
-        private const string dfgMode = "SharedPipelineDfgLut";
-        private const string dfgFormat = "Assets/YutrelRP/Resources/Texture/DFG_LUT.exr";
         private const string shConvention = "FilamentPreScaledIrradianceSH3";
         private const string specularConvention = "FilamentCmgenPrefilteredCubemapNoMirror";
         private const string iblIntensityConvention =
-            "Not baked; runtime YutrelEnvironmentLight IBL intensity scales contribution, with diffuse/specular multipliers as overrides.";
+            "Not baked; runtime YutrelEnvironmentLight intensity scales IBL and skybox, with per-channel multipliers as overrides.";
         private const string specularCubemapSuffix = "_SpecularCube.asset";
         private const string temporaryAssetRootPrefix = "__YutrelRP_CmgenTemp_";
         private static readonly string[] faceSuffixes = { "px", "nx", "py", "ny", "pz", "nz" };
@@ -708,20 +679,15 @@ namespace YutrelRP.Editor
                 metadata.specularDirectoryPath = string.Empty;
                 metadata.specularCubemapPath = $"{outputRootPath}/{outputName}{specularCubemapSuffix}";
                 metadata.diffuseShPath = string.Empty;
-                metadata.dfgLutPath = string.Empty;
                 metadata.specularCubemap = specularCubemap;
                 metadata.specularFaceTextures = Array.Empty<Texture2D>();
                 metadata.specularFacePaths = Array.Empty<string>();
                 metadata.diffuseShText = null;
                 metadata.diffuseIrradianceSh = sh;
-                metadata.dfgLut = null;
                 metadata.cubemapSize = request.CubemapSize;
                 metadata.specularMipCount = specularMipCount;
                 metadata.sampleCount = request.SampleCount;
-                metadata.dfgLutSize = 0;
                 metadata.outputFormat = outputFormat;
-                metadata.dfgMode = dfgMode;
-                metadata.dfgFormat = dfgFormat;
                 metadata.shConvention = shConvention;
                 metadata.specularConvention = specularConvention;
                 metadata.iblRoughnessOneLevel = specularMipCount - 1;
@@ -754,14 +720,12 @@ namespace YutrelRP.Editor
                 finalMetadata.specularDirectoryPath = string.Empty;
                 finalMetadata.specularCubemapPath = finalSpecularCubemapPath;
                 finalMetadata.diffuseShPath = string.Empty;
-                finalMetadata.dfgLutPath = string.Empty;
                 finalMetadata.specularCubemap = AssetDatabase.LoadAssetAtPath<Cubemap>(finalSpecularCubemapPath);
-                finalMetadata.dfgLut = null;
                 finalMetadata.specularFaceTextures = Array.Empty<Texture2D>();
                 finalMetadata.specularFacePaths = Array.Empty<string>();
                 finalMetadata.diffuseShText = null;
 
-                if (!finalMetadata.HasCompleteData)
+                if (!finalMetadata.HasLightingData || !finalMetadata.HasSkyboxData)
                 {
                     throw new InvalidOperationException("Generated IBL metadata is incomplete after moving to the final output.");
                 }
@@ -1227,7 +1191,7 @@ namespace YutrelRP.Editor
             string specularCubemapPath)
         {
             var metadata = AssetDatabase.LoadAssetAtPath<YutrelIBLAsset>(metadataPath);
-            if (metadata == null || !metadata.HasCompleteData)
+            if (metadata == null || !metadata.HasLightingData || !metadata.HasSkyboxData)
             {
                 throw new InvalidOperationException("Generated IBL metadata is incomplete.");
             }
@@ -1519,7 +1483,7 @@ namespace YutrelRP.Editor
             return string.IsNullOrWhiteSpace(name) ? "IBL" : name.Trim();
         }
 
-        private static string BuildMainOutputName(Scene targetScene, Texture sourceTexture, string sourceAssetPath)
+        private static string BuildMainOutputName(Scene targetScene, Texture2D sourceTexture, string sourceAssetPath)
         {
             var sceneName = targetScene.IsValid() && !string.IsNullOrWhiteSpace(targetScene.name)
                 ? targetScene.name

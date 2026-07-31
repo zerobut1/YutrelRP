@@ -15,6 +15,8 @@ namespace YutrelRP
         private static RTHandle dfg_lut_rt_handle;
         private static Texture environment_reflection_texture;
         private static RTHandle environment_reflection_rt_handle;
+        private static Texture environment_skybox_texture;
+        private static RTHandle environment_skybox_rt_handle;
 
         public static readonly int
             dfg_lut_ID = Shader.PropertyToID("_DFG_LUT"),
@@ -23,6 +25,8 @@ namespace YutrelRP
             environment_intensity_ID = Shader.PropertyToID("_EnvironmentIntensity"),
             environment_diffuse_multiplier_ID = Shader.PropertyToID("_EnvironmentDiffuseMultiplier"),
             environment_specular_multiplier_ID = Shader.PropertyToID("_EnvironmentSpecularMultiplier"),
+            environment_skybox_ID = Shader.PropertyToID("_EnvironmentSkybox"),
+            environment_skybox_multiplier_ID = Shader.PropertyToID("_EnvironmentSkyboxMultiplier"),
             ibl_roughness_one_level_ID = Shader.PropertyToID("_IblRoughnessOneLevel"),
             directional_light_data_ID = Shader.PropertyToID("_DirectionalLightData");
 
@@ -61,12 +65,16 @@ namespace YutrelRP
         public TextureHandle environment_reflection_cube;
         public Vector4 environment_reflection_cube_hdr;
         public bool has_environment_reflection;
+        public TextureHandle environment_skybox;
+        public bool has_environment_skybox;
         public float environment_intensity;
         public float environment_diffuse_multiplier;
         public float environment_specular_multiplier;
+        public float environment_skybox_multiplier;
         public float ibl_roughness_one_level;
         public SphericalHarmonicsL2 environment_diffuse_sh;
         public string environment_resource_error;
+        public string environment_skybox_error;
 
         public override void Reset()
         {
@@ -77,12 +85,16 @@ namespace YutrelRP
             environment_reflection_cube = TextureHandle.nullHandle;
             environment_reflection_cube_hdr = Vector4.zero;
             has_environment_reflection = false;
+            environment_skybox = TextureHandle.nullHandle;
+            has_environment_skybox = false;
             environment_intensity = 0.0f;
             environment_diffuse_multiplier = 1.0f;
             environment_specular_multiplier = 1.0f;
+            environment_skybox_multiplier = 1.0f;
             ibl_roughness_one_level = 0.0f;
             environment_diffuse_sh = default;
             environment_resource_error = null;
+            environment_skybox_error = null;
         }
 
         public void Setup(RenderGraph render_graph, IComputeRenderGraphBuilder builder, CullingResults
@@ -120,9 +132,10 @@ namespace YutrelRP
             var environment_light = ResolveEnvironmentLight(camera);
             var environment_asset = environment_light != null ? environment_light.IblAsset : null;
             environment_resource_error = null;
+            environment_skybox_error = null;
 
             var has_complete_environment = environment_asset != null &&
-                                           environment_asset.HasCompleteData &&
+                                           environment_asset.HasLightingData &&
                                            environment_asset.TryGetDiffuseIrradianceSh(out environment_diffuse_sh);
 
             if (environment_light != null && !has_complete_environment)
@@ -143,11 +156,42 @@ namespace YutrelRP
                 environment_reflection_cube = TextureHandle.nullHandle;
             }
 
+            var camera_requests_skybox = camera.clearFlags == CameraClearFlags.Skybox;
+            var should_render_skybox = camera_requests_skybox &&
+                                       environment_light != null &&
+                                       environment_light.RenderSkybox;
+            var has_complete_skybox = should_render_skybox &&
+                                      environment_asset != null &&
+                                      environment_asset.HasSkyboxData;
+
+            if (camera_requests_skybox && environment_light == null)
+            {
+                environment_skybox_error = "The camera scene has no enabled YutrelEnvironmentLight.";
+            }
+            else if (should_render_skybox && !has_complete_skybox)
+            {
+                environment_skybox_error = environment_asset == null
+                    ? "YutrelEnvironmentLight has no IBL asset."
+                    : "YutrelEnvironmentLight IBL asset has no source environment texture.";
+            }
+
+            if (has_complete_skybox)
+            {
+                ImportEnvironmentSkybox(render_graph, environment_asset.SourceEnvironmentTexture);
+            }
+            else
+            {
+                ReleaseEnvironmentSkybox();
+                environment_skybox = TextureHandle.nullHandle;
+            }
+
             has_environment_reflection = has_complete_environment;
+            has_environment_skybox = has_complete_skybox;
             environment_reflection_cube_hdr = has_complete_environment ? new Vector4(1.0f, 1.0f, 0.0f, 0.0f) : Vector4.zero;
             environment_intensity = environment_light != null ? environment_light.Intensity : 1.0f;
             environment_diffuse_multiplier = has_complete_environment ? environment_light.DiffuseMultiplier : 1.0f;
             environment_specular_multiplier = has_complete_environment ? environment_light.SpecularMultiplier : 1.0f;
+            environment_skybox_multiplier = has_complete_skybox ? environment_light.SkyboxMultiplier : 1.0f;
             ibl_roughness_one_level = has_complete_environment ? environment_asset.IblRoughnessOneLevel : 0.0f;
         }
 
@@ -155,6 +199,7 @@ namespace YutrelRP
         {
             ReleaseDfgLut();
             ReleaseEnvironmentReflection();
+            ReleaseEnvironmentSkybox();
         }
 
         private static YutrelEnvironmentLight ResolveEnvironmentLight(Camera camera)
@@ -240,6 +285,29 @@ namespace YutrelRP
             }
 
             environment_reflection_texture = null;
+        }
+
+        private void ImportEnvironmentSkybox(RenderGraph render_graph, Texture skybox_texture)
+        {
+            if (environment_skybox_texture != skybox_texture)
+            {
+                ReleaseEnvironmentSkybox();
+                environment_skybox_texture = skybox_texture;
+                environment_skybox_rt_handle = RTHandles.Alloc(environment_skybox_texture);
+            }
+
+            environment_skybox = render_graph.ImportTexture(environment_skybox_rt_handle);
+        }
+
+        private static void ReleaseEnvironmentSkybox()
+        {
+            if (environment_skybox_rt_handle != null)
+            {
+                RTHandles.Release(environment_skybox_rt_handle);
+                environment_skybox_rt_handle = null;
+            }
+
+            environment_skybox_texture = null;
         }
     };
 }

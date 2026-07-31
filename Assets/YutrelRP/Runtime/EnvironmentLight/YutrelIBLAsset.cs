@@ -8,14 +8,13 @@ namespace YutrelRP
     {
         public const int diffuseIrradianceShCoefficientCount = 9;
 
-        public Texture sourceEnvironmentTexture;
+        public Texture2D sourceEnvironmentTexture;
         public string sourceEnvironmentTexturePath;
 
         public string outputRootPath;
         public string specularDirectoryPath;
         public string specularCubemapPath;
         public string diffuseShPath;
-        public string dfgLutPath;
 
         public Cubemap specularCubemap;
         [HideInInspector]
@@ -25,15 +24,11 @@ namespace YutrelRP
         [HideInInspector]
         public TextAsset diffuseShText;
         public Vector3[] diffuseIrradianceSh;
-        public Texture2D dfgLut;
 
         public int cubemapSize;
         public int specularMipCount;
         public int sampleCount;
-        public int dfgLutSize;
         public string outputFormat;
-        public string dfgMode;
-        public string dfgFormat;
         public string shConvention;
         public string specularConvention;
         public float iblRoughnessOneLevel;
@@ -42,7 +37,11 @@ namespace YutrelRP
         public string cmgenExecutablePath;
         public string generatedAtUtc;
 
-        public bool HasCompleteData =>
+        public Texture2D SourceEnvironmentTexture => sourceEnvironmentTexture;
+
+        public bool HasSkyboxData => sourceEnvironmentTexture != null;
+
+        public bool HasLightingData =>
             specularCubemap != null &&
             diffuseIrradianceSh != null &&
             diffuseIrradianceSh.Length >= diffuseIrradianceShCoefficientCount;

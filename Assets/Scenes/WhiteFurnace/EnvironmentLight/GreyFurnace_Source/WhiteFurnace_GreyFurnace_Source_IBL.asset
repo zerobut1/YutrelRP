@@ -18,7 +18,6 @@ MonoBehaviour:
   specularDirectoryPath: 
   specularCubemapPath: Assets/Scenes/WhiteFurnace/EnvironmentLight/GreyFurnace_Source/WhiteFurnace_GreyFurnace_Source_IBL_SpecularCube.asset
   diffuseShPath: 
-  dfgLutPath: 
   specularCubemap: {fileID: 8900000, guid: a5027b749a49f7146ac798213df74cda, type: 2}
   specularFaceTextures: []
   specularFacePaths: []
@@ -33,18 +32,14 @@ MonoBehaviour:
   - {x: 0.000000015114932, y: 0.000000015114932, z: 0.000000015114932}
   - {x: -7.2573e-11, y: -7.2573e-11, z: -7.2573e-11}
   - {x: -0.000000010421124, y: -0.000000010421124, z: -0.000000010421124}
-  dfgLut: {fileID: 0}
   cubemapSize: 64
   specularMipCount: 3
   sampleCount: 1024
-  dfgLutSize: 0
   outputFormat: exr
-  dfgMode: SharedPipelineDfgLut
-  dfgFormat: Assets/YutrelRP/Resources/Texture/DFG_LUT.exr
   shConvention: FilamentPreScaledIrradianceSH3
   specularConvention: FilamentCmgenPrefilteredCubemapNoMirror
   iblRoughnessOneLevel: 2
-  iblIntensityConvention: Not baked; runtime YutrelEnvironmentLight IBL intensity
-    scales contribution, with diffuse/specular multipliers as overrides.
+  iblIntensityConvention: Not baked; runtime YutrelEnvironmentLight intensity scales
+    IBL and skybox, with per-channel multipliers as overrides.
   cmgenExecutablePath: D:\Project\Unity\YutrelRP\tools\cmgen.exe
   generatedAtUtc: 2026-05-27T12:24:29.1596360Z

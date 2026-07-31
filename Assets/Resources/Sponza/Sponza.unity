@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 0.5
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 2100000, guid: d68ebe68558910e48a2848ea18b1840d, type: 2}
+  m_SkyboxMaterial: {fileID: 0}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -1218,10 +1218,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ad560d4f6bb44c2b25af8a8b79c8e32, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelEnvironmentLight
-  iblAsset: {fileID: 11400000, guid: a51e1a4d1241fe84ca9bd323012568ec, type: 2}
-  intensity: 3184.7134
+  iblAsset: {fileID: 11400000, guid: 56449f47dfb517f44b80d1d4b16799c8, type: 2}
+  intensity: 4000
   diffuseMultiplier: 1
   specularMultiplier: 1
+  renderSkybox: 1
+  skyboxMultiplier: 1
 --- !u!4 &675938002
 Transform:
   m_ObjectHideFlags: 0

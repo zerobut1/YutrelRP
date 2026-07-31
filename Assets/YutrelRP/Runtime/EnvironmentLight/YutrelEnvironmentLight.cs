@@ -28,6 +28,11 @@ namespace YutrelRP
         [FormerlySerializedAs("specularIntensity")]
         [Min(0.0f)] [SerializeField] private float specularMultiplier = 1.0f;
 
+        [SerializeField] private bool renderSkybox = true;
+
+        [Min(0.0f)]
+        [SerializeField] private float skyboxMultiplier = 1.0f;
+
         public YutrelIBLAsset IblAsset
         {
             get => iblAsset;
@@ -60,6 +65,20 @@ namespace YutrelRP
             get => specularMultiplier;
             set => specularMultiplier = Mathf.Max(0.0f, value);
         }
+
+        public bool RenderSkybox
+        {
+            get => renderSkybox;
+            set => renderSkybox = value;
+        }
+
+        public float SkyboxMultiplier
+        {
+            get => skyboxMultiplier;
+            set => skyboxMultiplier = Mathf.Max(0.0f, value);
+        }
+
+        public Texture2D SkyboxTexture => iblAsset != null ? iblAsset.SourceEnvironmentTexture : null;
 
         public static bool TryResolve(Scene scene, out YutrelEnvironmentLight binding)
         {
@@ -179,6 +198,7 @@ namespace YutrelRP
             intensity = Mathf.Max(0.0f, intensity);
             diffuseMultiplier = Mathf.Max(0.0f, diffuseMultiplier);
             specularMultiplier = Mathf.Max(0.0f, specularMultiplier);
+            skyboxMultiplier = Mathf.Max(0.0f, skyboxMultiplier);
             InvalidateScene(gameObject.scene);
         }
 #endif

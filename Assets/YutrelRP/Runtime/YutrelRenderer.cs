@@ -36,6 +36,7 @@ namespace YutrelRP
             ray_tracing_world.Dispose();
             DirectionalLightPass.Cleanup();
             EnvironmentLightingPass.Cleanup();
+            SkyboxPass.Cleanup();
             ScreenSpaceAmbientOcclusionPass.Cleanup();
             ShadowMaskPass.Cleanup();
             ToneMappingPass.Cleanup();
