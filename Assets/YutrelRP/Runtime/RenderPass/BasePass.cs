@@ -9,7 +9,11 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new("Base Pass");
 
-        private static readonly ShaderTagId shader_tag_id = new("GBuffer");
+        private static readonly ShaderTagId[] shader_tag_ids =
+        {
+            new("GBuffer"),
+            new("EndfieldBase")
+        };
 
         public static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
             RenderTargets textures)
@@ -24,7 +28,7 @@ namespace YutrelRP
 
             // 不透明
             var opaque_renderer_desc =
-                new RendererListDesc(shader_tag_id, culling_results, camera)
+                new RendererListDesc(shader_tag_ids, culling_results, camera)
                 {
                     sortingCriteria = SortingCriteria.CommonOpaque,
                     renderQueueRange = RenderQueueRange.opaque,

@@ -92,7 +92,7 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     gbuffer.uv          = input.uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    if (gbuffer_data.shading_model_id != 1)
+    if (!ShadingModelUsesDeferredLighting(gbuffer_data.shading_model_id))
     {
         discard;
     }

@@ -1,0 +1,17 @@
+#ifndef YUTREL_ENDFIELD_CHARACTER_INPUT_INCLUDED
+#define YUTREL_ENDFIELD_CHARACTER_INPUT_INCLUDED
+
+TEXTURE2D(_EndfieldBaseMap);
+SAMPLER(sampler_EndfieldBaseMap);
+TEXTURE2D(_EndfieldNormalMap);
+SAMPLER(sampler_EndfieldNormalMap);
+
+UNITY_INSTANCING_BUFFER_START(EndfieldCharacterPerMaterial)
+UNITY_DEFINE_INSTANCED_PROP(float4, _EndfieldBaseColor)
+UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldNormalScale)
+UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldAlphaCutoff)
+UNITY_DEFINE_INSTANCED_PROP(float4, _EndfieldBaseMap_ST)
+UNITY_DEFINE_INSTANCED_PROP(float4, _EndfieldNormalMap_ST)
+UNITY_INSTANCING_BUFFER_END(EndfieldCharacterPerMaterial)
+
+#endif

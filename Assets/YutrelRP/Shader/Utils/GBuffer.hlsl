@@ -2,6 +2,7 @@
 #define YUTREL_GBUFFER_INCLUDED
 
 #include "Common.hlsl"
+#include "ShadingModel.hlsl"
 
 TEXTURE2D(_GBuffer_A);
 SAMPLER(sampler_GBuffer_A);
@@ -44,7 +45,7 @@ EncodedGBuffer EncodeGBuffer(GBufferData data)
     EncodedGBuffer encoded;
 
     encoded.scene_color = float4(ApplyPreExposure(data.emissive), 0.0f);
-    encoded.GBuffer_A   = float4(data.base_color, data.shading_model_id);
+    encoded.GBuffer_A   = float4(data.base_color, EncodeShadingModelID(data.shading_model_id));
     encoded.GBuffer_B   = float4(normalize(data.normal_WS) * 0.5f + 0.5f, 0.0f);
     encoded.GBuffer_C   = float4(data.roughness, data.metallic, data.specular, data.material_AO);
 
@@ -64,7 +65,7 @@ GBufferData DecodeGBuffer(EncodedGBuffer encoded)
     data.metallic         = encoded.GBuffer_C.g;
     data.specular         = encoded.GBuffer_C.b;
     data.material_AO      = saturate(encoded.GBuffer_C.a);
-    data.shading_model_id = encoded.GBuffer_A.a > 0.5f ? 1 : 0;
+    data.shading_model_id = DecodeShadingModelID(encoded.GBuffer_A.a);
 
     return data;
 }

@@ -210,7 +210,7 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
 
     result.surface.material_AO      = saturate(result.surface.material_AO);
     result.surface.specular         = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Specular);
-    result.surface.shading_model_id = 1;
+    result.surface.shading_model_id = SHADING_MODEL_STANDARD;
     return result;
 }
 

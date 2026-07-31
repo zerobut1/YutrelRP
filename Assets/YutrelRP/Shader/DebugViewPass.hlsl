@@ -131,7 +131,12 @@ float4 SampleDebugViewGBuffer(float2 uv)
     gbuffer.uv          = uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    if (gbuffer_data.shading_model_id != 1)
+    if (_DebugViewMode == 5 && ShadingModelHasSurfaceNormal(gbuffer_data.shading_model_id))
+    {
+        return float4(gbuffer_data.normal_WS * 0.5f + 0.5f, 1.0f);
+    }
+
+    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
     {
         return float4(0.0f, 0.0f, 0.0f, 1.0f);
     }
@@ -171,14 +176,19 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
     gbuffer.uv          = uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    if (gbuffer_data.shading_model_id != 1)
+    float screen_space_AO    = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, uv).r);
+    if (gbuffer_data.shading_model_id == SHADING_MODEL_ENDFIELD)
+    {
+        return float4(screen_space_AO.xxx, 1.0f);
+    }
+
+    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
     {
         return float4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    float material_AO     = saturate(gbuffer_data.material_AO);
-    float screen_space_AO = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, uv).r);
-    float combined_AO     = min(material_AO, screen_space_AO);
+    float material_AO = saturate(gbuffer_data.material_AO);
+    float combined_AO = min(material_AO, screen_space_AO);
     return float4(combined_AO.xxx, 1.0f);
 }
 

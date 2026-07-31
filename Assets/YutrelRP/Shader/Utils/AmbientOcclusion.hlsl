@@ -114,7 +114,7 @@ bool AOLoadSurface(float2 uv, out AOSurfaceData surface)
     gbuffer.uv          = uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    if (gbuffer_data.shading_model_id != 1)
+    if (!ShadingModelHasSurfaceNormal(gbuffer_data.shading_model_id))
     {
         return false;
     }

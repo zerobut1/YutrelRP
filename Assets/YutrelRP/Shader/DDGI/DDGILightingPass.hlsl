@@ -134,7 +134,7 @@ float4 DDGILightingFragment(FullScreenVaryings input) : SV_Target
     gbuffer.uv          = input.uv;
 
     GBufferData gbufferData = DecodeGBuffer(gbuffer);
-    if (gbufferData.shading_model_id != 1)
+    if (!ShadingModelUsesDeferredLighting(gbufferData.shading_model_id))
     {
         discard;
     }

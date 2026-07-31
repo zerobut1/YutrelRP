@@ -20,7 +20,7 @@ float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
     float3 out_color = float3(0, 0, 0);
     switch (gbuffer_data.shading_model_id)
     {
-    case 1:
+    case SHADING_MODEL_STANDARD:
         StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
         Light light             = GetDirectionalLight(_LightIndex, gbuffer.uv);
 
