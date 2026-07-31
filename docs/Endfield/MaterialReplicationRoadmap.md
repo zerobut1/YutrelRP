@@ -51,9 +51,14 @@ EID 6346 的状态：
 
 - Depth Test：`Equal`
 - Depth Write：开启
+- Stencil Test：关闭
 - Cull：关闭
 - Blend：关闭
 - MSAA：1x
+- Sample Mask：`0xFFFFFFFF`
+- Alpha-to-Coverage：关闭
+- Depth Bounds：关闭
+- Rasterizer Discard：关闭
 - 不执行 Alpha Clip
 - 输出两个颜色目标
 
@@ -66,6 +71,8 @@ EID 6346 的状态：
 
 1. Base 阶段先执行 Alpha Clip 并写深度。
 2. 前向阶段使用 `ZTest Equal`，只着色此前留下的有效像素。
+
+EID 3049 的像素着色器明确包含 `Kill()`，而 EID 6346 的像素着色器不存在 `Kill`、`discard`、`TerminateInvocation`、`Demote`、`FragDepth` 或 `SampleMask` 输出。EID 6346 的顶点着色器也不输出 `ClipDistance` 或 `CullDistance`。因此 Alpha Cutout 只由 Base 阶段建立的深度掩码负责，前向阶段不重复执行 Alpha Clip。
 
 ### 2.3 EID 2167：ShadowCaster
 
@@ -173,9 +180,9 @@ EncodedGBuffer encoded   = EncodeGBuffer(gbuffer);
 
 Directional、Environment 和 DDGI 全屏光照只处理 `SHADING_MODEL_STANDARD`，遇到 Endfield ID 时 discard。SSAO 不属于材质光照，它将 Standard 和 Endfield 都视为具有有效深度、法线的表面。
 
-### 3.2 新增 EndfieldForwardPass
+### 3.2 EndfieldForwardPass
 
-`EndfieldForwardPass` 是需要新增的独立 RasterPass，插入到 Environment Lighting/DDGI 之后、Skybox 之前。
+`EndfieldForwardPass` 是独立 RasterPass，插入到 Environment Lighting/DDGI 之后、Skybox 之前。
 
 固定状态以 EID 6346 为参考：
 
@@ -189,9 +196,18 @@ Blend Off
 RenderGraph 资源：
 
 - `scene_color`：ReadWrite，输出最终前向颜色
-- `scene_depth`：Read 或 ReadWrite；严格复刻时对应 ZWrite On
-- `GBuffer_B`：可选 ReadWrite，输出最终材质法线
-- ShadowMask/SSAO/环境光/DDGI 资源：按当前阶段声明只读依赖
+- `scene_depth`：ReadWrite，对应 ZTest Equal 和 ZWrite On
+
+当前最小版本不读取 GBuffer、ShadowMask、SSAO 或环境光资源，只采样材质 BaseColor 并直接写入 Scene Color：
+
+```hlsl
+float4 base_color = EndfieldCharacterSampleBaseColor(input.uv);
+return float4(base_color.rgb, 0.0f);
+```
+
+这里不能应用 Pre-Exposure。默认 `EV100 = 14` 时，`_PreExposure = 1 / (1.2 * 2^14) ≈ 0.00005086`，会将单位范围的 BaseColor 压缩到约 `0.00005`。当前输出只是用于验证结构的无光照颜色，并非物理光照辐射值；正式接入方向光和环境光后，再对最终光照结果应用 Pre-Exposure。
+
+Forward Fragment 不执行 Alpha Clip。透明区域没有在 Base 阶段写入当前表面的深度，因此会在 `ZTest Equal` 时被拒绝。Base 与 Forward 必须保持完全一致的顶点位置计算。
 
 前向阶段需要自行完成方向光、阴影和环境光，不能依赖此前的 Deferred Lighting，因为 Base 阶段已将该像素标记为 ForwardOnly。
 
@@ -217,8 +233,10 @@ Endfield Shader 已提供 `ShadowCaster` Pass：
 - `ShadowCaster` 及 Shadow Pancaking
 - Endfield 法线接入 ShadowMask、SSAO 和 GBuffer World Normal Debug
 - AO Debug 对 Endfield 直接显示 Screen Space AO，不读取未写入的 Material AO
+- `EndfieldForwardPass` 插入 Environment/DDGI 与 Skybox 之间
+- 最小 Forward Shader 通过 `ZTest Equal` 直接输出 BaseColor
 
-尚未实现 `EndfieldForwardPass`，因此普通画面中 Endfield 像素当前保持黑色，这是本阶段的预期结果。
+当前 Forward 仅用于验证渲染结构，不包含方向光、阴影、环境光、Packed Mask 或风格化逻辑。
 
 ## 4. 法线缓冲的职责
 
@@ -251,6 +269,7 @@ Assets/YutrelRP/Shader/Endfield/
   EndfieldCharacterInput.hlsl
   EndfieldCharacterSurface.hlsl
   EndfieldCharacterBasePass.hlsl
+  EndfieldCharacterForwardPass.hlsl
   EndfieldCharacterShadowCasterPass.hlsl
 ```
 
@@ -262,17 +281,16 @@ Shader 名称为 `YutrelRP/Endfield/Character`，材质属性使用 `_Endfield` 
 - `_EndfieldNormalScale`
 - `_EndfieldAlphaCutoff`
 
-实现 Forward 和湿润功能时按需增加：
+实现光照和湿润功能时按需增加：
 
 ```text
-  EndfieldCharacterForwardPass.hlsl
   EndfieldCharacterLighting.hlsl
   EndfieldWetness.hlsl
   EndfieldRain.hlsl
   EndfieldColorGrading.hlsl
 ```
 
-运行时 Pass 建议放在：
+运行时 Pass 已建立在：
 
 ```text
 Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
@@ -292,8 +310,8 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 - [x] Alpha Clip、Depth、Normal、Endfield ShadingModel ID
 - [x] ShadowCaster
 - [x] SSAO、ShadowMask 和 World Normal Debug 使用 Endfield Base 数据
-- [ ] `EndfieldForwardPass`
-- [ ] 前向阶段先输出固定颜色或简单 BaseColor
+- [x] `EndfieldForwardPass`
+- [x] 前向阶段直接输出 BaseColor
 
 验收：
 
@@ -302,7 +320,7 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 - Alpha Cutout 轮廓在主画面和阴影中一致
 - GBuffer Normal Debug 正确
 
-当前 Base 部分已经完成；阶段 1 的剩余目标是补齐最小 `EndfieldForwardPass`，验证 `ZTest Equal` 和 Base + Forward 双绘制闭环。
+阶段 1 的实现已闭环。下一步进入基础材质与光照，先解码 Packed Mask，并接入方向光、ShadowMask、SSAO 和环境光。
 
 ### 阶段 2：基础材质与光照
 

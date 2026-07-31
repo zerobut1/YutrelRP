@@ -147,6 +147,8 @@ namespace YutrelRP
                         EnvironmentLightingPass.Record(render_graph, textures, light_resources);
                     }
 
+                    EndfieldForwardPass.Record(render_graph, camera, culling_results, textures);
+
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 
 #if UNITY_EDITOR

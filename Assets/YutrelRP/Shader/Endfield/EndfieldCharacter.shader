@@ -45,6 +45,28 @@ Shader "YutrelRP/Endfield/Character"
 
 		Pass
 		{
+			Name "EndfieldForward"
+			Tags
+			{
+				"LightMode" = "EndfieldForward"
+			}
+
+			Cull Off
+			ZTest Equal
+			ZWrite On
+			Blend Off
+
+			HLSLPROGRAM
+			#pragma target 5.0
+			#pragma multi_compile_instancing
+			#pragma vertex EndfieldCharacterForwardVertex
+			#pragma fragment EndfieldCharacterForwardFragment
+			#include "EndfieldCharacterForwardPass.hlsl"
+			ENDHLSL
+		}
+
+		Pass
+		{
 			Name "ShadowCaster"
 			Tags
 			{
