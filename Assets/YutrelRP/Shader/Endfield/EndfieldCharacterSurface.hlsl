@@ -21,6 +21,7 @@ struct EndfieldCharacterPBRSurfaceData
     float3 normal_WS;
     float perceptual_roughness;
     float roughness;
+    float metallic;
     float3 f0;
     float material_AO;
 };
@@ -74,9 +75,6 @@ EndfieldCharacterSurfaceData EndfieldCharacterEvaluateSurface(EndfieldCharacterS
 
 float3 EndfieldCharacterApplyColorLUT(float3 linear_color)
 {
-#if !defined(_ENDFIELD_COLOR_LUT)
-    return linear_color;
-#else
     const float size      = 32.0f;
     const float max_index = size - 1.0f;
 
@@ -100,25 +98,25 @@ float3 EndfieldCharacterApplyColorLUT(float3 linear_color)
                          .rgb;
 
     return lerp(color_0, color_1, frac(blue));
-#endif
 }
 
-EndfieldCharacterPBRSurfaceData EndfieldCharacterEvaluatePBRSurface(EndfieldCharacterSurfaceInput input)
+EndfieldCharacterPBRSurfaceData EndfieldCharacterEvaluatePBRSurface(
+    EndfieldCharacterSurfaceInput input,
+    float3 albedo)
 {
-    EndfieldCharacterSurfaceData base_surface = EndfieldCharacterEvaluateSurface(input);
-    float3 albedo                             = EndfieldCharacterApplyColorLUT(base_surface.base_color.rgb);
-    float2 packed_uv                          = EndfieldCharacterGetBaseUV(input.uv);
-    float4 packed                             = SAMPLE_TEXTURE2D(_EndfieldPackedMap, sampler_EndfieldPackedMap, packed_uv);
-    float metallic                            = saturate(packed.r);
-    float specular_level                      = saturate(packed.g);
-    float smoothness                          = saturate(packed.a);
-    float perceptual_roughness                = clamp(1.0f - smoothness, 0.045f, 1.0f);
+    float2 packed_uv           = EndfieldCharacterGetBaseUV(input.uv);
+    float4 packed              = SAMPLE_TEXTURE2D(_EndfieldPackedMap, sampler_EndfieldPackedMap, packed_uv);
+    float metallic             = saturate(packed.r);
+    float specular_level       = saturate(packed.g);
+    float smoothness           = saturate(packed.a);
+    float perceptual_roughness = clamp(1.0f - smoothness, 0.045f, 1.0f);
 
     EndfieldCharacterPBRSurfaceData surface;
     surface.diffuse_color        = albedo * (1.0f - 0.96f * metallic);
-    surface.normal_WS            = base_surface.normal_WS;
+    surface.normal_WS            = EndfieldCharacterSampleNormalWS(input);
     surface.perceptual_roughness = perceptual_roughness;
     surface.roughness            = perceptual_roughness * perceptual_roughness;
+    surface.metallic             = metallic;
     surface.f0                   = lerp(0.04f * specular_level, albedo, metallic);
     surface.material_AO          = saturate(packed.b);
     return surface;

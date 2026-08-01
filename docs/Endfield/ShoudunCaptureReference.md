@@ -207,7 +207,28 @@ Resource 111886 在 EID 6346 中以 LOD 0 采样两次：
 Ramp RGB 调色后的亮度补偿上限：1.5
 ```
 
-## 7. 主光与角色方向覆盖
+## 7. Specular Ramp 已确认用法
+
+Resource 121267 在 EID 6346 中固定以 LOD 0 采样一次：
+
+```hlsl
+float alpha = max(perceptual_roughness * perceptual_roughness, 0.0078f);
+float a2 = alpha * alpha;
+float denominator = NoH * NoH * (a2 - 1.0f) + 1.0f;
+float D = a2 / (denominator * denominator);
+
+float ramp_u = saturate(D / min(rcp(a2), 65504.0f));
+float ramp_v = perceptual_roughness * (1.0f - metallic);
+float3 ramp = specular_ramp.SampleLevel(sampler, float2(ramp_u, ramp_v), 0.0f).rgb;
+```
+
+- U 是 GGX NDF 相对其理论峰值的归一化结果，不是 `N·L`。
+- V 与粗糙度、金属度有关；当前 Ramp 只有一行，因此不改变采样结果。
+- Shader 只读取 RGB，Alpha 不参与计算。
+- 直接高光使用 `D * V * (F0 * ramp.rgb)`，Ramp 取代标准 Schlick Fresnel 的颜色塑形。
+- YutrelRP 使用 `_ENDFIELD_DIFFUSE_RAMP` 与 `_ENDFIELD_SPECULAR_RAMP` 两个本地 Keyword；关闭后分别恢复 Lambert 和标准 GGX 高光。
+
+## 8. 主光与角色方向覆盖
 
 Shader 支持将真实主光方向与一个角色/美术覆盖方向混合：
 
@@ -231,7 +252,7 @@ EID 6346 的常量：
 
 单帧只能确定它以世界空间形式传入 Shader，不能确定 CPU 是否根据角色、摄像机或太阳方向动态生成。确认更新规则需要多帧受控对比。
 
-## 8. SSAO 结论
+## 9. SSAO 结论
 
 EID 6346 没有绑定或采样独立的全屏 SSAO Texture。
 
@@ -246,7 +267,7 @@ PackedMap.B  = Material AO
 
 3D 环境体积可见性和 Material AO 都不等于 SSAO。最终画面是否在 EID 6346 之后由其它全屏 Pass 合成 SSAO，目前尚未追踪，不能由本 Draw Call 得出结论。
 
-## 9. 环境、天气和雾资源
+## 10. 环境、天气和雾资源
 
 | 用途 | Resource | 格式/尺寸 | 置信度 |
 |---|---:|---|---|
@@ -267,7 +288,7 @@ EID 6346 的光照来源包括：
 - BC6H Cubemap Specular IBL；
 - 最终体积雾合成。
 
-## 10. 当前仍待确认
+## 11. 当前仍待确认
 
 - 原引擎对 Resource 70566 和 ShadowMask.G 的正式命名。
 - 40919、40922、40928 三张 Shadow Atlas 的正式职责划分。
@@ -278,7 +299,7 @@ EID 6346 的光照来源包括：
 - EID 6346 之后是否存在影响角色最终颜色的独立 SSAO 合成 Pass。
 - 捕获曝光标量与原引擎 Pre-Exposure 的完整契约。
 
-## 11. 常用复查命令
+## 12. 常用复查命令
 
 ```powershell
 rdc --session shoudun status

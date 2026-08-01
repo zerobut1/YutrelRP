@@ -11,6 +11,8 @@ TEXTURE2D(_EndfieldColorLUT);
 SAMPLER(sampler_EndfieldColorLUT);
 TEXTURE2D(_EndfieldDiffuseRamp);
 SAMPLER(sampler_EndfieldDiffuseRamp);
+TEXTURE2D(_EndfieldSpecularRamp);
+SAMPLER(sampler_EndfieldSpecularRamp);
 
 UNITY_INSTANCING_BUFFER_START(EndfieldCharacterPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _EndfieldBaseColor)

@@ -61,6 +61,7 @@ StandardSurface EndfieldCharacterBuildStandardSurface(
     return surface;
 }
 
+#if defined(_ENDFIELD_DIFFUSE_RAMP)
 float3 EndfieldCharacterAdjustSaturation(float3 color, float saturation)
 {
     float luminance = Luminance(color);
@@ -117,6 +118,36 @@ float3 EndfieldCharacterEvaluateDiffuseRamp(StandardSurface surface, Light light
     float3 shadow_branch = lerp(base_color, lit_tone, view_weight);
     return lerp(shadow_branch, ramped_color, light.occlusion);
 }
+#endif
+
+#if defined(_ENDFIELD_SPECULAR_RAMP)
+float3 EndfieldCharacterEvaluateSpecularRamp(
+    StandardSurface surface,
+    StandardBRDFTerms brdf,
+    float metallic)
+{
+    float alpha         = max(surface.roughness, 0.0078f);
+    float alpha_squared = alpha * alpha;
+
+    float distribution_denominator =
+        brdf.NoH * brdf.NoH * (alpha_squared - 1.0f) + 1.0f;
+    float ramp_distribution = alpha_squared / max(
+                                                  distribution_denominator * distribution_denominator,
+                                                  1e-6f);
+    float max_distribution  = min(rcp(alpha_squared), 65504.0f);
+
+    float ramp_u = saturate(ramp_distribution / max(max_distribution, 1e-6f));
+    float ramp_v = surface.perceptual_roughness * (1.0f - metallic);
+    float3 ramp  = SAMPLE_TEXTURE2D_LOD(
+                       _EndfieldSpecularRamp,
+                       sampler_EndfieldSpecularRamp,
+                       float2(ramp_u, ramp_v),
+                       0.0f)
+                       .rgb;
+
+    return brdf.D * brdf.V * (surface.f0 * ramp);
+}
+#endif
 
 float4 EndfieldCharacterForwardFragment(
     EndfieldCharacterForwardVaryings input,
@@ -130,7 +161,15 @@ float4 EndfieldCharacterForwardFragment(
     surface_input.tangent_WS   = input.tangent_WS;
     surface_input.bitangent_WS = input.bitangent_WS;
 
-    EndfieldCharacterPBRSurfaceData source = EndfieldCharacterEvaluatePBRSurface(surface_input);
+    float3 base_color = EndfieldCharacterSampleBaseColor(surface_input.uv).rgb;
+
+#if defined(_ENDFIELD_COLOR_LUT)
+    float3 albedo = EndfieldCharacterApplyColorLUT(base_color);
+#else
+    float3 albedo = base_color;
+#endif
+
+    EndfieldCharacterPBRSurfaceData source = EndfieldCharacterEvaluatePBRSurface(surface_input, albedo);
     if (!is_front_face)
     {
         source.normal_WS = -source.normal_WS;
@@ -148,8 +187,20 @@ float4 EndfieldCharacterForwardFragment(
 
     StandardBRDFTerms brdf = StandardEvaluateBRDF(surface, light);
     float3 light_radiance  = light.color * light.illuminance;
-    float3 direct_diffuse  = EndfieldCharacterEvaluateDiffuseRamp(surface, light) * light_radiance;
-    float3 direct_specular = brdf.specular * light_radiance * brdf.NoL * light.occlusion;
+
+#if defined(_ENDFIELD_DIFFUSE_RAMP)
+    float3 direct_diffuse = EndfieldCharacterEvaluateDiffuseRamp(surface, light) * light_radiance;
+#else
+    float3 direct_diffuse = brdf.diffuse * light_radiance * brdf.NoL * light.occlusion;
+#endif
+
+#if defined(_ENDFIELD_SPECULAR_RAMP)
+    float3 specular_response = EndfieldCharacterEvaluateSpecularRamp(surface, brdf, source.metallic);
+#else
+    float3 specular_response = brdf.specular;
+#endif
+
+    float3 direct_specular = specular_response * light_radiance * brdf.NoL * light.occlusion;
     return float4(direct_diffuse + direct_specular, 0.0f);
 }
 

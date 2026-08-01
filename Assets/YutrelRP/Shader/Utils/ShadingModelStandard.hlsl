@@ -22,6 +22,9 @@ struct StandardBRDFTerms
 {
     float3 diffuse;
     float3 specular;
+    float D;
+    float V;
+    float NoH;
     float NoL;
 };
 
@@ -84,6 +87,9 @@ StandardBRDFTerms StandardEvaluateBRDF(StandardSurface surface, Light light)
     float3 F = fresnel(surface.f0, LoH);
 
     terms.specular = (D * V) * F * StandardEnergyCompensation(surface);
+    terms.D        = D;
+    terms.V        = V;
+    terms.NoH      = NoH;
     terms.NoL      = NoL;
 
     return terms;

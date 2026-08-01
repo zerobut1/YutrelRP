@@ -10,7 +10,10 @@ Shader "YutrelRP/Endfield/Character"
 		[NoScaleOffset] _EndfieldColorLUT ("Material Color LUT", 2D) = "white" {}
 		[Toggle(_ENDFIELD_COLOR_LUT)] _EndfieldUseColorLUT ("Use Material Color LUT", Float) = 1
 		[NoScaleOffset] _EndfieldDiffuseRamp ("Diffuse Ramp", 2D) = "white" {}
+		[Toggle(_ENDFIELD_DIFFUSE_RAMP)] _EndfieldUseDiffuseRamp ("Use Diffuse Ramp", Float) = 1
 		_EndfieldDiffuseRampOffset ("Diffuse Ramp Offset", Range(-1, 1)) = 0
+		[NoScaleOffset] _EndfieldSpecularRamp ("Specular Ramp", 2D) = "white" {}
+		[Toggle(_ENDFIELD_SPECULAR_RAMP)] _EndfieldUseSpecularRamp ("Use Specular Ramp", Float) = 1
 		_EndfieldAlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.177
 		[Min(0)] _EndfieldDirectIntensity ("Direct Intensity", Float) = 1
 		[Min(1)] _EndfieldReferenceIlluminance ("Reference Illuminance", Float) = 50000
@@ -68,6 +71,8 @@ Shader "YutrelRP/Endfield/Character"
 			#pragma target 5.0
 			#pragma multi_compile_instancing
 			#pragma shader_feature_local_fragment _ENDFIELD_COLOR_LUT
+			#pragma shader_feature_local_fragment _ENDFIELD_DIFFUSE_RAMP
+			#pragma shader_feature_local_fragment _ENDFIELD_SPECULAR_RAMP
 			#pragma vertex EndfieldCharacterForwardVertex
 			#pragma fragment EndfieldCharacterForwardFragment
 			#include "EndfieldCharacterForwardPass.hlsl"
