@@ -6,9 +6,10 @@ Shader "YutrelRP/Endfield/Character"
 		[MainColor] _EndfieldBaseColor ("Base Color", Color) = (1, 1, 1, 1)
 		[Normal] _EndfieldNormalMap ("Normal Map", 2D) = "bump" {}
 		_EndfieldNormalScale ("Normal Scale", Range(0, 2)) = 1
+		[NoScaleOffset] _EndfieldPackedMap ("Packed Map", 2D) = "white" {}
+		[NoScaleOffset] _EndfieldColorLUT ("Material Color LUT", 2D) = "white" {}
+		[Toggle(_ENDFIELD_COLOR_LUT)] _EndfieldUseColorLUT ("Use Material Color LUT", Float) = 1
 		_EndfieldAlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.177
-		[NoScaleOffset] _EndfieldDirectRamp ("Direct Ramp", 2D) = "white" {}
-		_EndfieldRampOffset ("Ramp Offset", Range(-1, 1)) = 0
 		[Min(0)] _EndfieldDirectIntensity ("Direct Intensity", Float) = 1
 		[Min(1)] _EndfieldReferenceIlluminance ("Reference Illuminance", Float) = 50000
 	}
@@ -23,6 +24,7 @@ Shader "YutrelRP/Endfield/Character"
 
 		HLSLINCLUDE
 		#include "../Utils/Common.hlsl"
+		#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 		#include "EndfieldCharacterInput.hlsl"
 		#include "EndfieldCharacterSurface.hlsl"
 		ENDHLSL
@@ -63,6 +65,7 @@ Shader "YutrelRP/Endfield/Character"
 			HLSLPROGRAM
 			#pragma target 5.0
 			#pragma multi_compile_instancing
+			#pragma shader_feature_local_fragment _ENDFIELD_COLOR_LUT
 			#pragma vertex EndfieldCharacterForwardVertex
 			#pragma fragment EndfieldCharacterForwardFragment
 			#include "EndfieldCharacterForwardPass.hlsl"

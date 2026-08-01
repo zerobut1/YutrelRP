@@ -1,7 +1,7 @@
 #ifndef YUTREL_ENDFIELD_CHARACTER_FORWARD_PASS_INCLUDED
 #define YUTREL_ENDFIELD_CHARACTER_FORWARD_PASS_INCLUDED
 
-#include "../Utils/Light.hlsl"
+#include "../Utils/ShadingModelStandard.hlsl"
 
 struct EndfieldCharacterForwardAttributes
 {
@@ -15,6 +15,7 @@ struct EndfieldCharacterForwardAttributes
 struct EndfieldCharacterForwardVaryings
 {
     float4 position_CS : SV_POSITION;
+    float3 position_WS : VAR_POSITION;
     float3 normal_WS : VAR_NORMAL;
     float3 tangent_WS : VAR_TANGENT;
     float3 bitangent_WS : VAR_BITANGENT;
@@ -35,11 +36,29 @@ EndfieldCharacterForwardVaryings EndfieldCharacterForwardVertex(EndfieldCharacte
     float3 bitangent_WS = normalize(cross(normal_WS, tangent_WS) * tangent_sign);
 
     output.position_CS  = TransformWorldToHClip(position_WS);
+    output.position_WS  = position_WS;
     output.normal_WS    = normal_WS;
     output.tangent_WS   = tangent_WS;
     output.bitangent_WS = bitangent_WS;
     output.uv           = input.uv;
     return output;
+}
+
+StandardSurface EndfieldCharacterBuildStandardSurface(
+    EndfieldCharacterPBRSurfaceData source,
+    float3 position_WS)
+{
+    StandardSurface surface;
+    surface.diffuse_color        = source.diffuse_color;
+    surface.normal_WS            = source.normal_WS;
+    surface.perceptual_roughness = source.perceptual_roughness;
+    surface.roughness            = source.roughness;
+    surface.f0                   = source.f0;
+    surface.position_WS          = position_WS;
+    surface.view_direction_WS    = GetWorldSpaceViewDirectionForSurface(position_WS);
+    surface.NoV                  = clamp(dot(surface.normal_WS, surface.view_direction_WS), MIN_N_DOT_V, 1.0f);
+    surface.material_AO          = source.material_AO;
+    return surface;
 }
 
 float4 EndfieldCharacterForwardFragment(
@@ -54,33 +73,23 @@ float4 EndfieldCharacterForwardFragment(
     surface_input.tangent_WS   = input.tangent_WS;
     surface_input.bitangent_WS = input.bitangent_WS;
 
-    EndfieldCharacterSurfaceData surface = EndfieldCharacterEvaluateSurface(surface_input);
+    EndfieldCharacterPBRSurfaceData source = EndfieldCharacterEvaluatePBRSurface(surface_input);
     if (!is_front_face)
     {
-        surface.normal_WS = -surface.normal_WS;
+        source.normal_WS = -source.normal_WS;
     }
 
-    float2 screen_uv = input.position_CS.xy * _CameraBufferSize.xy;
-    Light light      = GetDirectionalLight(0, screen_uv);
-
-    float half_lambert = dot(surface.normal_WS, light.direction) * 0.5f + 0.5f;
-    float ramp_offset  = UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPerMaterial, _EndfieldRampOffset);
-    float ramp_u       = saturate(half_lambert * light.occlusion + ramp_offset);
-    float4 ramp        = SAMPLE_TEXTURE2D_LOD(
-        _EndfieldDirectRamp,
-        sampler_EndfieldDirectRamp,
-        float2(ramp_u, 0.5f),
-        0.0f);
+    StandardSurface surface = EndfieldCharacterBuildStandardSurface(source, input.position_WS);
+    float2 screen_uv        = input.position_CS.xy * _CameraBufferSize.xy;
+    Light light             = GetDirectionalLight(0, screen_uv);
 
     float direct_intensity      = UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPerMaterial, _EndfieldDirectIntensity);
     float reference_illuminance = UNITY_ACCESS_INSTANCED_PROP(
         EndfieldCharacterPerMaterial,
         _EndfieldReferenceIlluminance);
-    float light_strength = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
+    light.illuminance = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
 
-    float3 direct_color =
-        surface.base_color.rgb * ramp.rgb * ramp.a * light.color * light_strength;
-    return float4(direct_color, 0.0f);
+    return float4(StandardShading(surface, light), 0.0f);
 }
 
 #endif
