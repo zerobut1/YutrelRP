@@ -61,6 +61,63 @@ StandardSurface EndfieldCharacterBuildStandardSurface(
     return surface;
 }
 
+float3 EndfieldCharacterAdjustSaturation(float3 color, float saturation)
+{
+    float luminance = Luminance(color);
+    return lerp(luminance.xxx, color, saturation);
+}
+
+float3 EndfieldCharacterApplyDiffuseRampTint(float3 color, float3 ramp_color)
+{
+    float max_rgb = max(ramp_color.r, max(ramp_color.g, ramp_color.b));
+    float min_rgb = min(ramp_color.r, min(ramp_color.g, ramp_color.b));
+    float chroma  = max_rgb - min_rgb;
+
+    float3 tint           = lerp(1.0f.xxx, ramp_color, chroma);
+    float3 tinted_color   = color * tint;
+    float luminance_scale = clamp(
+        Luminance(color) / max(Luminance(tinted_color), 0.001f),
+        0.0f,
+        1.5f);
+    return tinted_color * luminance_scale;
+}
+
+float3 EndfieldCharacterEvaluateDiffuseRamp(StandardSurface surface, Light light)
+{
+    float ramp_offset = UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPerMaterial, _EndfieldDiffuseRampOffset);
+    float main_u      = saturate(dot(surface.normal_WS, light.direction) * 0.5f + 0.5f + ramp_offset);
+    float4 main_ramp  = SAMPLE_TEXTURE2D_LOD(
+        _EndfieldDiffuseRamp,
+        sampler_EndfieldDiffuseRamp,
+        float2(main_u, 0.5f),
+        0.0f);
+
+    float3 camera_axis_WS = normalize(UNITY_MATRIX_V[2].xyz);
+    float view_u          = saturate(dot(surface.normal_WS, camera_axis_WS) * 0.5f + 0.5f);
+    float4 view_ramp      = SAMPLE_TEXTURE2D_LOD(
+        _EndfieldDiffuseRamp,
+        sampler_EndfieldDiffuseRamp,
+        float2(view_u, 0.5f),
+        0.0f);
+
+    const float secondary_visibility = 1.0f;
+    float ao_visibility              = surface.material_AO * secondary_visibility;
+    float transition_weight          = saturate(main_ramp.a + ao_visibility * view_ramp.a);
+    float visibility_gate            = min(main_ramp.a, min(surface.material_AO, secondary_visibility));
+    float view_weight                = ao_visibility * view_ramp.a;
+
+    float3 base_color  = surface.diffuse_color;
+    float3 shadow_tone = EndfieldCharacterAdjustSaturation(base_color * 0.65f, 1.2f);
+    float3 lit_tone    = EndfieldCharacterAdjustSaturation(base_color, 1.2f);
+
+    float3 shaped_color = lerp(shadow_tone, base_color, transition_weight);
+    shaped_color        = lerp(shaped_color, base_color, visibility_gate);
+
+    float3 ramped_color  = EndfieldCharacterApplyDiffuseRampTint(shaped_color, main_ramp.rgb);
+    float3 shadow_branch = lerp(base_color, lit_tone, view_weight);
+    return lerp(shadow_branch, ramped_color, light.occlusion);
+}
+
 float4 EndfieldCharacterForwardFragment(
     EndfieldCharacterForwardVaryings input,
     bool is_front_face : SV_IsFrontFace) : SV_Target
@@ -89,7 +146,11 @@ float4 EndfieldCharacterForwardFragment(
         _EndfieldReferenceIlluminance);
     light.illuminance = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
 
-    return float4(StandardShading(surface, light), 0.0f);
+    StandardBRDFTerms brdf = StandardEvaluateBRDF(surface, light);
+    float3 light_radiance  = light.color * light.illuminance;
+    float3 direct_diffuse  = EndfieldCharacterEvaluateDiffuseRamp(surface, light) * light_radiance;
+    float3 direct_specular = brdf.specular * light_radiance * brdf.NoL * light.occlusion;
+    return float4(direct_diffuse + direct_specular, 0.0f);
 }
 
 #endif

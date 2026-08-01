@@ -9,6 +9,8 @@ Shader "YutrelRP/Endfield/Character"
 		[NoScaleOffset] _EndfieldPackedMap ("Packed Map", 2D) = "white" {}
 		[NoScaleOffset] _EndfieldColorLUT ("Material Color LUT", 2D) = "white" {}
 		[Toggle(_ENDFIELD_COLOR_LUT)] _EndfieldUseColorLUT ("Use Material Color LUT", Float) = 1
+		[NoScaleOffset] _EndfieldDiffuseRamp ("Diffuse Ramp", 2D) = "white" {}
+		_EndfieldDiffuseRampOffset ("Diffuse Ramp Offset", Range(-1, 1)) = 0
 		_EndfieldAlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.177
 		[Min(0)] _EndfieldDirectIntensity ("Direct Intensity", Float) = 1
 		[Min(1)] _EndfieldReferenceIlluminance ("Reference Illuminance", Float) = 50000

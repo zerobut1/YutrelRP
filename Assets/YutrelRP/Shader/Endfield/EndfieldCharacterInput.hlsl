@@ -9,10 +9,13 @@ TEXTURE2D(_EndfieldPackedMap);
 SAMPLER(sampler_EndfieldPackedMap);
 TEXTURE2D(_EndfieldColorLUT);
 SAMPLER(sampler_EndfieldColorLUT);
+TEXTURE2D(_EndfieldDiffuseRamp);
+SAMPLER(sampler_EndfieldDiffuseRamp);
 
 UNITY_INSTANCING_BUFFER_START(EndfieldCharacterPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _EndfieldBaseColor)
 UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldNormalScale)
+UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldDiffuseRampOffset)
 UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldAlphaCutoff)
 UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldDirectIntensity)
 UNITY_DEFINE_INSTANCED_PROP(float, _EndfieldReferenceIlluminance)

@@ -18,6 +18,13 @@ struct StandardSurface
     float material_AO;
 };
 
+struct StandardBRDFTerms
+{
+    float3 diffuse;
+    float3 specular;
+    float NoL;
+};
+
 StandardSurface GBuffer2StandardSurface(GBufferData data)
 {
     StandardSurface surface;
@@ -57,9 +64,9 @@ float3 StandardEnergyCompensation(StandardSurface surface)
     return StandardEnergyCompensationFromDfgVisibility(surface, dfg_visibility);
 }
 
-float3 StandardShading(StandardSurface surface, Light light)
+StandardBRDFTerms StandardEvaluateBRDF(StandardSurface surface, Light light)
 {
-    float3 out_color = float3(0, 0, 0);
+    StandardBRDFTerms terms;
 
     float3 h = normalize(surface.view_direction_WS + light.direction);
 
@@ -69,18 +76,25 @@ float3 StandardShading(StandardSurface surface, Light light)
     float LoH = saturate(dot(light.direction, h));
 
     // diffuse
-    float3 Fd = surface.diffuse_color * diffuse();
+    terms.diffuse = surface.diffuse_color * diffuse();
 
     // specular
     float D  = distribution(surface.roughness, NoH);
     float V  = visibility(surface.roughness, NoV, NoL);
     float3 F = fresnel(surface.f0, LoH);
 
-    float3 Fr = (D * V) * F * StandardEnergyCompensation(surface);
+    terms.specular = (D * V) * F * StandardEnergyCompensation(surface);
+    terms.NoL      = NoL;
 
-    out_color = Fd + Fr;
+    return terms;
+}
 
-    out_color = out_color * light.color * light.illuminance * NoL * light.occlusion;
+float3 StandardShading(StandardSurface surface, Light light)
+{
+    StandardBRDFTerms terms = StandardEvaluateBRDF(surface, light);
+    float3 out_color        = terms.diffuse + terms.specular;
+
+    out_color = out_color * light.color * light.illuminance * terms.NoL * light.occlusion;
 
     return out_color;
 }
