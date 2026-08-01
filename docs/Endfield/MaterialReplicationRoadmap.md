@@ -65,7 +65,7 @@ EID 6346 的状态：
 主要输出：
 
 - Color 0：`R11G11B10_FLOAT`，最终 HDR 场景颜色
-- Color 1：`R10G10B10A2_UNORM`，Packed Normal/辅助法线数据
+- Color 1：`R10G10B10A2_UNORM`，非线性 Motion Vector 与表面/历史分类数据，不是法线缓存
 
 因此该材质虽然名为 `Cloth1Alpha`，但不是透明混合材质，而是 Opaque Cutout：
 
@@ -94,7 +94,7 @@ EID 6346 使用三张主要 2048×2048 材质纹理：
 - Normal：BC5 UNorm
 - Packed Mask：BC7 UNorm
 
-Packed Mask 通道根据 Shader 运算可基本确定为：
+Packed Mask 通道已经由 Shader 运算和本地纹理匹配确认：
 
 | 通道 | 含义 |
 |---|---|
@@ -103,18 +103,17 @@ Packed Mask 通道根据 Shader 运算可基本确定为：
 | B | Material AO |
 | A | Smoothness，使用时转换为 `Roughness = 1 - A` |
 
-其他已观察资源：
+其他已确认资源：
 
-- 1024×32 的 32³ Packed Color LUT
-- 两张 256×1 Ramp/LUT
-- BC6 Cubemap
-- 方向光阴影贴图
-- R8G8 屏幕空间遮蔽/Contact Shadow 数据
-- 多张 3D 体积光照纹理
-- 全局雨水法线/噪声候选纹理
-- 蓝噪声候选纹理
+- 1024×32 的 32³ Packed Color LUT；
+- 256×1 Diffuse Ramp 与 256×1 Specular Ramp；
+- BC6H Cubemap Specular IBL；
+- R8G8 屏幕可见性：R 为主方向光 CSM，G 为次级 Shadow Atlas 可见性；
+- 三组级联 3D 环境光照体积；
+- 本帧启用的雨滴法线/Mask 与垂直流动法线；
+- 本帧关闭的细噪声法线与彩色 Voronoi 噪声。
 
-这些资源的精确语义需要在对应实现阶段继续通过 Shader 反汇编、资源使用和 Pixel Debug 验证。
+目前仍未确认的是三组环境体积各通道、RT1 离散类别及若干全局资源的原引擎正式命名，而不是上述功能语义。
 
 ## 3. YutrelRP 中的目标渲染结构
 
@@ -198,14 +197,16 @@ RenderGraph 资源：
 - `scene_color`：ReadWrite，输出最终前向颜色
 - `scene_depth`：ReadWrite，对应 ZTest Equal 和 ZWrite On
 
-当前最小版本不读取 GBuffer、ShadowMask、SSAO 或环境光资源，只采样材质 BaseColor 并直接写入 Scene Color：
+当前版本已经读取方向光、ShadowMask.R 和 DFG LUT，并完成以下材质及直接光照逻辑：
 
-```hlsl
-float4 base_color = EndfieldCharacterSampleBaseColor(input.uv);
-return float4(base_color.rgb, 0.0f);
-```
+- BaseColor 与材质颜色；
+- BC5 切线空间法线和双面法线修正；
+- Packed Mask：Metallic、Specular Level、Material AO、Smoothness；
+- 32³ Packed Color LUT；
+- Diffuse Ramp 的双采样、Alpha 门控、饱和度与亮度保护；
+- GGX 类直接镜面反射与 Specular Ramp。
 
-这里不能应用 Pre-Exposure。默认 `EV100 = 14` 时，`_PreExposure = 1 / (1.2 * 2^14) ≈ 0.00005086`，会将单位范围的 BaseColor 压缩到约 `0.00005`。当前输出只是用于验证结构的无光照颜色，并非物理光照辐射值；正式接入方向光和环境光后，再对最终光照结果应用 Pre-Exposure。
+当前输出仍只有方向光直接漫反射和直接镜面反射。湿润层、环境间接光等剩余差异见 3.4 节。
 
 Forward Fragment 不执行 Alpha Clip。透明区域没有在 Base 阶段写入当前表面的深度，因此会在 `ZTest Equal` 时被拒绝。Base 与 Forward 必须保持完全一致的顶点位置计算。
 
@@ -224,7 +225,7 @@ Endfield Shader 已提供 `ShadowCaster` Pass：
 
 ### 3.4 当前实现状态
 
-截至 2026-07-31，已完成：
+截至 2026-08-01，已完成：
 
 - 公共 ShadingModel ID 编解码契约
 - `BasePass` 接入 `EndfieldBase`
@@ -234,9 +235,29 @@ Endfield Shader 已提供 `ShadowCaster` Pass：
 - Endfield 法线接入 ShadowMask、SSAO 和 GBuffer World Normal Debug
 - AO Debug 对 Endfield 直接显示 Screen Space AO，不读取未写入的 Material AO
 - `EndfieldForwardPass` 插入 Environment/DDGI 与 Skybox 之间
-- 最小 Forward Shader 通过 `ZTest Equal` 直接输出 BaseColor
+- Packed Mask、32³ 材质 LUT、Diffuse Ramp 与 Specular Ramp
+- 主方向光直接漫反射、直接镜面反射和 ShadowMask.R
+- YutrelRP SH/DDGI 环境漫反射、Cubemap Specular IBL、环境 DFG、能量补偿与 Specular AO
+- `YutrelRP/Endfield/CharacterPBR` 使用同一环境光实现，作为无 LUT/Ramp 的标准 PBR 对照组
 
-当前 Forward 仅用于验证渲染结构，不包含方向光、阴影、环境光、Packed Mask 或风格化逻辑。
+当前实现与 EID 6346 的差异清单：
+
+| 差异项 | EID 6346 状态 | 当前实现 | 当前范围 |
+|---|---|---|---|
+| 主方向光方向约定 | 实际启用；使用朝向光源方向 | 使用 YutrelRP 方向光数据，仍需按捕获约定校正和验证方向 | **关注** |
+| 基础湿润/雨滴层 | 实际启用；对象强度 `215/255`，逐像素覆盖 | 未实现 | **关注** |
+| 环境漫反射 | 实际启用；三级联 3D 光照体积 | Forward 已接入 YutrelRP DDGI，并在 DDGI 不可用时使用 SH | 已接入；数据布局不机械复刻 |
+| 环境镜面反射与环境 BRDF | 实际启用；BC6H Cubemap、粗糙度 mip、DFG、能量补偿和遮蔽 | 已复用 YutrelRP Cubemap、DFG、能量补偿和 Specular AO | 已接入 |
+| ShadowMask.G 次级可见性 | 实际启用 | ShadowMask 为单通道，Shader 中固定为 `1` | 暂不关心 |
+| 光照尺度与 Pre-Exposure | 实际启用 | 直接光使用材质级参考照度归一化；物理单位的环境光单独应用 YutrelRP Pre-Exposure | 暂不统一两条光照尺度 |
+| 体积雾/大气合成 | 实际启用 | 未实现 | 暂不关心 |
+| Motion/History RT1 | 实际启用 | 未创建第二颜色附件，也未输出当前/上一帧运动与分类 | 暂不关心 |
+| Clustered 局部光 | Shader 支持；代表像素无有效增量 | 未实现 Point/Spot、Cookie 和局部阴影 | 暂不关心 |
+| 角色美术方向覆盖 | Shader 支持；本帧权重为 0 | 未实现 | 不属于 EID 6346 必需项 |
+| 第二层雨水噪声/闪点 | 本帧关闭，天气参数 W 为 0 | 未实现 | 不属于 EID 6346 必需项 |
+| 材质颜色校正与 Rim | 本帧关闭；全局 Rim 颜色也为 0 | 未实现 | 不属于 EID 6346 必需项 |
+
+当前静态颜色复刻范围下一步为主光方向修正和基础湿润层。
 
 ## 4. 法线缓冲的职责
 
@@ -252,12 +273,9 @@ Base 阶段法线主要服务于前向光照之前的屏幕空间处理：
 
 EID 3049 会采样 BC5 Normal Map，因此写入的是材质 shading normal，而非单纯的顶点几何法线。
 
-EID 6346 又写出一次法线，可能是包含湿润、雨滴等扰动后的最终法线，供前向阶段之后的屏幕空间效果使用。
+EID 6346 的 RT1 不是最终法线，而是非线性编码的 Motion Vector 与表面/历史分类。湿润覆盖会改变其 A 通道分类，但不会把湿润后的最终法线写入该 RT。
 
-当前 YutrelRP 尚无 SSR 等后续效果时：
-
-- Base 阶段法线是必要的。
-- Forward 阶段再次写法线可以延后，但最终应保留这一能力。
+因此当前 YutrelRP 只需要继续由 Base 阶段提供屏幕空间法线。Forward 是否增加 Motion/History 输出应由 YutrelRP 后续 TAA、Reactive Mask 和动态蒙皮契约决定。
 
 ## 5. Shader 文件组织
 
@@ -266,12 +284,18 @@ EID 6346 又写出一次法线，可能是包含湿润、雨滴等扰动后的�
 ```text
 Assets/YutrelRP/Shader/Endfield/
   EndfieldCharacter.shader
+  EndfieldCharacterPBR.shader
   EndfieldCharacterInput.hlsl
   EndfieldCharacterSurface.hlsl
+  EndfieldCharacterEnvironment.hlsl
   EndfieldCharacterBasePass.hlsl
   EndfieldCharacterForwardPass.hlsl
+  EndfieldCharacterPBRForwardPass.hlsl
   EndfieldCharacterShadowCasterPass.hlsl
 ```
+
+公共环境光和 DDGI 逐表面采样分别位于 `Shader/EnvironmentLighting.hlsl` 与
+`Shader/DDGI/DDGILighting.hlsl`。全屏延迟光照和 Endfield Forward 共用这些实现。
 
 Shader 名称为 `YutrelRP/Endfield/Character`，材质属性使用 `_Endfield` 前缀，HLSL 类型和函数使用 `EndfieldCharacter` 前缀。当前公开材质输入为：
 
@@ -279,7 +303,14 @@ Shader 名称为 `YutrelRP/Endfield/Character`，材质属性使用 `_Endfield` 
 - `_EndfieldBaseColor`
 - `_EndfieldNormalMap`
 - `_EndfieldNormalScale`
+- `_EndfieldPackedMap`
+- `_EndfieldColorLUT`
+- `_EndfieldDiffuseRamp`
+- `_EndfieldDiffuseRampOffset`
+- `_EndfieldSpecularRamp`
 - `_EndfieldAlphaCutoff`
+- `_EndfieldDirectIntensity`
+- `_EndfieldReferenceIlluminance`
 
 实现光照和湿润功能时按需增加：
 
@@ -320,20 +351,20 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 - Alpha Cutout 轮廓在主画面和阴影中一致
 - GBuffer Normal Debug 正确
 
-阶段 1 的实现已闭环。下一步进入基础材质与光照，先解码 Packed Mask，并接入方向光、ShadowMask、SSAO 和环境光。
+阶段 1 的实现已闭环。
 
 ### 阶段 2：基础材质与光照
 
 实现：
 
-- BaseColor
-- Tangent Space Normal
-- Packed Mask 解码
-- 方向光
-- ShadowMask
-- Cubemap IBL 与 DFG
-- Material AO/SSAO
-- Pre-Exposure
+- [x] BaseColor
+- [x] Tangent Space Normal
+- [x] Packed Mask 解码
+- [x] 方向光直接光照
+- [x] ShadowMask.R
+- [x] Cubemap IBL 与环境 DFG
+- [x] 环境光中的 Material AO
+- [ ] 统一 Pre-Exposure（环境光已预曝光；直接光仍使用参考照度归一化）
 
 这一阶段先使用 YutrelRP Standard BRDF，暂不实现雨水和复杂风格化逻辑。
 
@@ -348,11 +379,11 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 
 实现顺序：
 
-1. 32³ Packed Color LUT
-2. Diffuse/Specular Ramp
-3. 高光整形
-4. Rim/Fresnel 风格化
-5. 必要的颜色增益和亮度保护
+1. [x] 32³ Packed Color LUT
+2. [x] Diffuse Ramp
+3. [x] Specular Ramp 与高光整形
+4. [ ] 主方向光方向约定校正
+5. Rim/颜色校正：EID 6346 对应分支关闭，暂不实现
 
 先将干燥状态匹配到可接受程度，再进入湿润效果。
 
@@ -360,26 +391,29 @@ Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
 
 按优先级实现：
 
-1. Cubemap IBL
-2. Directional ShadowMask
-3. SSAO/Contact Shadow
-4. YutrelRP DDGI 接入
-5. 捕获中的 3D Probe/Volume Lighting，仅在确有必要时复刻
+1. [x] YutrelRP 环境漫反射：SH 或 DDGI
+2. [x] Cubemap Specular IBL
+3. [x] 环境 DFG、多重散射能量补偿和 Specular AO
+4. ShadowMask.G、SSAO/Contact Shadow 当前不在复刻范围
+5. 捕获中的 3D Probe/Volume Lighting 只作为功能参考，不机械复制纹理布局
 
-当 DDGI 开启时，当前 YutrelRP 不执行普通 EnvironmentLightingPass，因此 EndfieldForward 必须明确选择自己的环境间接光来源。
+EndfieldForward 的环境光选择规则：有效 DDGI 只替换漫反射来源；DDGI 关闭或资源无效时回退 SH；
+Cubemap 镜面反射始终保留。DDGI 体积外按当前 YutrelRP Volume Weight 衰减至零，不混入 SH。
+Diffuse/Specular Ramp 只处理方向光，环境光不经过 Ramp。捕获中的 Irradiance Volume Clipmap 只作为功能参考，
+没有复制其 A/B 纹理布局。
 
 ### 阶段 5：湿润与雨水
 
-由简单到复杂：
+EID 6346 实际启用的基础层：
 
-1. 全局 Wetness 参数
-2. BaseColor 压暗/增饱和
-3. Roughness 降低与 Specular 增强
-4. 基于材质 Mask 的湿润覆盖
-5. 三平面雨水 Normal
-6. 流水方向与时间动画
-7. 程序化雨滴/水珠
-8. 蓝噪声控制的闪烁高光
+1. 对象级 Wetness 强度
+2. 世界空间、逐像素雨滴覆盖
+3. BaseColor 修改
+4. Roughness 向 `min(DryRoughness, 0.05)` 收敛
+5. 三平面雨滴 Normal
+6. 垂直流水法线与时间动画
+
+第二层细噪声、Voronoi 和闪点高光在 EID 6346 中关闭，不属于当前范围。
 
 湿润模块必须可单独关闭，并提供分层 Debug 输出，避免同时调试过多变量。
 
@@ -426,15 +460,15 @@ EID 3182 疑似使用 Front Cull 的描边绘制，应作为独立功能处理�
 
 - EID 3049 五个 MRT 的精确语义和各通道编码
 - EID 3049 的实际 Alpha Cutoff 是否与 EID 2167 完全一致
-- EID 6346 第二输出的完整 Normal/Flag 编码
-- 两张 256×1 Ramp 的精确职责
-- 32³ LUT 在最终颜色流程中的准确位置
-- R8G8 屏幕空间纹理的双通道语义
-- 3D 光照纹理与 Cubemap/Probe 的组合方式
-- 全局 Wetness 参数及材质局部 Mask 的来源
+- RT1 A/B 离散类别的原引擎正式枚举名
+- ShadowMask.G 与次级 Shadow Atlas 的原引擎正式命名
+- 三组 3D 光照体积每个通道的正式语义，以及与 Cubemap 的组合细节
+- 全局雨水纹理的原始资源名与来源
 - 雨滴、流水和闪烁高光的独立开关与参数范围
+- 角色覆盖光方向的 CPU 更新规则
+- 捕获曝光标量与原引擎 Pre-Exposure 的完整契约
+- EID 6346 全部像素中的 Clustered 局部光覆盖范围
 - 原游戏 Stencil 分类在 YutrelRP 中是否需要等价实现
-- 最终法线输出被哪些后续 Pass 消费
 
 在实现相关功能前，应先针对对应问题补充 RenderDoc 证据，不要仅凭纹理外观命名。
 

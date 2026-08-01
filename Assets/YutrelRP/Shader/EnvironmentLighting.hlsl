@@ -1,0 +1,113 @@
+#ifndef YUTREL_ENVIRONMENT_LIGHTING_INCLUDED
+#define YUTREL_ENVIRONMENT_LIGHTING_INCLUDED
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
+#include "Utils/ShadingModelStandard.hlsl"
+
+TEXTURECUBE(_EnvironmentReflectionCube);
+SAMPLER(sampler_EnvironmentReflectionCube);
+
+float4 _EnvironmentReflectionCube_HDR;
+float _EnvironmentIntensity;
+float _EnvironmentDiffuseMultiplier;
+float _EnvironmentSpecularMultiplier;
+float _IblRoughnessOneLevel;
+
+float4 _IblSH0;
+float4 _IblSH1;
+float4 _IblSH2;
+float4 _IblSH3;
+float4 _IblSH4;
+float4 _IblSH5;
+float4 _IblSH6;
+float4 _IblSH7;
+float4 _IblSH8;
+
+struct EnvironmentLightingResult
+{
+    float3 diffuse;
+    float3 specular;
+};
+
+float EnvironmentPerceptualRoughnessToMipmapLevel(float perceptual_roughness)
+{
+    return _IblRoughnessOneLevel * perceptual_roughness * (2.0f - perceptual_roughness);
+}
+
+float3 EvaluateEnvironmentDiffuseSH(float3 normal_WS)
+{
+    // Filament cmgen writes SH3 coefficients pre-scaled for shader reconstruction.
+    // The Lambert 1/pi factor is already baked into these coefficients.
+    float3 irradiance = _IblSH0.rgb;
+    irradiance += _IblSH1.rgb * normal_WS.y;
+    irradiance += _IblSH2.rgb * normal_WS.z;
+    irradiance += _IblSH3.rgb * normal_WS.x;
+    irradiance += _IblSH4.rgb * (normal_WS.y * normal_WS.x);
+    irradiance += _IblSH5.rgb * (normal_WS.y * normal_WS.z);
+    irradiance += _IblSH6.rgb * (3.0f * normal_WS.z * normal_WS.z - 1.0f);
+    irradiance += _IblSH7.rgb * (normal_WS.z * normal_WS.x);
+    irradiance += _IblSH8.rgb * (normal_WS.x * normal_WS.x - normal_WS.y * normal_WS.y);
+    return max(0.0f, irradiance);
+}
+
+float3 SampleEnvironmentDfg(StandardSurface surface)
+{
+    return SAMPLE_TEXTURE2D(_DFG_LUT, sampler_DFG_LUT, float2(surface.NoV, surface.perceptual_roughness)).rgb;
+}
+
+float3 EvaluateEnvironmentSpecularDfg(StandardSurface surface, float3 dfg)
+{
+    return lerp(dfg.xxx, dfg.yyy, surface.f0);
+}
+
+float EvaluateEnvironmentSpecularAO(StandardSurface surface, float diffuse_visibility)
+{
+    return saturate(pow(surface.NoV + diffuse_visibility, exp2(-16.0f * surface.roughness - 1.0f)) - 1.0f +
+                    diffuse_visibility);
+}
+
+float3 GetEnvironmentSpecularDominantDirection(StandardSurface surface)
+{
+    float3 reflection_direction = reflect(-surface.view_direction_WS, surface.normal_WS);
+    return lerp(reflection_direction, surface.normal_WS, surface.roughness * surface.roughness);
+}
+
+float3 EvaluateEnvironmentSpecular(StandardSurface surface, float3 specular_dfg, float3 energy_compensation,
+                                   float specular_AO)
+{
+    float3 reflection_direction = GetEnvironmentSpecularDominantDirection(surface);
+    float mip_level             = EnvironmentPerceptualRoughnessToMipmapLevel(surface.perceptual_roughness);
+    float4 encoded_specular =
+        SAMPLE_TEXTURECUBE_LOD(_EnvironmentReflectionCube, sampler_EnvironmentReflectionCube, reflection_direction, mip_level);
+    float3 prefiltered_specular = DecodeHDREnvironment(encoded_specular, _EnvironmentReflectionCube_HDR);
+
+    return prefiltered_specular * specular_dfg * energy_compensation * specular_AO * _EnvironmentIntensity *
+           _EnvironmentSpecularMultiplier;
+}
+
+EnvironmentLightingResult EvaluateEnvironmentLighting(
+    StandardSurface surface,
+    float3 diffuse_lighting,
+    float diffuse_visibility,
+    bool specular_enabled)
+{
+    EnvironmentLightingResult result;
+    result.diffuse  = diffuse_lighting * surface.diffuse_color * saturate(diffuse_visibility);
+    result.specular = 0.0f;
+
+    if (!specular_enabled)
+    {
+        return result;
+    }
+
+    float3 dfg                 = SampleEnvironmentDfg(surface);
+    float3 specular_dfg        = EvaluateEnvironmentSpecularDfg(surface, dfg);
+    float3 energy_compensation = StandardEnergyCompensationFromDfgVisibility(surface, dfg.g);
+    float specular_AO          = EvaluateEnvironmentSpecularAO(surface, diffuse_visibility);
+
+    result.diffuse *= 1.0f - specular_dfg;
+    result.specular = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
+    return result;
+}
+
+#endif

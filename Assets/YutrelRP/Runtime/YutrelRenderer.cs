@@ -147,7 +147,14 @@ namespace YutrelRP
                         EnvironmentLightingPass.Record(render_graph, textures, light_resources);
                     }
 
-                    EndfieldForwardPass.Record(render_graph, camera, culling_results, textures, light_resources);
+                    EndfieldForwardPass.Record(
+                        render_graph,
+                        camera,
+                        culling_results,
+                        textures,
+                        light_resources,
+                        ddgi_resources,
+                        ddgi_settings);
 
                     SkyboxPass.Record(render_graph, camera, textures, light_resources);
 

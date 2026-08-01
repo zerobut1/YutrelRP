@@ -2,6 +2,7 @@
 #define YUTREL_ENDFIELD_CHARACTER_PBR_FORWARD_PASS_INCLUDED
 
 #include "../Utils/ShadingModelStandard.hlsl"
+#include "EndfieldCharacterEnvironment.hlsl"
 
 struct EndfieldCharacterPBRForwardAttributes
 {
@@ -81,16 +82,24 @@ float4 EndfieldCharacterPBRForwardFragment(
     }
 
     StandardSurface surface = EndfieldCharacterBuildStandardSurface(source, input.position_WS);
-    float2 screen_uv        = input.position_CS.xy * _CameraBufferSize.xy;
-    Light light             = GetDirectionalLight(0, screen_uv);
+    float3 direct_lighting  = 0.0f;
 
-    float direct_intensity      = UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPBRPerMaterial, _EndfieldDirectIntensity);
-    float reference_illuminance = UNITY_ACCESS_INSTANCED_PROP(
-        EndfieldCharacterPBRPerMaterial,
-        _EndfieldReferenceIlluminance);
-    light.illuminance = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
+    if (_DirectionalLightCount > 0)
+    {
+        float2 screen_uv = input.position_CS.xy * _CameraBufferSize.xy;
+        Light light      = GetDirectionalLight(0, screen_uv);
 
-    return float4(StandardShading(surface, light), 0.0f);
+        float direct_intensity =
+            UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPBRPerMaterial, _EndfieldDirectIntensity);
+        float reference_illuminance = UNITY_ACCESS_INSTANCED_PROP(
+            EndfieldCharacterPBRPerMaterial,
+            _EndfieldReferenceIlluminance);
+        light.illuminance = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
+        direct_lighting   = StandardShading(surface, light);
+    }
+
+    EnvironmentLightingResult indirect = EndfieldCharacterEvaluateEnvironment(surface);
+    return float4(direct_lighting + indirect.diffuse + indirect.specular, 0.0f);
 }
 
 #endif

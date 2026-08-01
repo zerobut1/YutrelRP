@@ -2,6 +2,7 @@
 #define YUTREL_ENDFIELD_CHARACTER_FORWARD_PASS_INCLUDED
 
 #include "../Utils/ShadingModelStandard.hlsl"
+#include "EndfieldCharacterEnvironment.hlsl"
 
 struct EndfieldCharacterForwardAttributes
 {
@@ -176,32 +177,40 @@ float4 EndfieldCharacterForwardFragment(
     }
 
     StandardSurface surface = EndfieldCharacterBuildStandardSurface(source, input.position_WS);
-    float2 screen_uv        = input.position_CS.xy * _CameraBufferSize.xy;
-    Light light             = GetDirectionalLight(0, screen_uv);
+    float3 direct_diffuse   = 0.0f;
+    float3 direct_specular  = 0.0f;
 
-    float direct_intensity      = UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPerMaterial, _EndfieldDirectIntensity);
-    float reference_illuminance = UNITY_ACCESS_INSTANCED_PROP(
-        EndfieldCharacterPerMaterial,
-        _EndfieldReferenceIlluminance);
-    light.illuminance = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
+    if (_DirectionalLightCount > 0)
+    {
+        float2 screen_uv = input.position_CS.xy * _CameraBufferSize.xy;
+        Light light      = GetDirectionalLight(0, screen_uv);
 
-    StandardBRDFTerms brdf = StandardEvaluateBRDF(surface, light);
-    float3 light_radiance  = light.color * light.illuminance;
+        float direct_intensity      = UNITY_ACCESS_INSTANCED_PROP(EndfieldCharacterPerMaterial, _EndfieldDirectIntensity);
+        float reference_illuminance = UNITY_ACCESS_INSTANCED_PROP(
+            EndfieldCharacterPerMaterial,
+            _EndfieldReferenceIlluminance);
+        light.illuminance = light.illuminance / max(reference_illuminance, 1.0f) * direct_intensity;
+
+        StandardBRDFTerms brdf = StandardEvaluateBRDF(surface, light);
+        float3 light_radiance  = light.color * light.illuminance;
 
 #if defined(_ENDFIELD_DIFFUSE_RAMP)
-    float3 direct_diffuse = EndfieldCharacterEvaluateDiffuseRamp(surface, light) * light_radiance;
+        direct_diffuse = EndfieldCharacterEvaluateDiffuseRamp(surface, light) * light_radiance;
 #else
-    float3 direct_diffuse = brdf.diffuse * light_radiance * brdf.NoL * light.occlusion;
+        direct_diffuse = brdf.diffuse * light_radiance * brdf.NoL * light.occlusion;
 #endif
 
 #if defined(_ENDFIELD_SPECULAR_RAMP)
-    float3 specular_response = EndfieldCharacterEvaluateSpecularRamp(surface, brdf, source.metallic);
+        float3 specular_response = EndfieldCharacterEvaluateSpecularRamp(surface, brdf, source.metallic);
 #else
-    float3 specular_response = brdf.specular;
+        float3 specular_response = brdf.specular;
 #endif
 
-    float3 direct_specular = specular_response * light_radiance * brdf.NoL * light.occlusion;
-    return float4(direct_diffuse + direct_specular, 0.0f);
+        direct_specular = specular_response * light_radiance * brdf.NoL * light.occlusion;
+    }
+
+    EnvironmentLightingResult indirect = EndfieldCharacterEvaluateEnvironment(surface);
+    return float4(direct_diffuse + direct_specular + indirect.diffuse + indirect.specular, 0.0f);
 }
 
 #endif
