@@ -61,7 +61,7 @@ namespace YutrelRP
                 ref lightResources,
                 ref shadowResources);
 
-            ShadowPass.Record(renderGraph, shadowResources, currentShadowSettings);
+            ShadowPass.Record(renderGraph, camera, shadowResources, currentShadowSettings);
 
             SetupPass.CreateDeferredTargets(
                 renderGraph,

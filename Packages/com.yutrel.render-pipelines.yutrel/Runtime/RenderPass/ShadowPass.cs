@@ -9,7 +9,8 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new("Shadow Pass");
 
-        public static void Record(RenderGraph render_graph, ShadowResources shadow_resources, ResolvedShadowSettings settings)
+        public static void Record(RenderGraph render_graph, Camera camera, ShadowResources shadow_resources,
+            ResolvedShadowSettings settings)
         {
             if (shadow_resources.shadowed_directional_light_count <= 0)
             {
@@ -22,6 +23,7 @@ namespace YutrelRP
             pass.tile_size = (int)settings.directional.atlas_tile_size;
             pass.render_infos = shadow_resources.directional_render_info;
             pass.slope_scale_bias = shadow_resources.GetDirectionalSlopeScaleBias(0);
+            pass.camera = camera;
 
             builder.SetRenderAttachmentDepth(shadow_resources.directional_atlas);
 
@@ -31,6 +33,7 @@ namespace YutrelRP
             }
 
             builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc<ShadowPass>(static (pass, context) => pass.Render(context));
         }
 
@@ -39,6 +42,7 @@ namespace YutrelRP
         private int tile_size;
         private float slope_scale_bias;
         private ShadowResources.RenderInfo[] render_infos;
+        private Camera camera;
 
         private void Render(RasterGraphContext context)
         {
@@ -58,6 +62,7 @@ namespace YutrelRP
             }
 
             cmd.SetGlobalDepthBias(0.0f, 0.0f);
+            cmd.SetupCameraProperties(camera);
         }
     }
 }
