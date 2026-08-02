@@ -119,11 +119,26 @@ namespace YutrelRP
                     var cameraOutput = ImportCameraTarget(renderGraph, camera);
                     SetupPass.Record(renderGraph, camera, targetSize, postProcessSettings);
 
+#if UNITY_EDITOR
+                    if (camera.cameraType == CameraType.SceneView)
+                    {
+                        ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
+                    }
+#endif
+
                     var output = RecordScene(renderGraph, cameraContext);
-                    if (!output.isValid)
+                    if (!output.sceneColor.IsValid())
                     {
                         throw new InvalidOperationException($"{GetType().Name} returned an invalid scene color.");
                     }
+#if UNITY_EDITOR
+                    GizmosPass.Record(
+                        renderGraph,
+                        camera,
+                        output.sceneColor,
+                        output.sceneDepth,
+                        GizmoSubset.PreImageEffects);
+#endif
 
                     var finalColor = ToneMappingPass.Record(
                         renderGraph,
@@ -141,6 +156,15 @@ namespace YutrelRP
                     {
                         throw new InvalidOperationException($"{GetType().Name} returned an invalid post-processed color.");
                     }
+
+#if UNITY_EDITOR
+                    GizmosPass.Record(
+                        renderGraph,
+                        camera,
+                        finalColor,
+                        output.sceneDepth,
+                        GizmoSubset.PostImageEffects);
+#endif
 
                     FinalPass.Record(renderGraph, camera, finalColor, cameraOutput);
                 }

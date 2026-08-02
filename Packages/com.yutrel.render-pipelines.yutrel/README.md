@@ -25,7 +25,9 @@ The pipeline asset contains an ordered Renderer Data list and a default Renderer
 
 Existing YutrelRP assets are upgraded automatically. Their GUID and Graphics/Quality references remain unchanged, while the old Deferred settings are moved to a new Renderer Data asset beside the pipeline asset.
 
-Custom renderers derive from `YutrelRendererData` and `YutrelRenderer`. Their scene output must be finite, pre-exposed linear RGB using BT.709 primaries and a D65 white point. Tone Mapping and the Final Pass are owned by YutrelRP and are shared by every renderer.
+Custom renderers derive from `YutrelRendererData` and `YutrelRenderer`. `RecordScene` must return finite, pre-exposed linear RGB using BT.709 primaries and a D65 white point. It may also return a same-size Unity device-depth attachment that follows the active graphics API convention, including reversed Z. A linear depth AOV must be converted before it can be used as the optional depth attachment.
+
+Tone Mapping, Scene View geometry emission, pre/post-image-effect Gizmos, and the Final Pass are owned by YutrelRP and are shared by every renderer. Custom renderers must not record these operations again. Renderers without a depth attachment still complete Tone Mapping and final output, but YutrelRP skips their Gizmos.
 
 ## DDGI requirements
 

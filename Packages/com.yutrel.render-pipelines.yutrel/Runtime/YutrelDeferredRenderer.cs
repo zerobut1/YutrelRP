@@ -26,13 +26,6 @@ namespace YutrelRP
         {
             var camera = context.camera;
 
-#if UNITY_EDITOR
-            if (camera.cameraType == CameraType.SceneView)
-            {
-                ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
-            }
-#endif
-
             currentShadowSettings = YutrelShadowSettings.Resolve(
                 settings.shadowSettings,
                 VolumeManager.instance.stack);
@@ -151,12 +144,6 @@ namespace YutrelRP
                 currentDdgiSettings,
                 context.debugSettings,
                 context.targetSize);
-            GizmosPass.Record(
-                renderGraph,
-                camera,
-                textures.scene_color,
-                textures.scene_depth,
-                GizmoSubset.PreImageEffects);
 #endif
 
             return new YutrelRendererOutput(textures.scene_color, textures.scene_depth);
@@ -201,13 +188,6 @@ namespace YutrelRP
                 currentShadowSettings,
                 context.debugSettings,
                 context.targetSize);
-
-            GizmosPass.Record(
-                renderGraph,
-                context.camera,
-                textures.final_color,
-                textures.scene_depth,
-                GizmoSubset.PostImageEffects);
 
             return textures.final_color;
 #else

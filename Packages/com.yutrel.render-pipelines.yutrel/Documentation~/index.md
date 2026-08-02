@@ -6,4 +6,6 @@ See the package README for installation and project setup. Runtime rendering dep
 
 YutrelRP uses a `YutrelRendererData` to `YutrelRenderer` architecture. The built-in `YutrelDeferredRendererData` owns Deferred-only Shadow, AO, and DDGI settings. A pipeline asset stores the Renderer Data list and its default entry, while `YutrelAdditionalCameraData` can select an entry for a Game Camera.
 
-Every renderer returns a scene color in pre-exposed linear BT.709/D65. The pipeline then applies the common Tone Mapping pass, the renderer's optional after-post hook, and the common Final pass.
+Every renderer returns a scene color in pre-exposed linear BT.709/D65. A renderer may also return a same-size Unity device-depth attachment; linear depth AOVs must first be converted to the active graphics API's depth convention.
+
+The pipeline owns Scene View geometry emission, pre-image-effect Gizmos, Tone Mapping, the renderer's optional after-post hook, post-image-effect Gizmos, and the Final pass. Custom renderers must not duplicate those common operations. If no depth attachment is returned, rendering continues normally and the common Gizmos passes are skipped.

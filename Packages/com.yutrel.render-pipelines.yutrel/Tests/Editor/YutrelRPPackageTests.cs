@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
@@ -37,6 +38,33 @@ namespace YutrelRP.Tests
             {
                 UnityEngine.Object.DestroyImmediate(asset);
                 UnityEngine.Object.DestroyImmediate(rendererData);
+            }
+        }
+
+        [Test]
+        public void RendererOutput_AllowsOptionalDepthButRequiresColor()
+        {
+            var renderGraph = new RenderGraph("Yutrel Renderer Output Test");
+            try
+            {
+                var color = renderGraph.CreateTexture(new TextureDesc(1, 1)
+                {
+                    colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                    name = "Test Scene Color"
+                });
+                var depth = renderGraph.CreateTexture(new TextureDesc(1, 1)
+                {
+                    colorFormat = GraphicsFormat.D16_UNorm,
+                    name = "Test Scene Depth"
+                });
+
+                Assert.That(new YutrelRendererOutput(color).isValid, Is.True);
+                Assert.That(new YutrelRendererOutput(color, depth).isValid, Is.True);
+                Assert.That(new YutrelRendererOutput(default, depth).isValid, Is.False);
+            }
+            finally
+            {
+                renderGraph.Cleanup();
             }
         }
 
@@ -244,7 +272,7 @@ namespace YutrelRP.Tests
                 RenderGraph renderGraph,
                 in YutrelCameraRenderContext context)
             {
-                return new YutrelRendererOutput(default, default);
+                return new YutrelRendererOutput(default);
             }
 
             protected override void Dispose(bool disposing)
