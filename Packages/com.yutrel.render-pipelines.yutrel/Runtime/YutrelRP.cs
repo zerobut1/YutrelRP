@@ -9,45 +9,78 @@ using UnityEditor;
 
 namespace YutrelRP
 {
-    public class YutrelRP : RenderPipeline
+    public sealed class YutrelRP : RenderPipeline
     {
         public const string ShaderTagName = "YutrelPipeline";
 
-        private readonly RenderGraph render_graph = new("Yutrel Render Graph");
-        private readonly VolumeProfile default_volume_profile;
-        private readonly YutrelRenderer renderer;
-        private readonly YutrelRPSettings settings;
+        private readonly YutrelRPAsset asset;
+        private readonly RenderGraph renderGraph = new("Yutrel Render Graph");
+        private readonly VolumeProfile defaultVolumeProfile;
 #if UNITY_EDITOR
-        private readonly DebugDisplaySettingsUI debug_display_settings_ui = new();
-        private readonly YutrelRPDebugSettings debug_settings = new();
-        private readonly YutrelRPDebugDisplaySettings debug_display_settings;
+        private readonly DebugDisplaySettingsUI debugDisplaySettingsUI = new();
+        private readonly YutrelRPDebugSettings debugSettings = new();
+        private readonly YutrelRPDebugDisplaySettings debugDisplaySettings;
 #endif
 
-        public YutrelRP(YutrelRPSettings settings)
+        internal YutrelRP(YutrelRPAsset asset)
         {
-            this.settings = settings;
-            GraphicsSettings.useScriptableRenderPipelineBatching = settings.useSRPBatcher;
-            default_volume_profile = CreateDefaultVolumeProfile();
-            VolumeManager.instance.Initialize(default_volume_profile);
+            this.asset = asset;
+            GraphicsSettings.useScriptableRenderPipelineBatching = asset.UseSRPBatcher;
+            defaultVolumeProfile = CreateDefaultVolumeProfile();
+            VolumeManager.instance.Initialize(defaultVolumeProfile);
 #if UNITY_EDITOR
-            renderer = new YutrelRenderer(this.settings, debug_settings);
-            debug_display_settings = new YutrelRPDebugDisplaySettings(debug_settings);
-            debug_display_settings_ui.RegisterDebug(debug_display_settings);
-#else
-            renderer = new YutrelRenderer(this.settings);
+            debugDisplaySettings = new YutrelRPDebugDisplaySettings(debugSettings);
+            debugDisplaySettingsUI.RegisterDebug(debugDisplaySettings);
 #endif
         }
 
-        protected override void Dispose(bool is_disposing)
+        protected override void Dispose(bool disposing)
         {
-            base.Dispose(is_disposing);
+            base.Dispose(disposing);
 #if UNITY_EDITOR
-            debug_display_settings_ui.UnregisterDebug();
+            debugDisplaySettingsUI.UnregisterDebug();
 #endif
-            renderer.Dispose();
+            asset.DestroyRenderers();
+            YutrelDeferredRenderer.CleanupSharedResources();
+            ToneMappingPass.Cleanup();
+            FinalPass.Cleanup();
+            YutrelRPRuntimeShaderUtility.ClearWarnings();
             VolumeManager.instance.Deinitialize();
             DestroyDefaultVolumeProfile();
             CleanupRenderGraph();
+        }
+
+        protected override void Render(ScriptableRenderContext context, List<Camera> cameras)
+        {
+            BeginContextRendering(context, cameras);
+            try
+            {
+                foreach (var camera in cameras)
+                {
+                    BeginCameraRendering(context, camera);
+                    try
+                    {
+                        var renderer = asset.GetRenderer(camera);
+                        renderer?.Render(
+                            renderGraph,
+                            context,
+                            camera
+#if UNITY_EDITOR
+                            , debugSettings
+#endif
+                        );
+                    }
+                    finally
+                    {
+                        EndCameraRendering(context, camera);
+                    }
+                }
+            }
+            finally
+            {
+                EndContextRendering(context, cameras);
+                renderGraph.EndFrame();
+            }
         }
 
         private static VolumeProfile CreateDefaultVolumeProfile()
@@ -62,17 +95,17 @@ namespace YutrelRP
 
         private void DestroyDefaultVolumeProfile()
         {
-            if (default_volume_profile == null)
+            if (defaultVolumeProfile == null)
             {
                 return;
             }
 
-            foreach (var component in default_volume_profile.components)
+            foreach (var component in defaultVolumeProfile.components)
             {
                 CoreUtils.Destroy(component);
             }
 
-            CoreUtils.Destroy(default_volume_profile);
+            CoreUtils.Destroy(defaultVolumeProfile);
         }
 
         private void CleanupRenderGraph()
@@ -80,22 +113,15 @@ namespace YutrelRP
 #if UNITY_EDITOR
             try
             {
-                render_graph.Cleanup();
+                renderGraph.Cleanup();
             }
             catch (InvalidOperationException exception) when (exception.Message.Contains("Render Graph is active"))
             {
                 EditorApplication.delayCall += CleanupRenderGraph;
             }
 #else
-            render_graph.Cleanup();
+            renderGraph.Cleanup();
 #endif
-        }
-
-        protected override void Render(ScriptableRenderContext context, List<Camera> cameras)
-        {
-            foreach (var camera in cameras) renderer.Render(render_graph, context, camera);
-
-            render_graph.EndFrame();
         }
     }
 }

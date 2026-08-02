@@ -10,7 +10,12 @@ float4 _SourceScaleBias;
 float4 GetSource(float2 screenUV)
 {
     float2 source_uv = screenUV * _SourceScaleBias.xy + _SourceScaleBias.zw;
-    return SAMPLE_TEXTURE2D_LOD(_SourceColor, sampler_linear_clamp, source_uv, 0);
+    float4 color     = SAMPLE_TEXTURE2D_LOD(_SourceColor, sampler_linear_clamp, source_uv, 0);
+    color.x          = SanitizeFinite(color.x);
+    color.y          = SanitizeFinite(color.y);
+    color.z          = SanitizeFinite(color.z);
+    color.w          = SanitizeFinite(color.w);
+    return color;
 }
 
 float4 CopyPassFragment(FullScreenVaryings input) : SV_Target

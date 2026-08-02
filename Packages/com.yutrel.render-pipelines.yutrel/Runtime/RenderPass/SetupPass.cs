@@ -17,10 +17,9 @@ namespace YutrelRP
             pre_exposure_ID = Shader.PropertyToID("_PreExposure"),
             one_over_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure");
 
-        internal static void Record(RenderGraph render_graph, Camera camera, ref RenderTargets textures,
+        internal static void Record(RenderGraph render_graph, Camera camera,
             Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings)
         {
-            ValidateNormalGBufferFormat();
             var exposure = post_process_settings.exposure;
             var pre_exposure = exposure.pre_exposure;
 
@@ -30,13 +29,22 @@ namespace YutrelRP
             pass.pre_exposure = pre_exposure;
             pass.one_over_pre_exposure = exposure.one_over_pre_exposure;
 
-            // camera output
-            textures.camera_output = CreateRenderGraphCameraRenderTarget(render_graph, camera);
+            builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
+
+            builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
+        }
+
+        internal static void CreateDeferredTargets(RenderGraph render_graph, Camera camera,
+            ref RenderTargets textures, Vector2Int attachment_size, GraphicsFormat scene_color_format,
+            float pre_exposure)
+        {
+            ValidateNormalGBufferFormat();
 
             // scene color
             var scene_color_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
-                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.DefaultHDR, false),
+                colorFormat = scene_color_format,
                 clearBuffer = camera.clearFlags <= CameraClearFlags.Color,
                 clearColor = camera.clearFlags == CameraClearFlags.Color
                     ? PreExposeColor(camera.backgroundColor.linear, pre_exposure)
@@ -75,20 +83,14 @@ namespace YutrelRP
             gbuffer_desc.colorFormat = standard_gbuffer_format;
             textures.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
 
-            // final color
-            var final_color_desc = new TextureDesc(attachment_size.x, attachment_size.y)
-            {
-                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, true),
-                clearBuffer = camera.clearFlags <= CameraClearFlags.Color,
-                clearColor = camera.clearFlags == CameraClearFlags.Color ? camera.backgroundColor.linear : Color.clear,
-                name = "Final Color"
-            };
-            textures.final_color = render_graph.CreateTexture(final_color_desc);
+        }
 
-            builder.AllowPassCulling(false);
-            builder.AllowGlobalStateModification(true);
-
-            builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
+        private static Color PreExposeColor(Color color, float pre_exposure)
+        {
+            color.r *= pre_exposure;
+            color.g *= pre_exposure;
+            color.b *= pre_exposure;
+            return color;
         }
 
         private static void ValidateNormalGBufferFormat()
@@ -126,55 +128,5 @@ namespace YutrelRP
             cmd.SetGlobalMatrix(inverseViewAndProjectionMatrix, inverse_VP);
         }
 
-        private static TextureHandle CreateRenderGraphCameraRenderTarget(RenderGraph render_graph, Camera camera)
-        {
-            var camera_target_texture = camera.targetTexture;
-            var is_builtin_texture = camera_target_texture == null;
-
-            var rt_color_id = is_builtin_texture
-                ? BuiltinRenderTextureType.CameraTarget
-                : new RenderTargetIdentifier(camera_target_texture);
-
-            var import_backbuffer_color_params = new ImportResourceParams
-            {
-                clearOnFirstUse = false,
-                clearColor = camera.clearFlags == CameraClearFlags.Color ? camera.backgroundColor.linear : Color.clear,
-                discardOnLastUse = false
-            };
-
-            var is_rt_color_sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear;
-
-            var color_import_info = new RenderTargetInfo();
-
-            if (is_builtin_texture)
-            {
-                color_import_info.width = Screen.width;
-                color_import_info.height = Screen.height;
-                color_import_info.volumeDepth = 1;
-                color_import_info.msaaSamples = 1;
-                color_import_info.format =
-                    GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, is_rt_color_sRGB);
-                color_import_info.bindMS = false;
-            }
-            else
-            {
-                color_import_info.width = camera_target_texture.width;
-                color_import_info.height = camera_target_texture.height;
-                color_import_info.volumeDepth = camera_target_texture.volumeDepth;
-                color_import_info.msaaSamples = camera_target_texture.antiAliasing;
-                color_import_info.format =
-                    GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, is_rt_color_sRGB);
-            }
-
-            return render_graph.ImportBackbuffer(rt_color_id, color_import_info, import_backbuffer_color_params);
-        }
-
-        private static Color PreExposeColor(Color color, float pre_exposure)
-        {
-            color.r *= pre_exposure;
-            color.g *= pre_exposure;
-            color.b *= pre_exposure;
-            return color;
-        }
     }
 }

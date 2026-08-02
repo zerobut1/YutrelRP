@@ -1,88 +1,111 @@
 using System;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
-    public class YutrelRenderer
+    public readonly struct YutrelRendererOutput
     {
-        private readonly YutrelRPSettings settings;
-#if UNITY_EDITOR
-        private readonly YutrelRPDebugSettings debug_settings;
-#endif
-        private readonly ContextContainer frame_data = new();
-        private readonly YutrelRayTracingWorld ray_tracing_world = new();
-        private readonly YutrelDDGIResourceManager ddgi_resource_manager = new();
+        public TextureHandle sceneColor { get; }
+        public TextureHandle sceneDepth { get; }
 
-#if UNITY_EDITOR
-        internal YutrelRenderer(YutrelRPSettings settings, YutrelRPDebugSettings debug_settings)
+        public bool isValid => sceneColor.IsValid();
+
+        public YutrelRendererOutput(TextureHandle sceneColor, TextureHandle sceneDepth = default)
         {
-            this.settings = settings;
-            this.debug_settings = debug_settings;
+            this.sceneColor = sceneColor;
+            this.sceneDepth = sceneDepth;
         }
-#else
-        public YutrelRenderer(YutrelRPSettings settings)
-        {
-            this.settings = settings;
-        }
-#endif
+    }
 
-        public void Dispose()
-        {
-            ddgi_resource_manager.Dispose();
-            DDGILightingPass.Cleanup();
-            DDGIProbeTracePass.Cleanup();
-            ray_tracing_world.Dispose();
-            DirectionalLightPass.Cleanup();
-            EnvironmentLightingPass.Cleanup();
-            SkyboxPass.Cleanup();
-            ScreenSpaceAmbientOcclusionPass.Cleanup();
-            ShadowMaskPass.Cleanup();
-            ToneMappingPass.Cleanup();
-#if UNITY_EDITOR
-            DDGIProbeDebugPass.Cleanup();
-            DDGIFullscreenTraceRadianceDebugPass.Cleanup();
-            DebugViewPass.Cleanup();
-            UnsupportedShadersPass.Cleanup();
-#endif
-            LightResources.Cleanup();
-            FinalPass.Cleanup();
-            YutrelRPRuntimeShaderUtility.ClearWarnings();
-        }
-
-        public void Render(RenderGraph render_graph, ScriptableRenderContext context, Camera camera)
-        {
-            var camera_sampler = ProfilingSampler.Get(camera.cameraType);
+    public readonly struct YutrelCameraRenderContext
+    {
+        public Camera camera { get; }
+        public ScriptableRenderContext renderContext { get; }
+        public Vector2Int targetSize { get; }
+        public GraphicsFormat sceneColorFormat { get; }
+        public int frameIndex { get; }
+        public float preExposure { get; }
+        public float oneOverPreExposure { get; }
 
 #if UNITY_EDITOR
-            if (camera.cameraType == CameraType.SceneView)
+        internal YutrelRPDebugSettings debugSettings { get; }
+#endif
+
+        internal YutrelCameraRenderContext(
+            Camera camera,
+            ScriptableRenderContext renderContext,
+            Vector2Int targetSize,
+            GraphicsFormat sceneColorFormat,
+            int frameIndex,
+            float preExposure,
+            float oneOverPreExposure
+#if UNITY_EDITOR
+            , YutrelRPDebugSettings debugSettings
+#endif
+        )
+        {
+            this.camera = camera;
+            this.renderContext = renderContext;
+            this.targetSize = targetSize;
+            this.sceneColorFormat = sceneColorFormat;
+            this.frameIndex = frameIndex;
+            this.preExposure = preExposure;
+            this.oneOverPreExposure = oneOverPreExposure;
+#if UNITY_EDITOR
+            this.debugSettings = debugSettings;
+#endif
+        }
+    }
+
+    public abstract class YutrelRenderer : IDisposable
+    {
+        private bool disposed;
+
+        internal void Render(
+            RenderGraph renderGraph,
+            ScriptableRenderContext renderContext,
+            Camera camera
+#if UNITY_EDITOR
+            , YutrelRPDebugSettings debugSettings
+#endif
+        )
+        {
+            if (disposed)
             {
-                ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
+                throw new ObjectDisposedException(GetType().Name);
             }
-#endif
 
             VolumeManager.instance.Update(camera.transform, ~0);
-            var shadow_settings = YutrelShadowSettings.Resolve(settings.shadowSettings, VolumeManager.instance.stack);
-            var post_process_settings =
-                YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
-            var ddgi_settings = YutrelDDGISettings.Resolve(settings.ddgiSettings, VolumeManager.instance.stack);
-
-            // culling
-            if (!camera.TryGetCullingParameters(out var culling_parameters)) return;
-            culling_parameters.shadowDistance = Mathf.Min(shadow_settings.max_distance, camera.farClipPlane);
-            culling_parameters.conservativeEnclosingSphere = shadow_settings.conservative_enclosing_sphere;
-            culling_parameters.numIterationsEnclosingSphere = shadow_settings.num_iterations_enclosing_sphere;
-            var culling_results = context.Cull(ref culling_parameters);
-
-            // render graph
-            var command_buffer = CommandBufferPool.Get();
-            var execute_command_buffer = false;
-
-            var render_graph_parameters = new RenderGraphParameters
+            var postProcessSettings = YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
+            var targetSize = GetTargetSize(camera);
+            if (targetSize.x <= 0 || targetSize.y <= 0)
             {
-                scriptableRenderContext = context,
-                commandBuffer = command_buffer,
+                return;
+            }
+
+            var sceneColorFormat = GraphicsFormat.R16G16B16A16_SFloat;
+            var cameraContext = new YutrelCameraRenderContext(
+                camera,
+                renderContext,
+                targetSize,
+                sceneColorFormat,
+                Time.frameCount,
+                postProcessSettings.exposure.pre_exposure,
+                postProcessSettings.exposure.one_over_pre_exposure
+#if UNITY_EDITOR
+                , debugSettings
+#endif
+            );
+
+            var commandBuffer = CommandBufferPool.Get();
+            var executeCommandBuffer = false;
+            var parameters = new RenderGraphParameters
+            {
+                scriptableRenderContext = renderContext,
+                commandBuffer = commandBuffer,
                 executionId = camera.GetEntityId(),
                 generateDebugData = RenderGraph.isRenderGraphViewerActive,
                 currentFrameIndex = Time.frameCount
@@ -90,120 +113,126 @@ namespace YutrelRP
 
             try
             {
-                render_graph.BeginRecording(render_graph_parameters);
-                using (new RenderGraphProfilingScope(render_graph, camera_sampler))
+                renderGraph.BeginRecording(parameters);
+                using (new RenderGraphProfilingScope(renderGraph, ProfilingSampler.Get(camera.cameraType)))
                 {
-                    var camera_target_texture = camera.targetTexture;
-                    var attachment_size = camera_target_texture == null
-                        ? new Vector2Int(camera.pixelWidth, camera.pixelHeight)
-                        : new Vector2Int(camera_target_texture.width, camera_target_texture.height);
+                    var cameraOutput = ImportCameraTarget(renderGraph, camera);
+                    SetupPass.Record(renderGraph, camera, targetSize, postProcessSettings);
 
-                    var textures = frame_data.GetOrCreate<RenderTargets>();
-                    var light_resources = frame_data.GetOrCreate<LightResources>();
-                    var shadow_resources = frame_data.GetOrCreate<ShadowResources>();
-                    shadow_resources.Reset();
-
-                    SetupLightPass.Record(render_graph, context, camera, culling_results, shadow_settings, ref light_resources,
-                        ref shadow_resources);
-
-                    ShadowPass.Record(render_graph, shadow_resources, shadow_settings);
-
-                    SetupPass.Record(render_graph, camera, ref textures, attachment_size, post_process_settings);
-
-                    BasePass.Record(render_graph, camera, culling_results, textures);
-
-                    ShadowMaskPass.Record(render_graph, textures, light_resources, shadow_resources, shadow_settings,
-                        attachment_size);
-
-                    DirectionalLightPass.Record(render_graph, textures, light_resources);
-
-                    ScreenSpaceAmbientOcclusionPass.Record(render_graph, textures, settings.ambientOcclusionSettings,
-                        attachment_size);
-
-                    //DDGI
-                    DDGIResources ddgi_resources = null;
-                    if (ddgi_settings.enabled)
+                    var output = RecordScene(renderGraph, cameraContext);
+                    if (!output.isValid)
                     {
-                        ddgi_resources = frame_data.GetOrCreate<DDGIResources>();
-                        ddgi_resource_manager.Prepare(render_graph, camera, ddgi_resources, ddgi_settings);
-                        DDGIProbeTracePass.Record(render_graph, ddgi_resources, light_resources,
-                            ray_tracing_world, ddgi_settings);
-                        DDGIProbeBlendingPass.Record(render_graph, ddgi_resources, ddgi_settings);
-                        DDGIProbeRelocationPass.Record(render_graph, ddgi_resources, ddgi_settings);
-                        DDGIProbeClassificationPass.Record(render_graph, ddgi_resources, ddgi_settings);
-                        DDGILightingPass.Record(render_graph, textures, ddgi_resources, ddgi_settings);
-#if UNITY_EDITOR
-                        if (debug_settings.ddgi_ray_data_debug_texture)
-                        {
-                            DDGIDebugPass.Record(render_graph, ddgi_resources);
-                        }
-#endif
-                    }
-                    else
-                    {
-                        frame_data.GetOrCreate<DDGIResources>().Reset();
-                        ddgi_resource_manager.Release();
-
-                        EnvironmentLightingPass.Record(render_graph, textures, light_resources);
+                        throw new InvalidOperationException($"{GetType().Name} returned an invalid scene color.");
                     }
 
-                    EndfieldForwardPass.Record(
-                        render_graph,
-                        camera,
-                        culling_results,
-                        textures,
-                        light_resources,
-                        ddgi_resources,
-                        ddgi_settings);
+                    var finalColor = ToneMappingPass.Record(
+                        renderGraph,
+                        output.sceneColor,
+                        targetSize,
+                        postProcessSettings);
 
-                    SkyboxPass.Record(render_graph, camera, textures, light_resources);
+                    finalColor = RecordAfterPostProcessing(
+                        renderGraph,
+                        cameraContext,
+                        output,
+                        finalColor);
 
-#if UNITY_EDITOR
-                    UnsupportedShadersPass.Record(render_graph, camera, culling_results, textures);
-                    DDGIProbeDebugPass.Record(render_graph, camera, textures, ddgi_resources,
-                        ddgi_settings, debug_settings, attachment_size);
-                    GizmosPass.Record(render_graph, camera, textures.scene_color, textures.scene_depth,
-                        GizmoSubset.PreImageEffects);
-#endif
-
-                    ToneMappingPass.Record(render_graph, textures, post_process_settings);
-
-#if UNITY_EDITOR
-                    if (ddgi_settings.enabled &&
-                        DDGIFullscreenTraceRadianceDebugPass.IsFullscreenTraceMode(
-                            debug_settings.ddgi_probe_debug_mode))
+                    if (!finalColor.IsValid())
                     {
-                        DDGIFullscreenTraceRadianceDebugPass.Record(render_graph, camera, textures, ddgi_resources,
-                            light_resources, ray_tracing_world, ddgi_settings, debug_settings, attachment_size);
+                        throw new InvalidOperationException($"{GetType().Name} returned an invalid post-processed color.");
                     }
 
-                    DebugViewPass.Record(render_graph, camera, textures, light_resources, shadow_resources,
-                        shadow_settings, debug_settings, attachment_size);
-
-                    GizmosPass.Record(render_graph, camera, textures.final_color, textures.scene_depth,
-                        GizmoSubset.PostImageEffects);
-#endif
-
-                    FinalPass.Record(render_graph, camera, textures);
+                    FinalPass.Record(renderGraph, camera, finalColor, cameraOutput);
                 }
 
-                render_graph.EndRecordingAndExecute();
-                execute_command_buffer = true;
+                renderGraph.EndRecordingAndExecute();
+                executeCommandBuffer = true;
             }
             catch (Exception exception)
             {
-                render_graph.ResetGraphAndLogException(exception);
+                renderGraph.ResetGraphAndLogException(exception);
             }
             finally
             {
-                if (execute_command_buffer)
+                if (executeCommandBuffer)
                 {
-                    context.ExecuteCommandBuffer(command_buffer);
-                    context.Submit();
+                    renderContext.ExecuteCommandBuffer(commandBuffer);
+                    renderContext.Submit();
                 }
 
-                CommandBufferPool.Release(command_buffer);
+                CommandBufferPool.Release(commandBuffer);
             }
+        }
+
+        protected abstract YutrelRendererOutput RecordScene(
+            RenderGraph renderGraph,
+            in YutrelCameraRenderContext context);
+
+        protected virtual TextureHandle RecordAfterPostProcessing(
+            RenderGraph renderGraph,
+            in YutrelCameraRenderContext context,
+            in YutrelRendererOutput output,
+            TextureHandle postProcessedColor)
+        {
+            return postProcessedColor;
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+        }
+
+        private static Vector2Int GetTargetSize(Camera camera)
+        {
+            var targetTexture = camera.targetTexture;
+            return targetTexture == null
+                ? new Vector2Int(camera.pixelWidth, camera.pixelHeight)
+                : new Vector2Int(targetTexture.width, targetTexture.height);
+        }
+
+        private static TextureHandle ImportCameraTarget(RenderGraph renderGraph, Camera camera)
+        {
+            var targetTexture = camera.targetTexture;
+            var isBackbuffer = targetTexture == null;
+            var targetIdentifier = isBackbuffer
+                ? new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget)
+                : new RenderTargetIdentifier(targetTexture);
+
+            var importParameters = new ImportResourceParams
+            {
+                clearOnFirstUse = false,
+                clearColor = camera.clearFlags == CameraClearFlags.Color
+                    ? camera.backgroundColor.linear
+                    : Color.clear,
+                discardOnLastUse = false
+            };
+
+            var info = new RenderTargetInfo
+            {
+                width = isBackbuffer ? Screen.width : targetTexture.width,
+                height = isBackbuffer ? Screen.height : targetTexture.height,
+                volumeDepth = isBackbuffer ? 1 : targetTexture.volumeDepth,
+                msaaSamples = isBackbuffer ? 1 : targetTexture.antiAliasing,
+                format = isBackbuffer
+                    ? GraphicsFormatUtility.GetGraphicsFormat(
+                        RenderTextureFormat.Default,
+                        QualitySettings.activeColorSpace == ColorSpace.Linear)
+                    : targetTexture.graphicsFormat,
+                bindMS = !isBackbuffer && targetTexture.bindTextureMS
+            };
+
+            return renderGraph.ImportBackbuffer(targetIdentifier, info, importParameters);
         }
     }
 }

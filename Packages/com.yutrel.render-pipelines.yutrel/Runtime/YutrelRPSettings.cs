@@ -2,11 +2,9 @@ using UnityEngine;
 namespace YutrelRP
 {
     [System.Serializable]
-    public class YutrelRPSettings
+    public class YutrelDeferredRendererSettings
     {
-        public bool useSRPBatcher = true;
-
-        public ShadowSettings shadowSettings;
+        public ShadowSettings shadowSettings = new();
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
 
@@ -62,6 +60,13 @@ namespace YutrelRP
                 public bool enabled;
             }
         }
+    }
+
+    [System.Serializable]
+    [System.Obsolete("Use YutrelDeferredRendererSettings. This type is retained for asset migration.")]
+    public sealed class YutrelRPSettings : YutrelDeferredRendererSettings
+    {
+        public bool useSRPBatcher = true;
     }
 
     [System.Serializable]

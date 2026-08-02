@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
@@ -13,19 +14,28 @@ namespace YutrelRP
         private static Material material;
         private static readonly Vector4 identity_source_scale_bias = new(1.0f, 1.0f, 0.0f, 0.0f);
 
-        internal static void Record(RenderGraph render_graph, RenderTargets textures,
-            ResolvedPostProcessSettings post_process_settings)
+        internal static TextureHandle Record(RenderGraph render_graph, TextureHandle source_color,
+            Vector2Int target_size, ResolvedPostProcessSettings post_process_settings)
         {
-            if (!TryEnsureMaterial()) return;
+            if (!source_color.IsValid() || !TryEnsureMaterial()) return source_color;
+
+            var final_color = render_graph.CreateTexture(new TextureDesc(target_size.x, target_size.y)
+            {
+                colorFormat = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, true),
+                clearBuffer = false,
+                name = "Final Color"
+            });
 
             using var builder = render_graph.AddRasterRenderPass<ToneMappingPass>(sampler.name, out var pass, sampler);
 
-            pass.source_color = textures.scene_color;
+            pass.source_color = source_color;
             pass.pass_id = (int)post_process_settings.tone_mapping.mode;
             builder.UseTexture(pass.source_color);
-            builder.SetRenderAttachment(textures.final_color, 0);
+            builder.SetRenderAttachment(final_color, 0);
 
             builder.SetRenderFunc<ToneMappingPass>(static (pass, context) => { pass.Render(context); });
+
+            return final_color;
         }
 
         // data

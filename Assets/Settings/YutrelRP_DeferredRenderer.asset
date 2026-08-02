@@ -9,15 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1f7b5d84d095461cb4dd09acced4b112, type: 3}
-  m_Name: YutrelRP
-  m_EditorClassIdentifier: Assembly-CSharp::YutrelRP.YutrelRPAsset
-  serializedVersion: 1
-  useSRPBatcher: 1
-  rendererDataList:
-  - {fileID: 11400000, guid: 4cdd5fd495aa20c4d92e2539be0a40b5, type: 2}
-  defaultRendererIndex: 0
-  legacySettings:
+  m_Script: {fileID: 11500000, guid: b729bd39aed24c3c9322f0cfae67fb51, type: 3}
+  m_Name: YutrelRP_DeferredRenderer
+  m_EditorClassIdentifier: Yutrel.RenderPipelines.Yutrel.Runtime::YutrelRP.YutrelDeferredRendererData
+  settings:
     shadowSettings:
       max_distance: 100
       distance_fade: 0.1
@@ -76,4 +71,3 @@ MonoBehaviour:
         probeFixedRayBackfaceThreshold: 0.25
       classification:
         enabled: 1
-    useSRPBatcher: 1

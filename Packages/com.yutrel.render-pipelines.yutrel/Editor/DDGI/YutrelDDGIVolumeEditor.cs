@@ -240,8 +240,9 @@ namespace YutrelRP.Editor
 
         private static ResolvedDDGISettings GetDDGISettings()
         {
-            var fallback = GraphicsSettings.currentRenderPipeline is YutrelRPAsset asset
-                ? asset.Settings?.ddgiSettings
+            var fallback = GraphicsSettings.currentRenderPipeline is YutrelRPAsset asset &&
+                           asset.GetRendererData(asset.DefaultRendererIndex) is YutrelDeferredRendererData rendererData
+                ? rendererData.Settings.ddgiSettings
                 : null;
             return YutrelDDGISettings.Resolve(fallback, VolumeManager.instance.stack);
         }

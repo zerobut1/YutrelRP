@@ -29,15 +29,15 @@ namespace YutrelRP
             this.classification = classification;
         }
 
-        public static ResolvedDDGISettings FromProjectSettings(YutrelRPSettings.DDGISettings settings)
+        public static ResolvedDDGISettings FromProjectSettings(YutrelDeferredRendererSettings.DDGISettings settings)
         {
-            settings ??= new YutrelRPSettings.DDGISettings();
+            settings ??= new YutrelDeferredRendererSettings.DDGISettings();
 
-            var encoding = settings.encoding ?? new YutrelRPSettings.DDGISettings.EncodingSettings();
-            var sampling = settings.sampling ?? new YutrelRPSettings.DDGISettings.SamplingSettings();
-            var blending = settings.blending ?? new YutrelRPSettings.DDGISettings.BlendingSettings();
-            var relocation = settings.relocation ?? new YutrelRPSettings.DDGISettings.RelocationSettings();
-            var classification = settings.classification ?? new YutrelRPSettings.DDGISettings.ClassificationSettings();
+            var encoding = settings.encoding ?? new YutrelDeferredRendererSettings.DDGISettings.EncodingSettings();
+            var sampling = settings.sampling ?? new YutrelDeferredRendererSettings.DDGISettings.SamplingSettings();
+            var blending = settings.blending ?? new YutrelDeferredRendererSettings.DDGISettings.BlendingSettings();
+            var relocation = settings.relocation ?? new YutrelDeferredRendererSettings.DDGISettings.RelocationSettings();
+            var classification = settings.classification ?? new YutrelDeferredRendererSettings.DDGISettings.ClassificationSettings();
 
             return new ResolvedDDGISettings(
                 settings.enabled,
@@ -189,7 +189,7 @@ namespace YutrelRP
         [Tooltip("Enable probe classification.")]
         public BoolParameter classificationEnabled = new(false);
 
-        public static ResolvedDDGISettings Resolve(YutrelRPSettings.DDGISettings fallback, VolumeStack stack)
+        public static ResolvedDDGISettings Resolve(YutrelDeferredRendererSettings.DDGISettings fallback, VolumeStack stack)
         {
             var resolved = ResolvedDDGISettings.FromProjectSettings(fallback);
             var volume_settings = stack?.GetComponent<YutrelDDGISettings>();

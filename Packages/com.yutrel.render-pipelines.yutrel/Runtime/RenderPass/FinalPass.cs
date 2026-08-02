@@ -14,17 +14,18 @@ namespace YutrelRP
         private static readonly Vector4 flip_y_source_scale_bias = new(1.0f, -1.0f, 0.0f, 1.0f);
         private static Material material;
 
-        internal static void Record(RenderGraph render_graph, Camera camera, RenderTargets textures)
+        internal static void Record(RenderGraph render_graph, Camera camera, TextureHandle source_color,
+            TextureHandle camera_output)
         {
-            if (!TryEnsureMaterial()) return;
+            if (!source_color.IsValid() || !camera_output.IsValid() || !TryEnsureMaterial()) return;
 
             using var builder = render_graph.AddRasterRenderPass<FinalPass>(sampler.name, out var pass, sampler);
 
-            pass.source_color = textures.final_color;
+            pass.source_color = source_color;
             pass.source_scale_bias = GetFinalBlitScaleBias(camera);
 
             builder.UseTexture(pass.source_color);
-            builder.SetRenderAttachment(textures.camera_output, 0);
+            builder.SetRenderAttachment(camera_output, 0);
 
             builder.SetRenderFunc<FinalPass>(static (pass, context) => { pass.Render(context); });
         }
