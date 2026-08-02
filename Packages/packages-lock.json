@@ -102,6 +102,15 @@
       },
       "url": "https://packages.unity.com"
     },
+    "com.yutrel.render-pipelines.yutrel": {
+      "version": "file:com.yutrel.render-pipelines.yutrel",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.render-pipelines.core": "17.5.0",
+        "com.unity.collections": "2.4.3"
+      }
+    },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,

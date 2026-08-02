@@ -1,0 +1,17 @@
+{
+  "name": "com.yutrel.render-pipelines.yutrel",
+  "version": "0.1.0",
+  "displayName": "Yutrel Render Pipeline",
+  "description": "A desktop-focused deferred Scriptable Render Pipeline built on Unity's Render Pipeline Core.",
+  "unity": "6000.5",
+  "dependencies": {
+    "com.unity.render-pipelines.core": "17.5.0",
+    "com.unity.collections": "2.4.3"
+  },
+  "keywords": [
+    "graphics",
+    "rendering",
+    "render-pipeline",
+    "deferred"
+  ]
+}

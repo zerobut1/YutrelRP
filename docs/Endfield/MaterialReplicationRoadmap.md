@@ -15,7 +15,7 @@
 Shader 代码统一放在：
 
 ```text
-Assets/YutrelRP/Shader/Endfield/
+Packages/com.yutrel.render-pipelines.yutrel/Shaders/Endfield/
 ```
 
 目标不是一次性翻译捕获中的完整 Shader，而是先建立正确的渲染结构，再按优先级逐项复刻基础材质、风格化光照、环境光和湿润/雨水效果。
@@ -167,7 +167,7 @@ EncodedGBuffer encoded   = EncodeGBuffer(gbuffer);
 
 不能只写 Depth 和 Normal 而保留其他 MRT 的旧内容，否则 Endfield 表面可能继承后方物体的 GBuffer 数据。
 
-当前 ShadingModel ID 契约定义在 `Assets/YutrelRP/Shader/Utils/ShadingModel.hlsl`：
+当前 ShadingModel ID 契约定义在 `Packages/com.yutrel.render-pipelines.yutrel/Shaders/Utils/ShadingModel.hlsl`：
 
 ```hlsl
 #define SHADING_MODEL_NONE      0
@@ -282,7 +282,7 @@ EID 6346 的 RT1 不是最终法线，而是非线性编码的 Motion Vector 与
 当前已经建立：
 
 ```text
-Assets/YutrelRP/Shader/Endfield/
+Packages/com.yutrel.render-pipelines.yutrel/Shaders/Endfield/
   EndfieldCharacter.shader
   EndfieldCharacterPBR.shader
   EndfieldCharacterInput.hlsl
@@ -324,7 +324,7 @@ Shader 名称为 `YutrelRP/Endfield/Character`，材质属性使用 `_Endfield` 
 运行时 Pass 已建立在：
 
 ```text
-Assets/YutrelRP/Runtime/RenderPass/EndfieldForwardPass.cs
+Packages/com.yutrel.render-pipelines.yutrel/Runtime/RenderPass/EndfieldForwardPass.cs
 ```
 
 基础阶段优先复用 YutrelRP 已有的变换、BRDF、灯光、阴影和 IBL 公共代码，避免在没有对照基线前同时重写材质模型和渲染接入。
@@ -508,7 +508,7 @@ rdc --session endfield close
 python tools\agent_harness.py compile
 ```
 
-- 修改 `Assets/YutrelRP/Shader` 下的 HLSL/HLSLI 后必须运行：
+- 修改 `Packages/com.yutrel.render-pipelines.yutrel/Shaders` 下的 HLSL/HLSLI 后必须运行：
 
 ```powershell
 python tools\agent_harness.py shader-format

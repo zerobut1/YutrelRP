@@ -11,8 +11,9 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_LOG_DIR = PROJECT_ROOT / "Logs" / "agent-harness"
-SHADER_ROOT = PROJECT_ROOT / "Assets" / "YutrelRP" / "Shader"
+DEFAULT_LOG_DIR = PROJECT_ROOT / "Temp" / "agent-harness"
+PACKAGE_ROOT = PROJECT_ROOT / "Packages" / "com.yutrel.render-pipelines.yutrel"
+SHADER_ROOT = PACKAGE_ROOT / "Shaders"
 CSHARP_LOG_DIR = DEFAULT_LOG_DIR / "csharp-compile"
 SHADER_FORMAT_EXTENSIONS = (".hlsl", ".hlsli", ".compute", ".urtshader")
 INLINE_NUMTHREADS_PATTERN = re.compile(r"(?m)^(\s*\[numthreads\([^\]\r\n]*\)\])\s+(void\s+)")
@@ -21,6 +22,12 @@ RUNTIME_PROJECT = PROJECT_ROOT / "Assembly-CSharp.csproj"
 EDITOR_PROJECT = PROJECT_ROOT / "Assembly-CSharp-Editor.csproj"
 FAST_RUNTIME_PROJECT = PROJECT_ROOT / "AgentFastCompile.Assembly-CSharp.csproj"
 FAST_EDITOR_PROJECT = PROJECT_ROOT / "AgentFastCompile.Assembly-CSharp-Editor.csproj"
+PACKAGE_RUNTIME_PROJECT = PROJECT_ROOT / "Yutrel.RenderPipelines.Yutrel.Runtime.csproj"
+PACKAGE_EDITOR_PROJECT = PROJECT_ROOT / "Yutrel.RenderPipelines.Yutrel.Editor.csproj"
+PACKAGE_TEST_PROJECT = PROJECT_ROOT / "Yutrel.RenderPipelines.Yutrel.Editor.Tests.csproj"
+FAST_PACKAGE_RUNTIME_PROJECT = PROJECT_ROOT / "AgentFastCompile.Yutrel.Runtime.csproj"
+FAST_PACKAGE_EDITOR_PROJECT = PROJECT_ROOT / "AgentFastCompile.Yutrel.Editor.csproj"
+FAST_PACKAGE_TEST_PROJECT = PROJECT_ROOT / "AgentFastCompile.Yutrel.Editor.Tests.csproj"
 
 
 def fail(message: str, code: int = 1) -> int:
@@ -54,6 +61,10 @@ def discover_editor_sources() -> list[Path]:
     )
 
 
+def discover_sources(root: Path) -> list[Path]:
+    return sorted(root.rglob("*.cs")) if root.is_dir() else []
+
+
 def set_property(root: ET.Element, name: str, value: str) -> None:
     for group in root.findall("PropertyGroup"):
         child = group.find(name)
@@ -81,6 +92,12 @@ def replace_project_reference(root: ET.Element, source: str, replacement: Path) 
             item.attrib["Include"] = str(replacement.relative_to(PROJECT_ROOT))
 
 
+def add_project_reference(root: ET.Element, project: Path) -> None:
+    group = ET.SubElement(root, "ItemGroup")
+    item = ET.SubElement(group, "ProjectReference")
+    item.attrib["Include"] = str(project.relative_to(PROJECT_ROOT))
+
+
 def add_compile_items(root: ET.Element, sources: list[Path]) -> None:
     group = ET.SubElement(root, "ItemGroup")
     for source in sources:
@@ -94,6 +111,8 @@ def prepare_fast_project(
     sources: list[Path],
     obj_name: str,
     project_reference: Path | None = None,
+    assembly_name: str | None = None,
+    additional_project_references: tuple[Path, ...] = (),
 ) -> None:
     root = ET.parse(source_project).getroot()
 
@@ -101,12 +120,16 @@ def prepare_fast_project(
     add_compile_items(root, sources)
     if project_reference is not None:
         replace_project_reference(root, "Assembly-CSharp.csproj", project_reference)
+    for reference in additional_project_references:
+        add_project_reference(root, reference)
 
     obj_dir = CSHARP_LOG_DIR / "obj" / obj_name
     bin_dir = CSHARP_LOG_DIR / "bin" / "Debug"
     set_property(root, "BaseIntermediateOutputPath", str(obj_dir) + os.sep)
     set_property(root, "IntermediateOutputPath", "$(BaseIntermediateOutputPath)")
     set_property(root, "OutputPath", str(bin_dir) + os.sep)
+    if assembly_name is not None:
+        set_property(root, "AssemblyName", assembly_name)
 
     ET.indent(root, space="  ")
     target_project.write_text(
@@ -157,14 +180,23 @@ def command_csharp_compile(args: argparse.Namespace) -> int:
         return fail(f"Missing Unity generated project: {RUNTIME_PROJECT}")
     if not EDITOR_PROJECT.exists():
         return fail(f"Missing Unity generated project: {EDITOR_PROJECT}")
-
     runtime_sources = discover_runtime_sources()
     editor_sources = discover_editor_sources()
-    if not runtime_sources and not editor_sources:
-        return fail("No C# sources found under Assets.")
+    package_runtime_sources = discover_sources(PACKAGE_ROOT / "Runtime")
+    package_editor_sources = discover_sources(PACKAGE_ROOT / "Editor")
+    package_test_sources = discover_sources(PACKAGE_ROOT / "Tests" / "Editor")
+    if not package_runtime_sources or not package_editor_sources:
+        return fail("Package Runtime or Editor C# sources are missing.")
 
     CSHARP_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    for transient in (FAST_RUNTIME_PROJECT, FAST_EDITOR_PROJECT):
+    transient_projects = (
+        FAST_RUNTIME_PROJECT,
+        FAST_EDITOR_PROJECT,
+        FAST_PACKAGE_RUNTIME_PROJECT,
+        FAST_PACKAGE_EDITOR_PROJECT,
+        FAST_PACKAGE_TEST_PROJECT,
+    )
+    for transient in transient_projects:
         if transient.exists():
             transient.unlink()
 
@@ -182,8 +214,51 @@ def command_csharp_compile(args: argparse.Namespace) -> int:
             "Assembly-CSharp-Editor",
             FAST_RUNTIME_PROJECT,
         )
+        prepare_fast_project(
+            RUNTIME_PROJECT,
+            FAST_PACKAGE_RUNTIME_PROJECT,
+            package_runtime_sources,
+            "Yutrel.Runtime",
+            assembly_name="Yutrel.RenderPipelines.Yutrel.Runtime",
+        )
+        prepare_fast_project(
+            EDITOR_PROJECT,
+            FAST_PACKAGE_EDITOR_PROJECT,
+            package_editor_sources,
+            "Yutrel.Editor",
+            FAST_PACKAGE_RUNTIME_PROJECT,
+            assembly_name="Yutrel.RenderPipelines.Yutrel.Editor",
+        )
+        if package_test_sources:
+            prepare_fast_project(
+                EDITOR_PROJECT,
+                FAST_PACKAGE_TEST_PROJECT,
+                package_test_sources,
+                "Yutrel.Editor.Tests",
+                FAST_PACKAGE_RUNTIME_PROJECT,
+                assembly_name="Yutrel.RenderPipelines.Yutrel.Editor.Tests",
+                additional_project_references=(FAST_PACKAGE_EDITOR_PROJECT,),
+            )
 
         projects: list[Path] = []
+        if args.assembly in {"all", "runtime"}:
+            projects.append(
+                PACKAGE_RUNTIME_PROJECT
+                if PACKAGE_RUNTIME_PROJECT.exists()
+                else FAST_PACKAGE_RUNTIME_PROJECT
+            )
+        if args.assembly in {"all", "editor"}:
+            projects.append(
+                PACKAGE_EDITOR_PROJECT
+                if PACKAGE_EDITOR_PROJECT.exists()
+                else FAST_PACKAGE_EDITOR_PROJECT
+            )
+            if package_test_sources:
+                projects.append(
+                    PACKAGE_TEST_PROJECT
+                    if PACKAGE_TEST_PROJECT.exists()
+                    else FAST_PACKAGE_TEST_PROJECT
+                )
         if args.assembly in {"all", "runtime"} and runtime_sources:
             projects.append(FAST_RUNTIME_PROJECT)
         if args.assembly in {"all", "editor"} and editor_sources:
@@ -205,13 +280,15 @@ def command_csharp_compile(args: argparse.Namespace) -> int:
             if code != 0:
                 return fail(f"C# fast compile failed for {project.name}. See {log_path}.", code)
     finally:
-        for transient in (FAST_RUNTIME_PROJECT, FAST_EDITOR_PROJECT):
+        for transient in transient_projects:
             if transient.exists():
                 transient.unlink()
 
     print(
         "PASS: C# fast compile passed "
-        f"(runtime sources={len(runtime_sources)}, editor sources={len(editor_sources)})."
+        f"(package runtime={len(package_runtime_sources)}, package editor={len(package_editor_sources)}, "
+        f"package tests={len(package_test_sources)}, host runtime={len(runtime_sources)}, "
+        f"host editor={len(editor_sources)})."
     )
     return 0
 
@@ -235,22 +312,31 @@ def command_shader_format(args: argparse.Namespace) -> int:
 
     for path in shader_files:
         completed = subprocess.run(
-            [clang_format, "-i", "--style=file", str(path)],
+            [clang_format, "--style=file", str(path)],
             cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if completed.returncode != 0:
             return fail(f"clang-format failed for {path}", completed.returncode)
-        restore_numthreads_line_break(path)
+        formatted = restore_numthreads_line_break(completed.stdout)
+        if formatted != path.read_text(encoding="utf-8"):
+            temporary = path.with_name(f".{path.name}.agent-format.tmp")
+            try:
+                temporary.write_text(formatted, encoding="utf-8", newline="\n")
+                os.replace(temporary, path)
+            finally:
+                if temporary.exists():
+                    temporary.unlink()
 
     print(f"PASS: Formatted {len(shader_files)} shader files under {SHADER_ROOT}.")
     return 0
 
 
-def restore_numthreads_line_break(path: Path) -> None:
-    source = path.read_text(encoding="utf-8")
-    formatted = INLINE_NUMTHREADS_PATTERN.sub(r"\1\n\2", source)
-    if formatted != source:
-        path.write_text(formatted, encoding="utf-8", newline="\n")
+def restore_numthreads_line_break(source: str) -> str:
+    return INLINE_NUMTHREADS_PATTERN.sub(r"\1\n\2", source)
 
 
 def command_doctor(args: argparse.Namespace) -> int:
@@ -258,6 +344,7 @@ def command_doctor(args: argparse.Namespace) -> int:
         ("Project root", PROJECT_ROOT.is_dir(), PROJECT_ROOT),
         ("Runtime csproj", RUNTIME_PROJECT.exists(), RUNTIME_PROJECT),
         ("Editor csproj", EDITOR_PROJECT.exists(), EDITOR_PROJECT),
+        ("Package root", PACKAGE_ROOT.is_dir(), PACKAGE_ROOT),
         ("dotnet", shutil.which(args.dotnet) is not None, args.dotnet),
         ("Shader root", SHADER_ROOT.is_dir(), SHADER_ROOT),
     ]
@@ -269,6 +356,14 @@ def command_doctor(args: argparse.Namespace) -> int:
 
     print(f"INFO: Runtime C# sources: {len(discover_runtime_sources())}")
     print(f"INFO: Editor C# sources: {len(discover_editor_sources())}")
+    print(f"INFO: Package Runtime C# sources: {len(discover_sources(PACKAGE_ROOT / 'Runtime'))}")
+    print(f"INFO: Package Editor C# sources: {len(discover_sources(PACKAGE_ROOT / 'Editor'))}")
+    print(f"INFO: Package test C# sources: {len(discover_sources(PACKAGE_ROOT / 'Tests' / 'Editor'))}")
+    print(
+        "INFO: Unity-generated package csproj files: "
+        f"runtime={PACKAGE_RUNTIME_PROJECT.exists()}, editor={PACKAGE_EDITOR_PROJECT.exists()}, "
+        f"tests={PACKAGE_TEST_PROJECT.exists()}"
+    )
     if has_error:
         return fail("Harness doctor found missing required paths.")
     print("PASS: Harness doctor completed.")
@@ -324,7 +419,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     shader_parser = subparsers.add_parser(
         "shader-format",
-        help="Format Assets/YutrelRP/Shader HLSL-like files with clang-format.",
+        help="Format package shader files with clang-format.",
     )
     shader_parser.add_argument(
         "--clang-format",

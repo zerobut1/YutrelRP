@@ -91,8 +91,8 @@ PROMPTS.md
 
 # Local Filament tools and generated IBL validation outputs
 /tools/cmgen.exe
-/Assets/YutrelRP/GeneratedIBL/
-/Assets/YutrelRP/GeneratedIBL.meta
+/Assets/GeneratedIBL/
+/Assets/GeneratedIBL.meta
 Assets/Resources/Texture
 Assets/Resources/Texture.meta
 Assets/Resources/Sponza/Meshes
@@ -103,4 +103,4 @@ Assets/Resources/Sponza/EnvironmentLight
 Assets/Resources/Sponza/EnvironmentLight.meta
 Dumps
 TODO.md
-Assets/LocalAssets
+Assets/Characters

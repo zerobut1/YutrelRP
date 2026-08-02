@@ -1,0 +1,15 @@
+{
+  "name": "Yutrel.RenderPipelines.Yutrel.Editor.Tests",
+  "rootNamespace": "YutrelRP.Tests",
+  "references": [
+    "Yutrel.RenderPipelines.Yutrel.Runtime",
+    "Yutrel.RenderPipelines.Yutrel.Editor",
+    "Unity.RenderPipelines.Core.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

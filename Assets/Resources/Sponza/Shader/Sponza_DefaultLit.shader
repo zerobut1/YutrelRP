@@ -14,10 +14,15 @@
 	}
 	SubShader
 	{
+		Tags
+		{
+			"RenderPipeline" = "YutrelPipeline"
+		}
+
 
 		HLSLINCLUDE
-		#include "Assets/YutrelRP/Shader/Utils/Common.hlsl"
-		#include "Assets/YutrelRP/Shader/DefaultLitSurfaceContract.hlsl"
+		#include "Packages/com.yutrel.render-pipelines.yutrel/Shaders/Utils/Common.hlsl"
+		#include "Packages/com.yutrel.render-pipelines.yutrel/Shaders/DefaultLitSurfaceContract.hlsl"
 		#include "Sponza_DefaultLitSurface.hlsl"
 		ENDHLSL
 
@@ -31,7 +36,7 @@
 			#pragma multi_compile_instancing
 			#pragma vertex DefaultLitVertex
 			#pragma fragment DefaultLitFragment
-			#include "Assets/YutrelRP/Shader/DefaultLit.hlsl"
+			#include "Packages/com.yutrel.render-pipelines.yutrel/Shaders/DefaultLit.hlsl"
 			ENDHLSL
 		}
 
@@ -47,7 +52,7 @@
 			#pragma multi_compile_instancing
 			#pragma vertex DefaultLitShadowCasterVertex
 			#pragma fragment DefaultLitShadowCasterFragment
-			#include "Assets/YutrelRP/Shader/DefaultLit.hlsl"
+			#include "Packages/com.yutrel.render-pipelines.yutrel/Shaders/DefaultLit.hlsl"
 			ENDHLSL
 		}
 
@@ -60,7 +65,7 @@
 			#pragma target 5.0
 			#pragma multi_compile_instancing
 			#pragma raytracing DDGIProbeTrace
-			#include "Assets/YutrelRP/Shader/DefaultLitRayTracing.hlsl"
+			#include "Packages/com.yutrel.render-pipelines.yutrel/Shaders/DefaultLitRayTracing.hlsl"
 			ENDHLSL
 		}
 	}
