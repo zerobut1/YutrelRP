@@ -36,7 +36,11 @@ float4 UnlitFragment(Varyings input) : SV_Target
     UNITY_SETUP_INSTANCE_ID(input);
     float4 texture_color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
     float4 emissive      = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive);
-    return ApplyPreExposure(texture_color * emissive);
+    float luminance      = max(UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissiveLuminanceNits), 0.0f);
+    float4 color         = float4(
+        texture_color.rgb * NormalizePhotometricColor(emissive.rgb) * luminance,
+        texture_color.a * emissive.a);
+    return ApplyPreExposure(color);
 }
 
 #endif

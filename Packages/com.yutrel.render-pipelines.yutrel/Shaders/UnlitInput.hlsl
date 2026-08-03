@@ -7,6 +7,7 @@ SAMPLER(sampler_MainTex);
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _MainTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _Emissive)
+UNITY_DEFINE_INSTANCED_PROP(float, _EmissiveLuminanceNits)
 UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
 #endif

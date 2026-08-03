@@ -40,6 +40,13 @@ float4 ApplyPreExposure(float4 color)
     return color;
 }
 
+float3 NormalizePhotometricColor(float3 linear_srgb)
+{
+    linear_srgb     = max(linear_srgb, 0.0f);
+    float luminance = dot(linear_srgb, float3(0.2126f, 0.7152f, 0.0722f));
+    return luminance > 1e-6f ? linear_srgb / luminance : 0.0f;
+}
+
 bool IsOrthographicCamera()
 {
     return unity_OrthoParams.w;

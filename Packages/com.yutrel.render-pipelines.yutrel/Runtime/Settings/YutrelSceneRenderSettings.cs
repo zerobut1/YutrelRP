@@ -27,9 +27,10 @@ namespace YutrelRP
         {
             get
             {
-                var ev = Mathf.Clamp(fixedEV100, MinFixedEV100, MaxFixedEV100) +
-                         Mathf.Clamp(exposureCompensation, MinExposureCompensation, MaxExposureCompensation);
-                return 1.0f / (1.2f * Mathf.Pow(2.0f, ev));
+                var effective_ev100 = Mathf.Clamp(fixedEV100, MinFixedEV100, MaxFixedEV100) -
+                                      Mathf.Clamp(exposureCompensation, MinExposureCompensation,
+                                          MaxExposureCompensation);
+                return Mathf.Pow(2.0f, -effective_ev100) / 1.2f;
             }
         }
 
@@ -110,7 +111,7 @@ namespace YutrelRP
             ExposureSettings.MinFixedEV100,
             ExposureSettings.MaxFixedEV100);
 
-        [Tooltip("Exposure compensation in EV applied on top of Fixed EV100.")]
+        [Tooltip("Exposure compensation in EV. Positive values brighten the image.")]
         public ClampedFloatParameter exposureCompensation = new(
             ExposureSettings.DefaultExposureCompensation,
             ExposureSettings.MinExposureCompensation,

@@ -19,6 +19,7 @@ UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
 UNITY_DEFINE_INSTANCED_PROP(float, _UseAlphaClip)
 UNITY_DEFINE_INSTANCED_PROP(float, _AlphaCutoff)
 UNITY_DEFINE_INSTANCED_PROP(float4, _Emissive)
+UNITY_DEFINE_INSTANCED_PROP(float, _EmissiveLuminanceNits)
 UNITY_DEFINE_INSTANCED_PROP(float, _Roughness)
 UNITY_DEFINE_INSTANCED_PROP(float, _Metallic)
 UNITY_DEFINE_INSTANCED_PROP(float, _Specular)
@@ -167,13 +168,19 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     result.surface.base_color = base_color_sample.rgb;
     result.alpha_clip         = BuildStandardDefaultLitAlphaClip(base_color_sample.a);
 
+    float3 emissive_color = NormalizePhotometricColor(
+        UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb);
+    float emissive_luminance = max(
+        UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissiveLuminanceNits),
+        0.0f);
 #if defined(_USE_EMISSIVE_TEX)
     float4 emissive_ST      = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissiveTex_ST);
     float2 emissive_uv      = TransformDefaultLitTextureUV(input.uv, emissive_ST);
-    result.surface.emissive = SAMPLE_TEXTURE2D(_EmissiveTex, sampler_EmissiveTex, emissive_uv).rgb;
+    float3 emissive_texture = SAMPLE_TEXTURE2D(_EmissiveTex, sampler_EmissiveTex, emissive_uv).rgb;
 #else
-    result.surface.emissive = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Emissive).rgb;
+    float3 emissive_texture = 1.0f;
 #endif
+    result.surface.emissive = emissive_texture * emissive_color * emissive_luminance;
 
 #if defined(_USE_NORMAL_TEX)
     float4 normal_ST         = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _NormalTex_ST);

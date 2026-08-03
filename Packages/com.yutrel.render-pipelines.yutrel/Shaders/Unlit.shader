@@ -3,7 +3,8 @@ Shader "YutrelRP/Unlit"
 	Properties
 	{
 		_MainTex ("MainTex", 2D) = "white" {}
-		_Emissive ("Emissive", Color) = (0, 0, 0, 1)
+		_Emissive ("Emissive Color", Color) = (1, 1, 1, 1)
+		[Min(0)] _EmissiveLuminanceNits ("Emissive Luminance (nits)", Float) = 0
 	}
 
 	SubShader

@@ -16,6 +16,27 @@ namespace YutrelRP.Tests
         private const string MigrationTestRoot = "Assets/YutrelRPRendererMigrationTests";
 
         [Test]
+        public void ExposureCompensation_PositiveValueBrightensOneStop()
+        {
+            var baseline = ExposureSettings.Default;
+            var brighter = baseline;
+            brighter.exposureCompensation = 1.0f;
+
+            Assert.That(baseline.pre_exposure, Is.EqualTo(1.0f / (1.2f * 16384.0f)).Within(1e-9f));
+            Assert.That(brighter.pre_exposure, Is.EqualTo(baseline.pre_exposure * 2.0f).Within(1e-9f));
+        }
+
+        [Test]
+        public void PhotometricColor_NormalizesLinearSrgbToUnitLuminance()
+        {
+            var normalized = PhotometricColor.NormalizeLinearSrgb(new Color(1.0f, 0.0f, 0.0f));
+            var luminance = Vector3.Dot(normalized, new Vector3(0.2126f, 0.7152f, 0.0722f));
+
+            Assert.That(luminance, Is.EqualTo(1.0f).Within(1e-5f));
+            Assert.That(PhotometricColor.NormalizeLinearSrgb(Color.black), Is.EqualTo(Vector3.zero));
+        }
+
+        [Test]
         public void NewPipelineAsset_HasSafeDefaultsAndShaderTag()
         {
             var asset = ScriptableObject.CreateInstance<YutrelRPAsset>();

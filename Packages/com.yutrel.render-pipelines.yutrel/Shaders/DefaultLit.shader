@@ -5,7 +5,8 @@
 		_BaseColor ("Base Color", Color) = (0.4, 0.8, 1.0, 1)
 		[Toggle] _UseAlphaClip ("Use Alpha Clip", Float) = 0
 		_AlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.5
-		_Emissive ("Emissive", Color) = (0, 0, 0, 1)
+		_Emissive ("Emissive Color", Color) = (1, 1, 1, 1)
+		[Min(0)] _EmissiveLuminanceNits ("Emissive Luminance (nits)", Float) = 0
 		[Toggle(_USE_EMISSIVE_TEX)] _UseEmissiveTex ("Use Emissive Texture", Float) = 0
 		_EmissiveTex ("Emissive", 2D) = "black" {}
 		_Roughness ("Roughness", Range(0, 1)) = 0.5

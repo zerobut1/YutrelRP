@@ -7,6 +7,21 @@ using UnityEngine.SceneManagement;
 
 namespace YutrelRP
 {
+    public static class PhotometricColor
+    {
+        private const float MinLuminance = 1e-6f;
+
+        public static Vector3 NormalizeLinearSrgb(Color linearColor)
+        {
+            var rgb = new Vector3(
+                Mathf.Max(0.0f, linearColor.r),
+                Mathf.Max(0.0f, linearColor.g),
+                Mathf.Max(0.0f, linearColor.b));
+            var luminance = Vector3.Dot(rgb, new Vector3(0.2126f, 0.7152f, 0.0722f));
+            return luminance > MinLuminance ? rgb / luminance : Vector3.zero;
+        }
+    }
+
     public class LightResources : ContextItem
     {
         private static Texture dfg_lut_texture;
@@ -43,9 +58,7 @@ namespace YutrelRP
 
             public DirectionalLightData(VisibleLight visible_light, Vector4 shadow_data)
             {
-                color.x = visible_light.light.color.r;
-                color.y = visible_light.light.color.g;
-                color.z = visible_light.light.color.b;
+                color = PhotometricColor.NormalizeLinearSrgb(visible_light.light.color.linear);
                 illuminance = visible_light.light.intensity;
                 direction = -visible_light.localToWorldMatrix.GetColumn(2);
                 this.shadow_data = shadow_data;
