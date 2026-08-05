@@ -80,6 +80,34 @@ namespace YutrelRP
 
         public Texture2D SkyboxTexture => iblAsset != null ? iblAsset.SourceEnvironmentTexture : null;
 
+        public static bool TryResolve(Camera camera, out YutrelEnvironmentLight binding)
+        {
+            binding = null;
+            if (camera == null)
+            {
+                return false;
+            }
+
+            var camera_scene = camera.gameObject.scene;
+            if (TryResolve(camera_scene, out binding))
+            {
+                return true;
+            }
+
+            // Scene-view and preview cameras are often not owned by the scene they render.
+            // For those Unity editor cameras only, fall back to the active scene binding.
+            if (camera.cameraType == CameraType.SceneView || camera.cameraType == CameraType.Preview)
+            {
+                var active_scene = SceneManager.GetActiveScene();
+                if (active_scene != camera_scene && TryResolve(active_scene, out binding))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static bool TryResolve(Scene scene, out YutrelEnvironmentLight binding)
         {
             return TryResolve(scene, out binding, include_inactive: false);

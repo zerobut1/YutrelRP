@@ -3,7 +3,6 @@ using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
-using UnityEngine.SceneManagement;
 
 namespace YutrelRP
 {
@@ -140,7 +139,7 @@ namespace YutrelRP
             builder.UseBuffer(directional_light_data_buffer, AccessFlags.WriteAll);
             ImportDfgLut(render_graph);
 
-            var environment_light = ResolveEnvironmentLight(camera);
+            YutrelEnvironmentLight.TryResolve(camera, out var environment_light);
             var environment_asset = environment_light != null ? environment_light.IblAsset : null;
             environment_resource_error = null;
             environment_skybox_error = null;
@@ -211,33 +210,6 @@ namespace YutrelRP
             ReleaseDfgLut();
             ReleaseEnvironmentReflection();
             ReleaseEnvironmentSkybox();
-        }
-
-        private static YutrelEnvironmentLight ResolveEnvironmentLight(Camera camera)
-        {
-            if (camera == null)
-            {
-                return null;
-            }
-
-            var camera_scene = camera.gameObject.scene;
-            if (YutrelEnvironmentLight.TryResolve(camera_scene, out var environment_light))
-            {
-                return environment_light;
-            }
-
-            // Scene-view and preview cameras are often not owned by the scene they render.
-            // For those Unity editor cameras only, fall back to the active scene binding.
-            if (camera.cameraType == CameraType.SceneView || camera.cameraType == CameraType.Preview)
-            {
-                var active_scene = SceneManager.GetActiveScene();
-                if (active_scene != camera_scene && YutrelEnvironmentLight.TryResolve(active_scene, out environment_light))
-                {
-                    return environment_light;
-                }
-            }
-
-            return null;
         }
 
         private void ImportDfgLut(RenderGraph render_graph)
