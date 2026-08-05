@@ -9,7 +9,6 @@ namespace YutrelRP
     internal class SetupPass
     {
         private static readonly ProfilingSampler sampler = new("Setup Pass");
-        private const GraphicsFormat NormalGBufferFormat = GraphicsFormat.A2B10G10R10_UNormPack32;
 
         private static readonly int
             rt_size_ID = Shader.PropertyToID("_CameraBufferSize"),
@@ -20,6 +19,8 @@ namespace YutrelRP
         internal static void Record(RenderGraph render_graph, Camera camera,
             Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings)
         {
+            OpenPBRLUTs.EnsureCreated();
+
             var exposure = post_process_settings.exposure;
             var pre_exposure = exposure.pre_exposure;
 
@@ -39,8 +40,6 @@ namespace YutrelRP
             ref RenderTargets textures, Vector2Int attachment_size, GraphicsFormat scene_color_format,
             float pre_exposure)
         {
-            ValidateNormalGBufferFormat();
-
             // scene color
             var scene_color_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
@@ -77,11 +76,13 @@ namespace YutrelRP
             };
             textures.GBuffer_A = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer B";
-            gbuffer_desc.colorFormat = NormalGBufferFormat;
+            gbuffer_desc.colorFormat = standard_gbuffer_format;
             textures.GBuffer_B = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer C";
             gbuffer_desc.colorFormat = standard_gbuffer_format;
             textures.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
+            gbuffer_desc.name = "GBuffer D";
+            textures.GBuffer_D = render_graph.CreateTexture(gbuffer_desc);
 
         }
 
@@ -91,15 +92,6 @@ namespace YutrelRP
             color.g *= pre_exposure;
             color.b *= pre_exposure;
             return color;
-        }
-
-        private static void ValidateNormalGBufferFormat()
-        {
-            if (!SystemInfo.IsFormatSupported(NormalGBufferFormat, GraphicsFormatUsage.Render))
-            {
-                throw new NotSupportedException(
-                    $"YutrelRP requires {NormalGBufferFormat} for the normal GBuffer.");
-            }
         }
 
         // data

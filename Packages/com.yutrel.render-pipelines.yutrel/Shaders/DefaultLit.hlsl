@@ -28,6 +28,7 @@ struct RTStruct
     float4 GBuffer_A : SV_Target1;
     float4 GBuffer_B : SV_Target2;
     float4 GBuffer_C : SV_Target3;
+    float4 GBuffer_D : SV_Target4;
 };
 
 DefaultLitSurfaceInput BuildDefaultLitSurfaceInput(Varyings input)
@@ -80,6 +81,7 @@ RTStruct DefaultLitFragment(Varyings input, bool is_front_face : SV_IsFrontFace)
     output.GBuffer_A               = encoded_gbuffer.GBuffer_A;
     output.GBuffer_B               = encoded_gbuffer.GBuffer_B;
     output.GBuffer_C               = encoded_gbuffer.GBuffer_C;
+    output.GBuffer_D               = encoded_gbuffer.GBuffer_D;
 
     return output;
 }

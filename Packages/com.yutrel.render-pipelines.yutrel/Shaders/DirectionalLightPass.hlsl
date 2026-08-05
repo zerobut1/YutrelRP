@@ -2,6 +2,7 @@
 #define YUTREL_DIRECTIONAL_LIGHT_PASS_INCLUDED
 
 #include "Utils/ShadingModelStandard.hlsl"
+#include "Utils/ShadingModelOpenPBR.hlsl"
 
 int _LightIndex;
 
@@ -12,6 +13,7 @@ float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
     gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, input.uv);
     gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, input.uv);
     gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, input.uv);
+    gbuffer.GBuffer_D   = SAMPLE_TEXTURE2D(_GBuffer_D, sampler_GBuffer_D, input.uv);
     gbuffer.scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, input.uv).r;
     gbuffer.uv          = input.uv;
 
@@ -21,11 +23,23 @@ float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
     switch (gbuffer_data.shading_model_id)
     {
     case SHADING_MODEL_STANDARD:
+    {
         StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
         Light light             = GetDirectionalLight(_LightIndex, gbuffer.uv);
 
         out_color = StandardShading(surface, light);
         break;
+    }
+    case SHADING_MODEL_OPENPBR:
+    {
+        // OpenPBREvaluateBRDF returns f * light.color * illuminance * occlusion;
+        // f already includes cos(theta), so NoL must NOT be applied again.
+        OpenPBRSurface surface = GBuffer2OpenPBRSurface(gbuffer_data);
+        Light light            = GetDirectionalLight(_LightIndex, gbuffer.uv);
+
+        out_color = OpenPBREvaluateBRDF(surface, light);
+        break;
+    }
     default:
         discard;
         break;

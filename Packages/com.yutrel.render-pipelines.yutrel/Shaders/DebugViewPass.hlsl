@@ -127,6 +127,7 @@ float4 SampleDebugViewGBuffer(float2 uv)
     gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, uv);
     gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, uv);
     gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, uv);
+    gbuffer.GBuffer_D   = SAMPLE_TEXTURE2D(_GBuffer_D, sampler_GBuffer_D, uv);
     gbuffer.scene_depth = 0.0f;
     gbuffer.uv          = uv;
 
@@ -134,6 +135,20 @@ float4 SampleDebugViewGBuffer(float2 uv)
     if (_DebugViewMode == 5 && ShadingModelHasSurfaceNormal(gbuffer_data.shading_model_id))
     {
         return float4(gbuffer_data.normal_WS * 0.5f + 0.5f, 1.0f);
+    }
+
+    // OpenPBR-specific channels.
+    if (_DebugViewMode == 10 && gbuffer_data.shading_model_id == SHADING_MODEL_OPENPBR)
+    {
+        return float4(gbuffer_data.specular_color, 1.0f);
+    }
+    if (_DebugViewMode == 11 && gbuffer_data.shading_model_id == SHADING_MODEL_OPENPBR)
+    {
+        return float4(gbuffer_data.sqrt_f0.xxx, 1.0f);
+    }
+    if (_DebugViewMode == 12 && gbuffer_data.shading_model_id == SHADING_MODEL_OPENPBR)
+    {
+        return float4(gbuffer_data.diffuse_roughness.xxx, 1.0f);
     }
 
     if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
@@ -172,6 +187,7 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
     gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, uv);
     gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, uv);
     gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, uv);
+    gbuffer.GBuffer_D   = SAMPLE_TEXTURE2D(_GBuffer_D, sampler_GBuffer_D, uv);
     gbuffer.scene_depth = scene_depth;
     gbuffer.uv          = uv;
 
@@ -237,6 +253,11 @@ float4 DebugViewPassFragment(FullScreenVaryings input) : SV_Target
 
     case 9:
         return SampleDebugViewAmbientOcclusion(input.uv);
+
+    case 10:
+    case 11:
+    case 12:
+        return SampleDebugViewGBuffer(input.uv);
     }
 
     return float4(0.0f, 0.0f, 0.0f, 1.0f);

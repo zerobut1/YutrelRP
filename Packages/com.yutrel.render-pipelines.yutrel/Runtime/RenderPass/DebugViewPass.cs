@@ -64,9 +64,11 @@ namespace YutrelRP
                 pass.GBuffer_A = textures.GBuffer_A;
                 pass.GBuffer_B = textures.GBuffer_B;
                 pass.GBuffer_C = textures.GBuffer_C;
+                pass.GBuffer_D = textures.GBuffer_D;
                 builder.UseTexture(pass.GBuffer_A);
                 builder.UseTexture(pass.GBuffer_B);
                 builder.UseTexture(pass.GBuffer_C);
+                builder.UseTexture(pass.GBuffer_D);
             }
 
             if (pass.reads_scene_depth)
@@ -212,6 +214,7 @@ namespace YutrelRP
         private TextureHandle GBuffer_A;
         private TextureHandle GBuffer_B;
         private TextureHandle GBuffer_C;
+        private TextureHandle GBuffer_D;
         private TextureHandle scene_depth;
         private TextureHandle screen_space_ao;
         private TextureHandle shadow_mask;
@@ -242,6 +245,7 @@ namespace YutrelRP
                 property_block.SetTexture(RenderTargets.GBuffer_A_ID, GBuffer_A);
                 property_block.SetTexture(RenderTargets.GBuffer_B_ID, GBuffer_B);
                 property_block.SetTexture(RenderTargets.GBuffer_C_ID, GBuffer_C);
+                property_block.SetTexture(RenderTargets.GBuffer_D_ID, GBuffer_D);
             }
 
             if (reads_scene_depth)

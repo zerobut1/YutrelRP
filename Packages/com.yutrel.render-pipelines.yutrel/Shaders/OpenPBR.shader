@@ -11,6 +11,16 @@ Shader "YutrelRP/OpenPBR"
         _OpenPBRSpecularRoughness ("Specular Roughness", Range(0, 1)) = 0.3
         _OpenPBRSpecularRoughnessAnisotropy ("Specular Roughness Anisotropy", Range(0, 1)) = 0
         [Min(0.001)] _OpenPBRSpecularIOR ("Specular IOR", Float) = 1.5
+        [Toggle] _OpenPBRUseAlphaClip ("Use Alpha Clip", Float) = 0
+        _OpenPBRAlphaCutoff ("Alpha Cutoff", Range(0, 1)) = 0.5
+        [Toggle(_USE_BASECOLOR_TEX)] _OpenPBRUseBaseColorTex ("Use BaseColor Texture", Float) = 0
+        _OpenPBRBaseColorTex ("Base Color", 2D) = "white" {}
+        [Toggle(_USE_NORMAL_TEX)] _OpenPBRUseNormalTex ("Use Normal Texture", Float) = 0
+        _OpenPBRNormalTex ("Normal", 2D) = "bump" {}
+        [Toggle(_USE_ROUGHNESS_TEX)] _OpenPBRUseRoughnessTex ("Use Roughness Texture", Float) = 0
+        _OpenPBRRoughnessTex ("Roughness", 2D) = "white" {}
+        [Toggle(_USE_METALLIC_TEX)] _OpenPBRUseMetalnessTex ("Use Metallic Texture", Float) = 0
+        _OpenPBRMetalnessTex ("Metallic", 2D) = "white" {}
         [Enum(UnityEngine.Rendering.CullMode)] _CullMode ("Cull Mode", Float) = 0
     }
 
@@ -39,6 +49,10 @@ Shader "YutrelRP/OpenPBR"
             HLSLPROGRAM
             #pragma target 5.0
             #pragma multi_compile_instancing
+            #pragma shader_feature_local _USE_BASECOLOR_TEX
+            #pragma shader_feature_local _USE_NORMAL_TEX
+            #pragma shader_feature_local _USE_ROUGHNESS_TEX
+            #pragma shader_feature_local _USE_METALLIC_TEX
             #pragma vertex DefaultLitVertex
             #pragma fragment DefaultLitFragment
             #include "DefaultLit.hlsl"
@@ -58,6 +72,7 @@ Shader "YutrelRP/OpenPBR"
             HLSLPROGRAM
             #pragma target 5.0
             #pragma multi_compile_instancing
+            #pragma shader_feature_local _USE_BASECOLOR_TEX
             #pragma vertex DefaultLitShadowCasterVertex
             #pragma fragment DefaultLitShadowCasterFragment
             #include "DefaultLit.hlsl"

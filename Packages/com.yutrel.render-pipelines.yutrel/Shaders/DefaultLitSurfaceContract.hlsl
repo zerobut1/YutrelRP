@@ -21,6 +21,10 @@ struct DefaultLitSurfaceData
     float specular;
     float material_AO;
     int shading_model_id;
+    // OpenPBR (SHADING_MODEL_OPENPBR) only; Standard leaves defaults.
+    float3 specular_color;
+    float sqrt_f0; // sqrt(weighted_f0), dielectric f0 after specular_weight
+    float diffuse_roughness;
 };
 
 struct DefaultLitAlphaClipData
@@ -90,6 +94,9 @@ GBufferData DefaultLitSurfaceToGBuffer(DefaultLitSurfaceData surface)
     gbuffer.specular         = saturate(surface.specular);
     gbuffer.material_AO      = saturate(surface.material_AO);
     gbuffer.shading_model_id = surface.shading_model_id;
+    gbuffer.specular_color   = surface.specular_color;
+    gbuffer.sqrt_f0          = saturate(surface.sqrt_f0);
+    gbuffer.diffuse_roughness = saturate(surface.diffuse_roughness);
     return gbuffer;
 }
 

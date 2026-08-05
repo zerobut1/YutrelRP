@@ -59,10 +59,12 @@ namespace YutrelRP
             pass.GBuffer_A_ID = RenderTargets.GBuffer_A_ID;
             pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
             pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
+            pass.GBuffer_D_ID = RenderTargets.GBuffer_D_ID;
             pass.scene_depth_ID = RenderTargets.scene_depth_ID;
             pass.GBuffer_A = textures.GBuffer_A;
             pass.GBuffer_B = textures.GBuffer_B;
             pass.GBuffer_C = textures.GBuffer_C;
+            pass.GBuffer_D = textures.GBuffer_D;
             pass.scene_depth = textures.scene_depth;
             pass.probe_irradiance = resources.probe_irradiance;
             pass.probe_distance = resources.probe_distance;
@@ -81,6 +83,7 @@ namespace YutrelRP
             builder.UseTexture(pass.GBuffer_A);
             builder.UseTexture(pass.GBuffer_B);
             builder.UseTexture(pass.GBuffer_C);
+            builder.UseTexture(pass.GBuffer_D);
             builder.UseTexture(pass.scene_depth);
             builder.UseTexture(pass.probe_irradiance);
             builder.UseTexture(pass.probe_distance);
@@ -99,11 +102,13 @@ namespace YutrelRP
         private int GBuffer_A_ID;
         private int GBuffer_B_ID;
         private int GBuffer_C_ID;
+        private int GBuffer_D_ID;
         private int scene_depth_ID;
 
         private TextureHandle GBuffer_A;
         private TextureHandle GBuffer_B;
         private TextureHandle GBuffer_C;
+        private TextureHandle GBuffer_D;
         private TextureHandle scene_depth;
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
@@ -124,6 +129,7 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_A_ID, GBuffer_A);
             property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
+            property_block.SetTexture(GBuffer_D_ID, GBuffer_D);
             property_block.SetTexture(scene_depth_ID, scene_depth);
             property_block.SetTexture(probe_irradiance_ID, probe_irradiance);
             property_block.SetTexture(probe_distance_ID, probe_distance);

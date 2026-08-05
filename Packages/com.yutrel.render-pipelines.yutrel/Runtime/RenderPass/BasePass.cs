@@ -24,6 +24,7 @@ namespace YutrelRP
             builder.SetRenderAttachment(textures.GBuffer_A, 1);
             builder.SetRenderAttachment(textures.GBuffer_B, 2);
             builder.SetRenderAttachment(textures.GBuffer_C, 3);
+            builder.SetRenderAttachment(textures.GBuffer_D, 4);
             builder.SetRenderAttachmentDepth(textures.scene_depth);
 
             // 不透明

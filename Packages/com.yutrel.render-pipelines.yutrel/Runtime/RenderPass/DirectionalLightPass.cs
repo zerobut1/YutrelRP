@@ -28,6 +28,7 @@ namespace YutrelRP
                 pass.GBuffer_A_ID = RenderTargets.GBuffer_A_ID;
                 pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
                 pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
+                pass.GBuffer_D_ID = RenderTargets.GBuffer_D_ID;
                 pass.scene_depth_ID = RenderTargets.scene_depth_ID;
                 pass.shadow_mask_ID = RenderTargets.shadow_mask_ID;
                 pass.dfg_lut_ID = LightResources.dfg_lut_ID;
@@ -36,6 +37,7 @@ namespace YutrelRP
                 pass.GBuffer_A = textures.GBuffer_A;
                 pass.GBuffer_B = textures.GBuffer_B;
                 pass.GBuffer_C = textures.GBuffer_C;
+                pass.GBuffer_D = textures.GBuffer_D;
                 pass.scene_depth = textures.scene_depth;
                 pass.shadow_mask = textures.shadow_mask;
                 pass.DFG_LUT = light_resources.DFG_LUT;
@@ -45,6 +47,7 @@ namespace YutrelRP
                 builder.UseTexture(pass.GBuffer_A);
                 builder.UseTexture(pass.GBuffer_B);
                 builder.UseTexture(pass.GBuffer_C);
+                builder.UseTexture(pass.GBuffer_D);
                 builder.UseTexture(pass.scene_depth);
                 builder.UseTexture(pass.shadow_mask);
                 builder.UseTexture(pass.DFG_LUT);
@@ -60,6 +63,7 @@ namespace YutrelRP
             GBuffer_A_ID,
             GBuffer_B_ID,
             GBuffer_C_ID,
+            GBuffer_D_ID,
             scene_depth_ID,
             shadow_mask_ID,
             dfg_lut_ID,
@@ -72,6 +76,7 @@ namespace YutrelRP
             GBuffer_A,
             GBuffer_B,
             GBuffer_C,
+            GBuffer_D,
             scene_depth,
             shadow_mask,
             DFG_LUT;
@@ -86,6 +91,7 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_A_ID, GBuffer_A);
             property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
+            property_block.SetTexture(GBuffer_D_ID, GBuffer_D);
             property_block.SetTexture(scene_depth_ID, scene_depth);
             property_block.SetTexture(shadow_mask_ID, shadow_mask);
             property_block.SetTexture(dfg_lut_ID, DFG_LUT);

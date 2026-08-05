@@ -13,11 +13,14 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     gbuffer.GBuffer_A   = SAMPLE_TEXTURE2D(_GBuffer_A, sampler_GBuffer_A, input.uv);
     gbuffer.GBuffer_B   = SAMPLE_TEXTURE2D(_GBuffer_B, sampler_GBuffer_B, input.uv);
     gbuffer.GBuffer_C   = SAMPLE_TEXTURE2D(_GBuffer_C, sampler_GBuffer_C, input.uv);
+    gbuffer.GBuffer_D   = SAMPLE_TEXTURE2D(_GBuffer_D, sampler_GBuffer_D, input.uv);
     gbuffer.scene_depth = SAMPLE_TEXTURE2D(_SceneDepth, sampler_SceneDepth, input.uv).r;
     gbuffer.uv          = input.uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    if (!ShadingModelUsesDeferredLighting(gbuffer_data.shading_model_id))
+    // v1: OpenPBR environment lighting (IBL) is not implemented yet; keep the
+    // existing Standard-only path so OpenPBR pixels retain their direct light.
+    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
     {
         discard;
     }
