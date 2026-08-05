@@ -71,12 +71,63 @@ float4 SampleOpenPBRBaseColorLOD(float2 uv, float lod)
 #endif
 }
 
+float GetOpenPBRBaseColorGIMipLevel()
+{
+#if defined(_USE_BASECOLOR_TEX)
+    uint width;
+    uint height;
+    uint mipCount;
+    _OpenPBRBaseColorTex.GetDimensions(0, width, height, mipCount);
+    return DefaultLitRayTracingGIMipLevel(mipCount);
+#else
+    return 0.0f;
+#endif
+}
+
+float GetOpenPBRAlphaClipGIMipLevel()
+{
+#if defined(_USE_BASECOLOR_TEX)
+    uint width;
+    uint height;
+    uint mipCount;
+    _OpenPBRBaseColorTex.GetDimensions(0, width, height, mipCount);
+    return DefaultLitRayTracingGIAlphaClipMipLevel(mipCount);
+#else
+    return 0.0f;
+#endif
+}
+
 float3 SampleOpenPBRNormal(DefaultLitSurfaceInput input)
 {
 #if defined(_USE_NORMAL_TEX)
     float4 normal_ST     = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRNormalTex_ST);
     float2 normal_uv     = TransformDefaultLitTextureUV(input.uv, normal_ST);
     float4 packed_normal = SAMPLE_TEXTURE2D(_OpenPBRNormalTex, sampler_OpenPBRNormalTex, normal_uv);
+    return DefaultLitTangentNormalToWorld(packed_normal, input);
+#else
+    return input.normal_WS;
+#endif
+}
+
+float GetOpenPBRNormalGIMipLevel()
+{
+#if defined(_USE_NORMAL_TEX)
+    uint width;
+    uint height;
+    uint mipCount;
+    _OpenPBRNormalTex.GetDimensions(0, width, height, mipCount);
+    return DefaultLitRayTracingGIMipLevel(mipCount);
+#else
+    return 0.0f;
+#endif
+}
+
+float3 SampleOpenPBRNormalLOD(DefaultLitSurfaceInput input, float lod)
+{
+#if defined(_USE_NORMAL_TEX)
+    float4 normal_ST     = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRNormalTex_ST);
+    float2 normal_uv     = TransformDefaultLitTextureUV(input.uv, normal_ST);
+    float4 packed_normal = SAMPLE_TEXTURE2D_LOD(_OpenPBRNormalTex, sampler_OpenPBRNormalTex, normal_uv, lod);
     return DefaultLitTangentNormalToWorld(packed_normal, input);
 #else
     return input.normal_WS;
@@ -123,6 +174,38 @@ DefaultLitAlphaClipData BuildOpenPBRAlphaClip(float alpha)
     alpha_clip.cutoff  = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRAlphaCutoff);
     alpha_clip.enabled = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRUseAlphaClip);
     return alpha_clip;
+}
+
+float4 SampleDefaultLitRayTracingBaseColorLOD(float2 uv, float lod)
+{
+    float4 base_color = SampleOpenPBRBaseColorLOD(uv, lod);
+    base_color.rgb *= saturate(UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRBaseWeight));
+    return base_color;
+}
+
+float GetDefaultLitRayTracingBaseColorGIMipLevel()
+{
+    return GetOpenPBRBaseColorGIMipLevel();
+}
+
+float GetDefaultLitRayTracingAlphaClipGIMipLevel()
+{
+    return GetOpenPBRAlphaClipGIMipLevel();
+}
+
+float3 SampleDefaultLitRayTracingNormalLOD(DefaultLitSurfaceInput input, float lod)
+{
+    return SampleOpenPBRNormalLOD(input, lod);
+}
+
+float GetDefaultLitRayTracingNormalGIMipLevel()
+{
+    return GetOpenPBRNormalGIMipLevel();
+}
+
+DefaultLitAlphaClipData BuildDefaultLitRayTracingAlphaClip(float alpha)
+{
+    return BuildOpenPBRAlphaClip(alpha);
 }
 
 DefaultLitAlphaClipData EvaluateDefaultLitAlphaClip(DefaultLitSurfaceInput input)

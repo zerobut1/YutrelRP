@@ -1,6 +1,7 @@
 #ifndef YUTREL_DDGI_LIGHTING_INCLUDED
 #define YUTREL_DDGI_LIGHTING_INCLUDED
 
+#include "../Utils/ShadingModelOpenPBR.hlsl"
 #include "../Utils/ShadingModelStandard.hlsl"
 #include "DDGICommon.hlsl"
 
@@ -123,18 +124,36 @@ float3 DDGILightingGetVolumeIrradiance(float3 worldPosition, float3 surfaceBias,
     return irradiance;
 }
 
-float3 EvaluateDDGIDiffuseLighting(StandardSurface surface)
+float3 EvaluateDDGIDiffuseLightingForSurface(
+    float3 position_WS,
+    float3 normal_WS,
+    float3 view_direction_WS)
 {
-    float volumeBlendWeight = DDGILightingGetVolumeBlendWeight(surface.position_WS);
+    float volumeBlendWeight = DDGILightingGetVolumeBlendWeight(position_WS);
     if (volumeBlendWeight <= 0.0f)
     {
         return 0.0f;
     }
 
-    float3 surfaceBias = surface.normal_WS * _DDGIProbeNormalBias +
-                         surface.view_direction_WS * _DDGIProbeViewBias;
-    float3 irradiance  = DDGILightingGetVolumeIrradiance(surface.position_WS, surfaceBias, surface.normal_WS);
+    float3 surfaceBias = normal_WS * _DDGIProbeNormalBias + view_direction_WS * _DDGIProbeViewBias;
+    float3 irradiance  = DDGILightingGetVolumeIrradiance(position_WS, surfaceBias, normal_WS);
     return irradiance * INV_PI * volumeBlendWeight;
+}
+
+float3 EvaluateDDGIDiffuseLighting(StandardSurface surface)
+{
+    return EvaluateDDGIDiffuseLightingForSurface(
+        surface.position_WS,
+        surface.normal_WS,
+        surface.view_direction_WS);
+}
+
+float3 EvaluateDDGIDiffuseLighting(OpenPBRSurface surface)
+{
+    return EvaluateDDGIDiffuseLightingForSurface(
+        surface.position_WS,
+        surface.normal_WS,
+        surface.view_direction_WS);
 }
 
 #endif

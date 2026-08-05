@@ -15,16 +15,23 @@ float4 DDGILightingFragment(FullScreenVaryings input) : SV_Target
     gbuffer.uv          = input.uv;
 
     GBufferData gbufferData = DecodeGBuffer(gbuffer);
-    // v1: DDGI indirect lighting is Standard-only; OpenPBR surfaces get no
-    // probe contribution until the OpenPBR diffuse/IBL path lands.
-    if (gbufferData.shading_model_id != SHADING_MODEL_STANDARD)
+    if (gbufferData.shading_model_id == SHADING_MODEL_STANDARD)
     {
-        discard;
+        StandardSurface surface = GBuffer2StandardSurface(gbufferData);
+        float3 diffuse          = surface.diffuse_color * EvaluateDDGIDiffuseLighting(surface);
+        return float4(ApplyPreExposure(diffuse), 0.0f);
     }
 
-    StandardSurface surface = GBuffer2StandardSurface(gbufferData);
-    float3 diffuse          = surface.diffuse_color * EvaluateDDGIDiffuseLighting(surface);
-    return float4(ApplyPreExposure(diffuse), 0.0f);
+    if (gbufferData.shading_model_id == SHADING_MODEL_OPENPBR)
+    {
+        OpenPBRSurface surface  = GBuffer2OpenPBRSurface(gbufferData);
+        float3 diffuse_lighting = EvaluateDDGIDiffuseLighting(surface);
+        float3 diffuse          = OpenPBREvaluateDiffuseIndirect(surface, diffuse_lighting);
+        return float4(ApplyPreExposure(diffuse), 0.0f);
+    }
+
+    discard;
+    return 0.0f;
 }
 
 #endif

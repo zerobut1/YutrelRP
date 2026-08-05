@@ -86,8 +86,10 @@ namespace YutrelRP
         private static RayTracingSubMeshFlags GetSubMeshFlags(Material material)
         {
             var alpha_clip = material != null &&
-                             material.HasProperty("_UseAlphaClip") &&
-                             material.GetFloat("_UseAlphaClip") > 0.5f;
+                             ((material.HasProperty("_UseAlphaClip") &&
+                               material.GetFloat("_UseAlphaClip") > 0.5f) ||
+                              (material.HasProperty("_OpenPBRUseAlphaClip") &&
+                               material.GetFloat("_OpenPBRUseAlphaClip") > 0.5f));
             return alpha_clip
                 ? RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.UniqueAnyHitCalls
                 : RayTracingSubMeshFlags.Enabled | RayTracingSubMeshFlags.ClosestHitOnly;

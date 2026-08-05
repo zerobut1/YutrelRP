@@ -37,6 +37,7 @@ struct OpenPBRSurface
     float diffuse_roughness;
     float NoV;
     // View-side LUT caches (light-independent, computed once per pixel).
+    float dielectric_view_energy_complement;
     float dielectric_view_compensation;
     float metal_view_energy_complement;
     float metal_average;
@@ -74,14 +75,46 @@ OpenPBRSurface GBuffer2OpenPBRSurface(GBufferData data)
     surface.metal_mms_scale = metal_average_fresnel * metal_average_fresnel * surface.darkened_metal;
 
     // View-side energy compensation (independent of the light direction).
+    surface.dielectric_view_energy_complement =
+        OpenPBR_E_OpaqueDielectricEnergy(surface.weighted_ior, surface.alpha, surface.NoV);
     surface.dielectric_view_compensation =
-        OpenPBR_E_OpaqueDielectricEnergy(surface.weighted_ior, surface.alpha, surface.NoV) /
+        surface.dielectric_view_energy_complement /
         max(OpenPBR_E_OpaqueDielectricAverage(surface.weighted_ior, surface.alpha),
             OPENPBR_MIN_ENERGY_DENOMINATOR);
     surface.metal_view_energy_complement = OpenPBR_E_IdealMetalEnergy(surface.alpha, surface.NoV);
     surface.metal_average = OpenPBR_E_IdealMetalAverage(surface.alpha);
 
     return surface;
+}
+
+// Split-sum response for low-frequency indirect lighting. EON is energy
+// preserving, while the opaque-dielectric complement accounts for energy
+// left after the base specular interface. This is exact for a uniform furnace
+// and an approximation for directional SH/DDGI irradiance.
+float3 OpenPBREvaluateDiffuseIndirect(OpenPBRSurface surface, float3 diffuse_lighting)
+{
+    return diffuse_lighting * surface.diffuse_albedo * surface.dielectric_view_energy_complement;
+}
+
+// Directional-hemispherical reflection used with a prefiltered environment.
+// The ideal-metal complement restores the energy lost by GGX single scatter;
+// the MMS term makes a white metal return unit energy in a white furnace.
+float3 OpenPBREvaluateSpecularIndirectResponse(OpenPBRSurface surface)
+{
+    float dielectric_single_scatter = 1.0f - surface.dielectric_view_energy_complement;
+    float metal_single_scatter      = 1.0f - surface.metal_view_energy_complement;
+
+    float3 response = surface.specular_color * surface.dielectricness * dielectric_single_scatter;
+    response += OpenPBR_MetalF82(
+                    surface.weighted_base_color,
+                    surface.specular_color,
+                    surface.NoV) *
+                surface.darkened_metal * metal_single_scatter;
+    if (surface.alpha >= OPENPBR_METAL_MMS_MIN_ALPHA)
+    {
+        response += surface.metal_mms_scale * surface.metal_view_energy_complement;
+    }
+    return max(response, 0.0f);
 }
 
 // Per-light BRDF evaluation. Returns f * light.color * illuminance * occlusion,

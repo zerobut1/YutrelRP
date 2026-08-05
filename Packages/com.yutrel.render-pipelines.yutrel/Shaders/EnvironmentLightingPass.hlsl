@@ -18,22 +18,30 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
     gbuffer.uv          = input.uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    // v1: OpenPBR environment lighting (IBL) is not implemented yet; keep the
-    // existing Standard-only path so OpenPBR pixels retain their direct light.
-    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
+    float screen_space_AO    = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
+    float3 diffuse_lighting  = EvaluateEnvironmentDiffuseSH(gbuffer_data.normal_WS) * _EnvironmentIntensity *
+                               _EnvironmentDiffuseMultiplier;
+
+    if (gbuffer_data.shading_model_id == SHADING_MODEL_STANDARD)
     {
-        discard;
+        StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
+        float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
+        EnvironmentLightingResult environment =
+            EvaluateEnvironmentLighting(surface, diffuse_lighting, final_diffuse_AO, true);
+        return float4(ApplyPreExposure(environment.diffuse + environment.specular), 0.0f);
     }
 
-    StandardSurface surface = GBuffer2StandardSurface(gbuffer_data);
-    float screen_space_AO   = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
-    float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
-    float3 diffuse_lighting = EvaluateEnvironmentDiffuseSH(surface.normal_WS) * _EnvironmentIntensity *
-                              _EnvironmentDiffuseMultiplier;
-    EnvironmentLightingResult environment =
-        EvaluateEnvironmentLighting(surface, diffuse_lighting, final_diffuse_AO, true);
+    if (gbuffer_data.shading_model_id == SHADING_MODEL_OPENPBR)
+    {
+        OpenPBRSurface surface = GBuffer2OpenPBRSurface(gbuffer_data);
+        float final_diffuse_AO = min(saturate(gbuffer_data.material_AO), screen_space_AO);
+        EnvironmentLightingResult environment =
+            EvaluateOpenPBREnvironmentLighting(surface, diffuse_lighting, final_diffuse_AO, true);
+        return float4(ApplyPreExposure(environment.diffuse + environment.specular), 0.0f);
+    }
 
-    return float4(ApplyPreExposure(environment.diffuse + environment.specular), 0.0f);
+    discard;
+    return 0.0f;
 }
 
 #endif

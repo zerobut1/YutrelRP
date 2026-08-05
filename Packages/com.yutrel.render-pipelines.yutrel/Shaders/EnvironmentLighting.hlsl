@@ -2,6 +2,7 @@
 #define YUTREL_ENVIRONMENT_LIGHTING_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
+#include "Utils/ShadingModelOpenPBR.hlsl"
 #include "Utils/ShadingModelStandard.hlsl"
 
 TEXTURECUBE(_EnvironmentReflectionCube);
@@ -107,6 +108,37 @@ EnvironmentLightingResult EvaluateEnvironmentLighting(
 
     result.diffuse *= 1.0f - specular_dfg;
     result.specular = EvaluateEnvironmentSpecular(surface, specular_dfg, energy_compensation, specular_AO);
+    return result;
+}
+
+float3 EvaluateOpenPBREnvironmentSpecular(OpenPBRSurface surface, float diffuse_visibility)
+{
+    float3 reflection_direction = reflect(-surface.view_direction_WS, surface.normal_WS);
+    reflection_direction        = lerp(reflection_direction, surface.normal_WS, surface.alpha * surface.alpha);
+    float perceptual_roughness  = sqrt(surface.alpha);
+    float mip_level             = EnvironmentPerceptualRoughnessToMipmapLevel(perceptual_roughness);
+    float4 encoded_specular     = SAMPLE_TEXTURECUBE_LOD(
+        _EnvironmentReflectionCube,
+        sampler_EnvironmentReflectionCube,
+        reflection_direction,
+        mip_level);
+    float3 prefiltered_specular = DecodeHDREnvironment(encoded_specular, _EnvironmentReflectionCube_HDR);
+
+    float specular_AO = saturate(
+        pow(surface.NoV + diffuse_visibility, exp2(-16.0f * surface.alpha - 1.0f)) - 1.0f + diffuse_visibility);
+    return prefiltered_specular * OpenPBREvaluateSpecularIndirectResponse(surface) * specular_AO *
+           _EnvironmentIntensity * _EnvironmentSpecularMultiplier;
+}
+
+EnvironmentLightingResult EvaluateOpenPBREnvironmentLighting(
+    OpenPBRSurface surface,
+    float3 diffuse_lighting,
+    float diffuse_visibility,
+    bool specular_enabled)
+{
+    EnvironmentLightingResult result;
+    result.diffuse  = OpenPBREvaluateDiffuseIndirect(surface, diffuse_lighting) * saturate(diffuse_visibility);
+    result.specular = specular_enabled ? EvaluateOpenPBREnvironmentSpecular(surface, diffuse_visibility) : 0.0f;
     return result;
 }
 
