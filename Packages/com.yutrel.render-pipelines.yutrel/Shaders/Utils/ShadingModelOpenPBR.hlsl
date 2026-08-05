@@ -129,6 +129,10 @@ float3 OpenPBREvaluateBRDF(OpenPBRSurface surface, Light light)
                      diffuse_factor * NoL;
 
     float3 f = specular + metal_ms + diffuse;
+    // Defensive: never let NaN/Inf leak into the float16 scene color (which would
+    // clamp to 65504 and show as bright edge artifacts). BRDF inputs are bounded,
+    // but guard against any residual numerical edge case.
+    f = any(isnan(f)) ? 0.0f : f;
     return f * light.color * light.illuminance * light.occlusion;
 }
 

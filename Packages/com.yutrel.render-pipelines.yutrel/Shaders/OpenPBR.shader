@@ -21,6 +21,8 @@ Shader "YutrelRP/OpenPBR"
         _OpenPBRRoughnessTex ("Roughness", 2D) = "white" {}
         [Toggle(_USE_METALLIC_TEX)] _OpenPBRUseMetalnessTex ("Use Metallic Texture", Float) = 0
         _OpenPBRMetalnessTex ("Metallic", 2D) = "white" {}
+        [Toggle(_USE_MATERIAL_AO_TEX)] _OpenPBRUseMaterialAOTex ("Use Material AO Texture", Float) = 0
+        _OpenPBRMaterialAOTex ("Material AO", 2D) = "white" {}
         [Enum(UnityEngine.Rendering.CullMode)] _CullMode ("Cull Mode", Float) = 0
     }
 
@@ -53,6 +55,7 @@ Shader "YutrelRP/OpenPBR"
             #pragma shader_feature_local _USE_NORMAL_TEX
             #pragma shader_feature_local _USE_ROUGHNESS_TEX
             #pragma shader_feature_local _USE_METALLIC_TEX
+            #pragma shader_feature_local _USE_MATERIAL_AO_TEX
             #pragma vertex DefaultLitVertex
             #pragma fragment DefaultLitFragment
             #include "DefaultLit.hlsl"

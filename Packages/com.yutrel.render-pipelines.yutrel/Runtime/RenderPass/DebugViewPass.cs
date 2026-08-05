@@ -118,6 +118,9 @@ namespace YutrelRP
                    mode == YutrelRPDebugSettings.DebugViewMode.GBufferMetallic ||
                    mode == YutrelRPDebugSettings.DebugViewMode.GBufferWorldSpaceNormal ||
                    mode == YutrelRPDebugSettings.DebugViewMode.GBufferSpecular ||
+                   mode == YutrelRPDebugSettings.DebugViewMode.GBufferOpenPBRSpecularColor ||
+                   mode == YutrelRPDebugSettings.DebugViewMode.GBufferOpenPBRSqrtF0 ||
+                   mode == YutrelRPDebugSettings.DebugViewMode.GBufferOpenPBRDiffuseRoughness ||
                    mode == YutrelRPDebugSettings.DebugViewMode.AmbientOcclusion;
         }
 

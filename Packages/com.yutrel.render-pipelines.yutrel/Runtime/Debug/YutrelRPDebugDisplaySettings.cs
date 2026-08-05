@@ -54,6 +54,12 @@ namespace YutrelRP
             CSMCascadeLevels = 8,
             [InspectorName("Scene & Lighting/Ambient Occlusion")]
             AmbientOcclusion = 9,
+            [InspectorName("GBuffer/OpenPBR Specular Color")]
+            GBufferOpenPBRSpecularColor = 10,
+            [InspectorName("GBuffer/OpenPBR Dielectric SqrtF0")]
+            GBufferOpenPBRSqrtF0 = 11,
+            [InspectorName("GBuffer/OpenPBR Diffuse Roughness")]
+            GBufferOpenPBRDiffuseRoughness = 12,
         }
 
         internal enum DDGIProbeDebugMode
@@ -315,7 +321,10 @@ namespace YutrelRP
                         new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferRoughness, "Roughness"),
                         new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferMetallic, "Metallic"),
                         new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferSpecular, "Specular"),
-                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferWorldSpaceNormal, "World Space Normal"))
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferWorldSpaceNormal, "World Space Normal"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferOpenPBRSpecularColor, "OpenPBR Specular Color"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferOpenPBRSqrtF0, "OpenPBR Dielectric SqrtF0"),
+                        new ModeOption(YutrelRPDebugSettings.DebugViewMode.GBufferOpenPBRDiffuseRoughness, "OpenPBR Diffuse Roughness"))
                 }
             });
 

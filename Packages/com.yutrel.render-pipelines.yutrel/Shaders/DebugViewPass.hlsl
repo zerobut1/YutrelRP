@@ -132,12 +132,8 @@ float4 SampleDebugViewGBuffer(float2 uv)
     gbuffer.uv          = uv;
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
-    if (_DebugViewMode == 5 && ShadingModelHasSurfaceNormal(gbuffer_data.shading_model_id))
-    {
-        return float4(gbuffer_data.normal_WS * 0.5f + 0.5f, 1.0f);
-    }
 
-    // OpenPBR-specific channels.
+    // OpenPBR-specific channels (require SHADING_MODEL_OPENPBR).
     if (_DebugViewMode == 10 && gbuffer_data.shading_model_id == SHADING_MODEL_OPENPBR)
     {
         return float4(gbuffer_data.specular_color, 1.0f);
@@ -151,13 +147,21 @@ float4 SampleDebugViewGBuffer(float2 uv)
         return float4(gbuffer_data.diffuse_roughness.xxx, 1.0f);
     }
 
-    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
+    if (_DebugViewMode == 5 && ShadingModelHasSurfaceNormal(gbuffer_data.shading_model_id))
+    {
+        return float4(gbuffer_data.normal_WS * 0.5f + 0.5f, 1.0f);
+    }
+
+    // Shared GBuffer channels are valid for Standard and OpenPBR.
+    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD &&
+        gbuffer_data.shading_model_id != SHADING_MODEL_OPENPBR)
     {
         return float4(0.0f, 0.0f, 0.0f, 1.0f);
     }
 
     if (_DebugViewMode == 1)
     {
+        // Standard: base color; OpenPBR: weighted base color.
         return float4(gbuffer_data.base_color, 1.0f);
     }
     if (_DebugViewMode == 2)
@@ -170,6 +174,7 @@ float4 SampleDebugViewGBuffer(float2 uv)
     }
     if (_DebugViewMode == 4)
     {
+        // Standard: specular; OpenPBR: specular_weight.
         return float4(gbuffer_data.specular.xxx, 1.0f);
     }
     return float4(gbuffer_data.normal_WS * 0.5f + 0.5f, 1.0f);
@@ -198,7 +203,8 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
         return float4(screen_space_AO.xxx, 1.0f);
     }
 
-    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD)
+    if (gbuffer_data.shading_model_id != SHADING_MODEL_STANDARD &&
+        gbuffer_data.shading_model_id != SHADING_MODEL_OPENPBR)
     {
         return float4(1.0f, 1.0f, 1.0f, 1.0f);
     }

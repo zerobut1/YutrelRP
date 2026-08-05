@@ -27,6 +27,8 @@ TEXTURE2D(_OpenPBRRoughnessTex);
 SAMPLER(sampler_OpenPBRRoughnessTex);
 TEXTURE2D(_OpenPBRMetalnessTex);
 SAMPLER(sampler_OpenPBRMetalnessTex);
+TEXTURE2D(_OpenPBRMaterialAOTex);
+SAMPLER(sampler_OpenPBRMaterialAOTex);
 
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float, _OpenPBRBaseWeight)
@@ -44,6 +46,7 @@ UNITY_DEFINE_INSTANCED_PROP(float4, _OpenPBRBaseColorTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _OpenPBRNormalTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _OpenPBRRoughnessTex_ST)
 UNITY_DEFINE_INSTANCED_PROP(float4, _OpenPBRMetalnessTex_ST)
+UNITY_DEFINE_INSTANCED_PROP(float4, _OpenPBRMaterialAOTex_ST)
 UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
 float4 SampleOpenPBRBaseColor(float2 uv)
@@ -102,6 +105,17 @@ float SampleOpenPBRMetalness(float2 uv)
 #endif
 }
 
+float SampleOpenPBRMaterialAO(float2 uv)
+{
+#if defined(_USE_MATERIAL_AO_TEX)
+    float4 material_ao_ST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRMaterialAOTex_ST);
+    float2 material_ao_uv = TransformDefaultLitTextureUV(uv, material_ao_ST);
+    return SAMPLE_TEXTURE2D(_OpenPBRMaterialAOTex, sampler_OpenPBRMaterialAOTex, material_ao_uv).r;
+#else
+    return 1.0f;
+#endif
+}
+
 DefaultLitAlphaClipData BuildOpenPBRAlphaClip(float alpha)
 {
     DefaultLitAlphaClipData alpha_clip;
@@ -145,7 +159,7 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     result.surface.roughness         = roughness;
     result.surface.metallic          = metalness;
     result.surface.specular          = specular_weight;
-    result.surface.material_AO       = 1.0f;
+    result.surface.material_AO       = SampleOpenPBRMaterialAO(input.uv);
     result.surface.specular_color    = specular_color;
     result.surface.diffuse_roughness = diffuse_roughness;
     result.surface.shading_model_id  = SHADING_MODEL_OPENPBR;

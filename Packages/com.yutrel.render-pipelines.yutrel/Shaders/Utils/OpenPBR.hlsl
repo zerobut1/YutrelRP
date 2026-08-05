@@ -182,10 +182,15 @@ float3 OpenPBR_MetalAverageFresnel(float3 f0, float3 f82_tint)
 
 float OpenPBR_D_GGX(float alpha, float NoH)
 {
+    // Matches YutrelRender openpbr_ggx_d: when the half-vector is (nearly)
+    // perpendicular to the normal (cos4 < 1e-16) or tan2 is infinite, the
+    // distribution evaluates to 0 instead of 1/0 -> Inf. Without this guard the
+    // specular term can blow up to float16-Inf (65504) at grazing edges.
     float tan2_h = (1.0f - NoH * NoH) / max(NoH * NoH, OPENPBR_MIN_N_DOT_V * OPENPBR_MIN_N_DOT_V);
     float cos4_h = NoH * NoH * NoH * NoH;
     float e = tan2_h / max(alpha * alpha, OPENPBR_MIN_ALPHA * OPENPBR_MIN_ALPHA);
-    return 1.0f / (PI * alpha * alpha * cos4_h * Square(1.0f + e));
+    float d = 1.0f / (PI * alpha * alpha * cos4_h * Square(1.0f + e));
+    return (isinf(tan2_h) || cos4_h < 1.0e-16f) ? 0.0f : d;
 }
 
 float OpenPBR_G1_GGX(float alpha, float cos_theta_w)
