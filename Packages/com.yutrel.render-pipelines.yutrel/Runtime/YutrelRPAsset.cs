@@ -23,6 +23,10 @@ namespace YutrelRP
         [NonSerialized] private YutrelRenderer[] renderers;
         [NonSerialized] private YutrelDeferredRendererData legacyRendererData;
         [NonSerialized] private readonly HashSet<int> warnedCameraIds = new();
+#if UNITY_EDITOR
+        [NonSerialized] private int sceneViewRendererIndex =
+            YutrelAdditionalCameraData.DefaultRendererIndex;
+#endif
 
         public bool UseSRPBatcher => NeedsMigration && legacySettings != null
             ? legacySettings.useSRPBatcher
@@ -30,6 +34,9 @@ namespace YutrelRP
 
         public IReadOnlyList<YutrelRendererData> RendererDataList => rendererDataList;
         public int DefaultRendererIndex => defaultRendererIndex;
+#if UNITY_EDITOR
+        internal int SceneViewRendererIndex => sceneViewRendererIndex;
+#endif
 
         [Obsolete("Use the Settings property on YutrelDeferredRendererData.")]
         public YutrelDeferredRendererSettings Settings
@@ -118,6 +125,13 @@ namespace YutrelRP
         internal YutrelRenderer GetRenderer(Camera camera)
         {
             var index = YutrelAdditionalCameraData.DefaultRendererIndex;
+#if UNITY_EDITOR
+            if (camera.cameraType == CameraType.SceneView)
+            {
+                index = sceneViewRendererIndex;
+            }
+            else
+#endif
             if (camera.cameraType == CameraType.Game &&
                 camera.TryGetComponent<YutrelAdditionalCameraData>(out var cameraData))
             {
@@ -139,6 +153,16 @@ namespace YutrelRP
 
             return GetRenderer(index);
         }
+
+#if UNITY_EDITOR
+        internal void SetSceneViewRenderer(int index)
+        {
+            sceneViewRendererIndex = index == YutrelAdditionalCameraData.DefaultRendererIndex ||
+                                     ValidateRendererData(index)
+                ? index
+                : YutrelAdditionalCameraData.DefaultRendererIndex;
+        }
+#endif
 
         internal void DestroyRenderers()
         {

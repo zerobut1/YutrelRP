@@ -149,6 +149,36 @@ namespace YutrelRP.Tests
         }
 
         [Test]
+        public void SceneViewRendererOverride_ReusesCachedRenderer()
+        {
+            var asset = ScriptableObject.CreateInstance<YutrelRPAsset>();
+            var defaultData = ScriptableObject.CreateInstance<FakeRendererData>();
+            var overrideData = ScriptableObject.CreateInstance<FakeRendererData>();
+            try
+            {
+                asset.Initialize(true, new YutrelRendererData[] { defaultData, overrideData }, 0);
+
+                asset.SetSceneViewRenderer(1);
+                var first = (FakeRenderer)asset.GetRenderer(asset.SceneViewRendererIndex);
+
+                asset.SetSceneViewRenderer(0);
+                Assert.That(asset.GetRenderer(asset.SceneViewRendererIndex), Is.Not.SameAs(first));
+
+                asset.SetSceneViewRenderer(1);
+                Assert.That(asset.GetRenderer(asset.SceneViewRendererIndex), Is.SameAs(first));
+                Assert.That(first.IsDisposed, Is.False);
+                Assert.That(overrideData.CreateCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                asset.DestroyRenderers();
+                UnityEngine.Object.DestroyImmediate(asset);
+                UnityEngine.Object.DestroyImmediate(defaultData);
+                UnityEngine.Object.DestroyImmediate(overrideData);
+            }
+        }
+
+        [Test]
         public void MissingDefaultRenderer_IsRejected()
         {
             var asset = ScriptableObject.CreateInstance<YutrelRPAsset>();
