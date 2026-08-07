@@ -32,6 +32,7 @@ namespace YutrelRP
 
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
+            OpenPBRLUTs.RegisterGlobals(render_graph, builder);
 
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
         }

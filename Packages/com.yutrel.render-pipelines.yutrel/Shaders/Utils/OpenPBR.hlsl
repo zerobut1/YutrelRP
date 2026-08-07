@@ -12,7 +12,7 @@
 // anisotropic GGX form is documented but not needed until a tangent GBuffer
 // exists.
 //
-// LUT textures are created/bound by Runtime/OpenPBR/OpenPBRLUTs.cs and
+// LUT textures are created and registered by Runtime/OpenPBR/OpenPBRLUTs.cs and
 // contain the Adobe tables copied from YutrelRender (Apache-2.0).
 // ---------------------------------------------------------------------------
 

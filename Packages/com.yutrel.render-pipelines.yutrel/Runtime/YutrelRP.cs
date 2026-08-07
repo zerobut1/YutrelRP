@@ -42,6 +42,7 @@ namespace YutrelRP
 #endif
             asset.DestroyRenderers();
             YutrelDeferredRenderer.CleanupSharedResources();
+            OpenPBRLUTs.Cleanup();
             ToneMappingPass.Cleanup();
             FinalPass.Cleanup();
             YutrelRPRuntimeShaderUtility.ClearWarnings();

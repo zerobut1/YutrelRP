@@ -1,10 +1,12 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
     /// <summary>
     /// Owns the four OpenPBR energy-compensation LUT textures used by the deferred
-    /// lighting passes (directional light, later environment/DDGI).
+    /// directional, environment, and DDGI lighting passes.
     ///
     /// Data comes from <see cref="OpenPBRLUTData"/> (copied from YutrelRender, originally
     /// Adobe openpbr-bsdf commit 8a20d6f9, Apache-2.0). The arrays are uploaded without
@@ -28,19 +30,20 @@ namespace YutrelRP
             ideal_metal_energy_ID = Shader.PropertyToID("_OpenPBR_IdealMetalEnergy"),
             ideal_metal_average_ID = Shader.PropertyToID("_OpenPBR_IdealMetalAverage");
 
-        private static Texture3D s_opaque_dielectric_energy;
-        private static Texture2D s_opaque_dielectric_average;
-        private static Texture2D s_ideal_metal_energy;
-        private static Texture2D s_ideal_metal_average;
-        private static bool s_created;
+        private static RTHandle s_opaque_dielectric_energy;
+        private static RTHandle s_opaque_dielectric_average;
+        private static RTHandle s_ideal_metal_energy;
+        private static RTHandle s_ideal_metal_average;
 
         /// <summary>Idempotent; safe to call every frame from SetupPass.Record.</summary>
         public static void EnsureCreated()
         {
-            if (s_created)
+            if (HasValidTextures())
             {
                 return;
             }
+
+            Cleanup();
 
             if (!SystemInfo.SupportsTextureFormat(TextureFormat.R16))
             {
@@ -50,25 +53,86 @@ namespace YutrelRP
                 return;
             }
 
-            s_opaque_dielectric_energy = CreateTexture3D(
+            s_opaque_dielectric_energy = RTHandles.Alloc(CreateTexture3D(
                 OpenPBRLUTData.OpaqueDielectricEnergyComplement,
-                "OpenPBR_OpaqueDielectricEnergy");
-            s_opaque_dielectric_average = CreateTexture2D(
+                "OpenPBR_OpaqueDielectricEnergy"));
+            s_opaque_dielectric_average = RTHandles.Alloc(CreateTexture2D(
                 OpenPBRLUTData.OpaqueDielectricAverageEnergyComplement, TableSize, TableSize,
-                "OpenPBR_OpaqueDielectricAverage");
-            s_ideal_metal_energy = CreateTexture2D(
+                "OpenPBR_OpaqueDielectricAverage"));
+            s_ideal_metal_energy = RTHandles.Alloc(CreateTexture2D(
                 OpenPBRLUTData.IdealMetalEnergyComplement, TableSize, TableSize,
-                "OpenPBR_IdealMetalEnergy");
-            s_ideal_metal_average = CreateTexture2D(
+                "OpenPBR_IdealMetalEnergy"));
+            s_ideal_metal_average = RTHandles.Alloc(CreateTexture2D(
                 OpenPBRLUTData.IdealMetalAverageEnergyComplement, TableSize, 1,
-                "OpenPBR_IdealMetalAverage");
+                "OpenPBR_IdealMetalAverage"));
+        }
 
-            Shader.SetGlobalTexture(opaque_dielectric_energy_ID, s_opaque_dielectric_energy);
-            Shader.SetGlobalTexture(opaque_dielectric_average_ID, s_opaque_dielectric_average);
-            Shader.SetGlobalTexture(ideal_metal_energy_ID, s_ideal_metal_energy);
-            Shader.SetGlobalTexture(ideal_metal_average_ID, s_ideal_metal_average);
+        /// <summary>
+        /// Registers the LUTs every frame because loading RenderDoc recreates the graphics
+        /// device and clears global shader bindings without reloading managed statics.
+        /// </summary>
+        public static void RegisterGlobals(RenderGraph render_graph, IBaseRenderGraphBuilder builder)
+        {
+            if (!HasValidTextures())
+            {
+                return;
+            }
 
-            s_created = true;
+            builder.SetGlobalTextureAfterPass(
+                render_graph.ImportTexture(s_opaque_dielectric_energy), opaque_dielectric_energy_ID);
+            builder.SetGlobalTextureAfterPass(
+                render_graph.ImportTexture(s_opaque_dielectric_average), opaque_dielectric_average_ID);
+            builder.SetGlobalTextureAfterPass(
+                render_graph.ImportTexture(s_ideal_metal_energy), ideal_metal_energy_ID);
+            builder.SetGlobalTextureAfterPass(
+                render_graph.ImportTexture(s_ideal_metal_average), ideal_metal_average_ID);
+        }
+
+        public static void UseGlobals(IBaseRenderGraphBuilder builder)
+        {
+            if (!HasValidTextures())
+            {
+                return;
+            }
+
+            builder.UseGlobalTexture(opaque_dielectric_energy_ID);
+            builder.UseGlobalTexture(opaque_dielectric_average_ID);
+            builder.UseGlobalTexture(ideal_metal_energy_ID);
+            builder.UseGlobalTexture(ideal_metal_average_ID);
+        }
+
+        public static void Cleanup()
+        {
+            Release(ref s_opaque_dielectric_energy);
+            Release(ref s_opaque_dielectric_average);
+            Release(ref s_ideal_metal_energy);
+            Release(ref s_ideal_metal_average);
+        }
+
+        private static bool HasValidTextures()
+        {
+            return IsValid(s_opaque_dielectric_energy) &&
+                   IsValid(s_opaque_dielectric_average) &&
+                   IsValid(s_ideal_metal_energy) &&
+                   IsValid(s_ideal_metal_average);
+        }
+
+        private static bool IsValid(RTHandle handle)
+        {
+            return handle != null && handle.externalTexture != null;
+        }
+
+        private static void Release(ref RTHandle handle)
+        {
+            if (handle == null)
+            {
+                return;
+            }
+
+            var texture = handle.externalTexture;
+            RTHandles.Release(handle);
+            CoreUtils.Destroy(texture);
+            handle = null;
         }
 
         private static Texture3D CreateTexture3D(ushort[] data, string name)
@@ -81,7 +145,9 @@ namespace YutrelRP
                 hideFlags = HideFlags.HideAndDontSave,
             };
             texture.SetPixelData(data, 0);
-            texture.Apply(false, true);
+            // Keep the tiny CPU copy so Unity can restore this procedural texture
+            // after RenderDoc causes a graphics-device recreation.
+            texture.Apply(false, false);
             return texture;
         }
 
@@ -95,7 +161,7 @@ namespace YutrelRP
                 hideFlags = HideFlags.HideAndDontSave,
             };
             texture.SetPixelData(data, 0);
-            texture.Apply(false, true);
+            texture.Apply(false, false);
             return texture;
         }
     }
