@@ -21,6 +21,7 @@ namespace YutrelRP
         private static readonly int probe_relocation_enabled_ID = Shader.PropertyToID("_DDGIProbeRelocationEnabled");
         private static readonly int probe_classification_enabled_ID =
             Shader.PropertyToID("_DDGIProbeClassificationEnabled");
+        private static readonly int screen_space_ao_ID = RenderTargets.screen_space_ao_ID;
 
         private static Material material;
         private static MaterialPropertyBlock property_block;
@@ -66,6 +67,9 @@ namespace YutrelRP
             pass.GBuffer_C = textures.GBuffer_C;
             pass.GBuffer_D = textures.GBuffer_D;
             pass.scene_depth = textures.scene_depth;
+            pass.screen_space_ao = textures.screen_space_ao.IsValid()
+                ? textures.screen_space_ao
+                : render_graph.defaultResources.whiteTexture;
             pass.probe_irradiance = resources.probe_irradiance;
             pass.probe_distance = resources.probe_distance;
             pass.probe_data = resources.probe_data;
@@ -85,6 +89,7 @@ namespace YutrelRP
             builder.UseTexture(pass.GBuffer_C);
             builder.UseTexture(pass.GBuffer_D);
             builder.UseTexture(pass.scene_depth);
+            builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.probe_irradiance);
             builder.UseTexture(pass.probe_distance);
             builder.UseTexture(pass.probe_data);
@@ -110,6 +115,7 @@ namespace YutrelRP
         private TextureHandle GBuffer_C;
         private TextureHandle GBuffer_D;
         private TextureHandle scene_depth;
+        private TextureHandle screen_space_ao;
         private TextureHandle probe_irradiance;
         private TextureHandle probe_distance;
         private TextureHandle probe_data;
@@ -131,6 +137,7 @@ namespace YutrelRP
             property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
             property_block.SetTexture(GBuffer_D_ID, GBuffer_D);
             property_block.SetTexture(scene_depth_ID, scene_depth);
+            property_block.SetTexture(screen_space_ao_ID, screen_space_ao);
             property_block.SetTexture(probe_irradiance_ID, probe_irradiance);
             property_block.SetTexture(probe_distance_ID, probe_distance);
             property_block.SetTexture(probe_data_ID, probe_data);
