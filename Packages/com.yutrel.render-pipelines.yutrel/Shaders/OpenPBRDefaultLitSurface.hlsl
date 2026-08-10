@@ -236,8 +236,9 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     values.specular_roughness_anisotropy = UNITY_ACCESS_INSTANCED_PROP(
         UnityPerMaterial,
         _OpenPBRSpecularRoughnessAnisotropy);
-    values.specular_ior   = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularIOR);
-    values.shading_normal = SampleOpenPBRNormal(input);
+    values.specular_ior     = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularIOR);
+    values.geometry_opacity = base_color_sample.a;
+    values.shading_normal   = SampleOpenPBRNormal(input);
 
     DefaultLitSurfaceResult result;
     result.surface = OpenPBRMaterialValuesToOpenPBRSurface(

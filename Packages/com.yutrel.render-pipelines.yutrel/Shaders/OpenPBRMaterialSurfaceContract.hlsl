@@ -5,7 +5,7 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Utils/Common.hlsl"
 
-#define YUTREL_OPENPBR_MATERIAL_ABI_VERSION 1
+#define YUTREL_OPENPBR_MATERIAL_ABI_VERSION 2
 
 struct OpenPBRMaterialValues
 {
@@ -18,6 +18,7 @@ struct OpenPBRMaterialValues
     float specular_roughness;
     float specular_roughness_anisotropy;
     float specular_ior;
+    float geometry_opacity;
     float3 shading_normal;
 };
 
