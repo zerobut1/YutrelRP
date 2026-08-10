@@ -19,9 +19,9 @@
 //     entire normal specular_ior range [1, 3].
 // ---------------------------------------------------------------------------
 
-#include "OpenPBR.hlsl"
 #include "GBuffer.hlsl"
 #include "Light.hlsl"
+#include "OpenPBR.hlsl"
 
 struct OpenPBRSurface
 {
@@ -53,14 +53,14 @@ OpenPBRSurface GBuffer2OpenPBRSurface(GBufferData data)
     surface.specular_color      = max(data.specular_color, 0.0f);
     surface.normal_WS           = data.normal_WS;
 
-    float metalness       = saturate(data.metallic);
-    float specular_weight = max(data.specular, 0.0f);
+    float metalness        = saturate(data.metallic);
+    float specular_weight  = max(data.specular, 0.0f);
     surface.dielectricness = 1.0f - metalness;
     surface.darkened_metal = metalness * specular_weight;
 
-    float sqrt_f0 = saturate(data.sqrt_f0);
-    surface.weighted_ior = (1.0f + sqrt_f0) / max(1.0f - sqrt_f0, OPENPBR_MIN_ENERGY_DENOMINATOR);
-    surface.alpha = max(Square(saturate(data.roughness)), OPENPBR_MIN_ALPHA);
+    float sqrt_f0             = saturate(data.sqrt_f0);
+    surface.weighted_ior      = (1.0f + sqrt_f0) / max(1.0f - sqrt_f0, OPENPBR_MIN_ENERGY_DENOMINATOR);
+    surface.alpha             = max(Square(saturate(data.roughness)), OPENPBR_MIN_ALPHA);
     surface.diffuse_roughness = saturate(data.diffuse_roughness);
 
     surface.position_WS       = ComputeWorldSpacePositionFromFullScreenUV(data.uv, data.scene_depth);
@@ -71,7 +71,8 @@ OpenPBRSurface GBuffer2OpenPBRSurface(GBufferData data)
 
     // F82 hemisphere-average of the metal Fresnel (closed form) -> metal MMS scale.
     float3 metal_average_fresnel = OpenPBR_MetalAverageFresnel(
-        surface.weighted_base_color, surface.specular_color);
+        surface.weighted_base_color,
+        surface.specular_color);
     surface.metal_mms_scale = metal_average_fresnel * metal_average_fresnel * surface.darkened_metal;
 
     // View-side energy compensation (independent of the light direction).
@@ -82,7 +83,7 @@ OpenPBRSurface GBuffer2OpenPBRSurface(GBufferData data)
         max(OpenPBR_E_OpaqueDielectricAverage(surface.weighted_ior, surface.alpha),
             OPENPBR_MIN_ENERGY_DENOMINATOR);
     surface.metal_view_energy_complement = OpenPBR_E_IdealMetalEnergy(surface.alpha, surface.NoV);
-    surface.metal_average = OpenPBR_E_IdealMetalAverage(surface.alpha);
+    surface.metal_average                = OpenPBR_E_IdealMetalAverage(surface.alpha);
 
     return surface;
 }
@@ -121,18 +122,18 @@ float3 OpenPBREvaluateSpecularIndirectResponse(OpenPBRSurface surface)
 // where f already contains the cos(theta) factor (matching YutrelRender).
 float3 OpenPBREvaluateBRDF(OpenPBRSurface surface, Light light)
 {
-    float3 L   = light.direction;
-    float  NoL = dot(surface.normal_WS, L);
+    float3 L  = light.direction;
+    float NoL = dot(surface.normal_WS, L);
     if (NoL <= 0.0f)
     {
         return 0.0f;
     }
 
-    float3 V   = surface.view_direction_WS;
-    float3 H   = normalize(V + L);
-    float  NoH = saturate(dot(surface.normal_WS, H));
-    float  LoH = saturate(dot(L, H));
-    float  NoV = surface.NoV;
+    float3 V  = surface.view_direction_WS;
+    float3 H  = normalize(V + L);
+    float NoH = saturate(dot(surface.normal_WS, H));
+    float LoH = saturate(dot(L, H));
+    float NoV = surface.NoV;
 
     // --- specular lobe: D * G1(wo) * G1(wi) / (4 NoV) * combined Fresnel ---
     float3 fresnel = surface.specular_color * surface.dielectricness *
@@ -140,26 +141,26 @@ float3 OpenPBREvaluateBRDF(OpenPBRSurface surface, Light light)
     fresnel += OpenPBR_MetalF82(surface.weighted_base_color, surface.specular_color, LoH) *
                surface.darkened_metal;
 
-    float D      = OpenPBR_D_GGX(surface.alpha, NoH);
-    float G1_v   = OpenPBR_G1_GGX(surface.alpha, NoV);
-    float G1_l   = OpenPBR_G1_GGX(surface.alpha, NoL);
+    float D         = OpenPBR_D_GGX(surface.alpha, NoH);
+    float G1_v      = OpenPBR_G1_GGX(surface.alpha, NoV);
+    float G1_l      = OpenPBR_G1_GGX(surface.alpha, NoL);
     float3 specular = fresnel * D * G1_v * G1_l / (4.0f * NoV);
 
     // --- metal multiple-scattering lobe (only when roughness >= 0.04) ---
-    float metal_light = OpenPBR_E_IdealMetalEnergy(surface.alpha, NoL);
+    float metal_light   = OpenPBR_E_IdealMetalEnergy(surface.alpha, NoL);
     float metal_factors = surface.metal_view_energy_complement * metal_light /
                           max(surface.metal_average, OPENPBR_MIN_ENERGY_DENOMINATOR);
-    metal_factors = min(metal_factors, 1.0f / max(NoL, OPENPBR_MIN_ENERGY_DENOMINATOR));
-    float3 metal_ms = surface.alpha >= OPENPBR_METAL_MMS_MIN_ALPHA
-                          ? surface.metal_mms_scale * metal_factors * INV_PI * NoL
-                          : 0.0f;
+    metal_factors       = min(metal_factors, 1.0f / max(NoL, OPENPBR_MIN_ENERGY_DENOMINATOR));
+    float3 metal_ms     = surface.alpha >= OPENPBR_METAL_MMS_MIN_ALPHA
+                              ? surface.metal_mms_scale * metal_factors * INV_PI * NoL
+                              : 0.0f;
 
     // --- diffuse lobe: EON * dielectric energy compensation ---
     float dielectric_light = OpenPBR_E_OpaqueDielectricEnergy(surface.weighted_ior, surface.alpha, NoL);
     float diffuse_factor   = surface.dielectric_view_compensation * dielectric_light;
     float VoL              = dot(V, L); // raw dot, matching YutrelRender (not saturated)
-    float3 diffuse = OpenPBR_EON(surface.diffuse_albedo, surface.diffuse_roughness, NoV, NoL, VoL) *
-                     diffuse_factor * NoL;
+    float3 diffuse         = OpenPBR_EON(surface.diffuse_albedo, surface.diffuse_roughness, NoV, NoL, VoL) *
+                             diffuse_factor * NoL;
 
     float3 f = specular + metal_ms + diffuse;
     // Defensive: never let NaN/Inf leak into the float16 scene color (which would

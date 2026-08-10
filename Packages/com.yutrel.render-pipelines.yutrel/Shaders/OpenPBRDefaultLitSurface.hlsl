@@ -1,6 +1,8 @@
 #ifndef YUTREL_OPENPBR_DEFAULTLIT_SURFACE_INCLUDED
 #define YUTREL_OPENPBR_DEFAULTLIT_SURFACE_INCLUDED
 
+#include "OpenPBRMaterialSurfaceContract.hlsl"
+
 // ---------------------------------------------------------------------------
 // OpenPBR (DefaultLit / base layer) surface evaluation.
 //
@@ -215,38 +217,32 @@ DefaultLitAlphaClipData EvaluateDefaultLitAlphaClip(DefaultLitSurfaceInput input
 
 DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
 {
+    OpenPBRMaterialValues values;
+    float4 base_color_sample      = SampleOpenPBRBaseColor(input.uv);
+    values.base_weight            = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRBaseWeight);
+    values.base_color             = base_color_sample.rgb;
+    values.base_metalness         = SampleOpenPBRMetalness(input.uv);
+    values.base_diffuse_roughness = UNITY_ACCESS_INSTANCED_PROP(
+        UnityPerMaterial,
+        _OpenPBRBaseDiffuseRoughness);
+    values.specular_weight = UNITY_ACCESS_INSTANCED_PROP(
+        UnityPerMaterial,
+        _OpenPBRSpecularWeight);
+    values.specular_color                = UNITY_ACCESS_INSTANCED_PROP(
+                                               UnityPerMaterial,
+                                               _OpenPBRSpecularColor)
+                                               .rgb;
+    values.specular_roughness            = SampleOpenPBRRoughness(input.uv);
+    values.specular_roughness_anisotropy = UNITY_ACCESS_INSTANCED_PROP(
+        UnityPerMaterial,
+        _OpenPBRSpecularRoughnessAnisotropy);
+    values.specular_ior   = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularIOR);
+    values.shading_normal = SampleOpenPBRNormal(input);
+
     DefaultLitSurfaceResult result;
-
-    // --- parse OpenPBR base-layer parameters (textures where available) ---
-    float base_weight = saturate(UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRBaseWeight));
-    float4 base_color_sample = SampleOpenPBRBaseColor(input.uv);
-    float3 base_color = max(base_color_sample.rgb, 0.0f);
-    float metalness = saturate(SampleOpenPBRMetalness(input.uv));
-    float roughness = saturate(SampleOpenPBRRoughness(input.uv));
-    float specular_weight = max(UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularWeight), 0.0f);
-    float3 specular_color = max(UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularColor).rgb, 0.0f);
-    float ior = max(UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularIOR), 1.0e-6f);
-    float diffuse_roughness = saturate(
-        UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRBaseDiffuseRoughness));
-    // specular_roughness_anisotropy is intentionally ignored in v1 (isotropic).
-    // UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _OpenPBRSpecularRoughnessAnisotropy)
-
-    // --- BasePass folds (see file header) ---
-    result.surface.base_color = base_weight * base_color; // weighted_base_color
-    float sqrt_f0_raw = (ior - 1.0f) / (ior + 1.0f);
-    float weighted_f0 = min(specular_weight * Square(sqrt_f0_raw), 0.9999f);
-    result.surface.sqrt_f0 = sqrt(weighted_f0);
-
-    result.surface.emissive          = 0.0f;
-    result.surface.normal_WS         = SampleOpenPBRNormal(input);
-    result.surface.roughness         = roughness;
-    result.surface.metallic          = metalness;
-    result.surface.specular          = specular_weight;
-    result.surface.material_AO       = SampleOpenPBRMaterialAO(input.uv);
-    result.surface.specular_color    = specular_color;
-    result.surface.diffuse_roughness = diffuse_roughness;
-    result.surface.shading_model_id  = SHADING_MODEL_OPENPBR;
-
+    result.surface = OpenPBRMaterialValuesToOpenPBRSurface(
+        values,
+        SampleOpenPBRMaterialAO(input.uv));
     result.alpha_clip = BuildOpenPBRAlphaClip(base_color_sample.a);
     return result;
 }

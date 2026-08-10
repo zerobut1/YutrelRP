@@ -6,6 +6,8 @@ namespace YutrelRP
 {
     internal sealed class YutrelRayTracingAccelStruct : IDisposable
     {
+        private const string DDGIProbeTracePassName = "DDGIProbeTrace";
+
         private readonly RayTracingAccelerationStructure acceleration_structure;
         private bool build_dirty = true;
 
@@ -32,7 +34,7 @@ namespace YutrelRP
             for (var sub_mesh_index = 0; sub_mesh_index < mesh.subMeshCount; sub_mesh_index++)
             {
                 var material = GetSubMeshMaterial(materials, sub_mesh_index);
-                if (material == null)
+                if (!SupportsDDGIProbeTrace(material))
                 {
                     continue;
                 }
@@ -81,6 +83,11 @@ namespace YutrelRP
 
             var material_index = Mathf.Min(sub_mesh_index, materials.Length - 1);
             return materials[material_index];
+        }
+
+        internal static bool SupportsDDGIProbeTrace(Material material)
+        {
+            return material != null && material.FindPass(DDGIProbeTracePassName) >= 0;
         }
 
         private static RayTracingSubMeshFlags GetSubMeshFlags(Material material)

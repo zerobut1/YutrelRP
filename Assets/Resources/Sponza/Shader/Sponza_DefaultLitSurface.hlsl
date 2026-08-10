@@ -149,6 +149,9 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     result.surface.specular         = 0.5f;
     result.surface.material_AO      = saturate(material_ao_texture);
     result.surface.shading_model_id = 1;
+    result.surface.specular_color   = 1.0f;
+    result.surface.sqrt_f0          = sqrt(0.04f * result.surface.specular);
+    result.surface.diffuse_roughness = 0.0f;
     return result;
 }
 

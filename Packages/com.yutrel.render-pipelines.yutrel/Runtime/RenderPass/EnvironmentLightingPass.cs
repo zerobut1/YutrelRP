@@ -74,7 +74,6 @@ namespace YutrelRP
             builder.UseTexture(pass.screen_space_ao);
             builder.UseTexture(pass.DFG_LUT);
             builder.UseTexture(pass.environment_reflection_cube);
-            OpenPBRLUTs.UseGlobals(builder);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
             builder.SetRenderFunc<EnvironmentLightingPass>(static (pass, context) => pass.Render(context));

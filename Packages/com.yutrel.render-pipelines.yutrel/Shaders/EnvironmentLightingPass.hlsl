@@ -31,15 +31,6 @@ float4 EnvironmentLightingFragment(FullScreenVaryings input) : SV_Target
         return float4(ApplyPreExposure(environment.diffuse + environment.specular), 0.0f);
     }
 
-    if (gbuffer_data.shading_model_id == SHADING_MODEL_OPENPBR)
-    {
-        OpenPBRSurface surface = GBuffer2OpenPBRSurface(gbuffer_data);
-        float final_diffuse_AO = min(saturate(gbuffer_data.material_AO), screen_space_AO);
-        EnvironmentLightingResult environment =
-            EvaluateOpenPBREnvironmentLighting(surface, diffuse_lighting, final_diffuse_AO, true);
-        return float4(ApplyPreExposure(environment.diffuse + environment.specular), 0.0f);
-    }
-
     discard;
     return 0.0f;
 }

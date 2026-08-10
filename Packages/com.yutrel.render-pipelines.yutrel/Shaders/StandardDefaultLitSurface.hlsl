@@ -220,8 +220,8 @@ DefaultLitSurfaceResult EvaluateDefaultLitSurface(DefaultLitSurfaceInput input)
     result.surface.shading_model_id = SHADING_MODEL_STANDARD;
     // OpenPBR fields unused by the Standard model; keep well-defined defaults so
     // the shared GBuffer encoding is deterministic.
-    result.surface.specular_color   = 1.0f;
-    result.surface.sqrt_f0          = sqrt(0.04f * result.surface.specular);
+    result.surface.specular_color    = 1.0f;
+    result.surface.sqrt_f0           = sqrt(0.04f * result.surface.specular);
     result.surface.diffuse_roughness = 0.0f;
     return result;
 }

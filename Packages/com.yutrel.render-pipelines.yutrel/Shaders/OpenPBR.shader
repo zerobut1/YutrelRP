@@ -83,22 +83,5 @@ Shader "YutrelRP/OpenPBR"
             ENDHLSL
         }
 
-        Pass
-        {
-            Name "DDGIProbeTrace"
-            Tags
-            {
-                "LightMode" = "DDGIProbeTrace"
-            }
-
-            HLSLPROGRAM
-            #pragma target 5.0
-            #pragma multi_compile_instancing
-            #pragma shader_feature_local_raytracing _USE_BASECOLOR_TEX
-            #pragma shader_feature_local_raytracing _USE_NORMAL_TEX
-            #pragma raytracing DDGIProbeTrace
-            #include "DefaultLitRayTracing.hlsl"
-            ENDHLSL
-        }
     }
 }

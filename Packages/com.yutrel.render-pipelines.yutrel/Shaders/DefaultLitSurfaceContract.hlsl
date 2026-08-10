@@ -84,18 +84,18 @@ float3 DefaultLitTangentNormalToWorld(float4 packed_normal, DefaultLitSurfaceInp
 GBufferData DefaultLitSurfaceToGBuffer(DefaultLitSurfaceData surface)
 {
     GBufferData gbuffer;
-    gbuffer.base_color       = surface.base_color;
-    gbuffer.emissive         = surface.emissive;
-    gbuffer.normal_WS        = surface.normal_WS;
-    gbuffer.uv               = 0.0f;
-    gbuffer.scene_depth      = 0.0f;
-    gbuffer.roughness        = saturate(surface.roughness);
-    gbuffer.metallic         = saturate(surface.metallic);
-    gbuffer.specular         = saturate(surface.specular);
-    gbuffer.material_AO      = saturate(surface.material_AO);
-    gbuffer.shading_model_id = surface.shading_model_id;
-    gbuffer.specular_color   = surface.specular_color;
-    gbuffer.sqrt_f0          = saturate(surface.sqrt_f0);
+    gbuffer.base_color        = surface.base_color;
+    gbuffer.emissive          = surface.emissive;
+    gbuffer.normal_WS         = surface.normal_WS;
+    gbuffer.uv                = 0.0f;
+    gbuffer.scene_depth       = 0.0f;
+    gbuffer.roughness         = saturate(surface.roughness);
+    gbuffer.metallic          = saturate(surface.metallic);
+    gbuffer.specular          = saturate(surface.specular);
+    gbuffer.material_AO       = saturate(surface.material_AO);
+    gbuffer.shading_model_id  = surface.shading_model_id;
+    gbuffer.specular_color    = surface.specular_color;
+    gbuffer.sqrt_f0           = saturate(surface.sqrt_f0);
     gbuffer.diffuse_roughness = saturate(surface.diffuse_roughness);
     return gbuffer;
 }

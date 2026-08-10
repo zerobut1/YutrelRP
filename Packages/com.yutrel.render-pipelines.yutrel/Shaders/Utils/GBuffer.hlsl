@@ -67,18 +67,18 @@ GBufferData DecodeGBuffer(EncodedGBuffer encoded)
 {
     GBufferData data;
 
-    data.base_color       = encoded.GBuffer_A.rgb;
-    data.emissive         = float3(0, 0, 0);
-    data.normal_WS        = normalize(encoded.GBuffer_B.xyz * 2.0f - 1.0f);
-    data.uv               = encoded.uv;
-    data.scene_depth      = encoded.scene_depth;
-    data.roughness        = encoded.GBuffer_C.r;
-    data.metallic         = encoded.GBuffer_C.g;
-    data.specular         = encoded.GBuffer_C.b;
-    data.material_AO      = saturate(encoded.GBuffer_C.a);
-    data.shading_model_id = DecodeShadingModelID(encoded.GBuffer_A.a);
-    data.specular_color   = encoded.GBuffer_D.rgb;
-    data.sqrt_f0          = encoded.GBuffer_D.a;
+    data.base_color        = encoded.GBuffer_A.rgb;
+    data.emissive          = float3(0, 0, 0);
+    data.normal_WS         = normalize(encoded.GBuffer_B.xyz * 2.0f - 1.0f);
+    data.uv                = encoded.uv;
+    data.scene_depth       = encoded.scene_depth;
+    data.roughness         = encoded.GBuffer_C.r;
+    data.metallic          = encoded.GBuffer_C.g;
+    data.specular          = encoded.GBuffer_C.b;
+    data.material_AO       = saturate(encoded.GBuffer_C.a);
+    data.shading_model_id  = DecodeShadingModelID(encoded.GBuffer_A.a);
+    data.specular_color    = encoded.GBuffer_D.rgb;
+    data.sqrt_f0           = encoded.GBuffer_D.a;
     data.diffuse_roughness = encoded.GBuffer_B.a;
 
     return data;

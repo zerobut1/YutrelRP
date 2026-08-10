@@ -52,7 +52,6 @@ namespace YutrelRP
                 builder.UseTexture(pass.shadow_mask);
                 builder.UseTexture(pass.DFG_LUT);
                 builder.UseBuffer(pass.directional_light_data_buffer);
-                OpenPBRLUTs.UseGlobals(builder);
                 builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
 
                 builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));

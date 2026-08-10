@@ -304,6 +304,34 @@ namespace YutrelRP.Tests
             }
         }
 
+        [Test]
+        public void DDGIProbeTrace_OnlyIncludesMaterialsWithExplicitPass()
+        {
+            var defaultLit = CreateMaterial("YutrelRP/DefaultLit");
+            var openPbr = CreateMaterial("YutrelRP/OpenPBR");
+            var endfield = CreateMaterial("YutrelRP/Endfield/Character");
+            try
+            {
+                Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(defaultLit), Is.True);
+                Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(openPbr), Is.False);
+                Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(endfield), Is.False);
+                Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(null), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(defaultLit);
+                UnityEngine.Object.DestroyImmediate(openPbr);
+                UnityEngine.Object.DestroyImmediate(endfield);
+            }
+        }
+
+        private static Material CreateMaterial(string shaderName)
+        {
+            var shader = Shader.Find(shaderName);
+            Assert.That(shader, Is.Not.Null, $"Shader '{shaderName}' was not found.");
+            return new Material(shader);
+        }
+
         public sealed class FakeRendererData : YutrelRendererData
         {
             public int CreateCount { get; private set; }

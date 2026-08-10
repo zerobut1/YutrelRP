@@ -18,21 +18,12 @@ float4 DDGILightingFragment(FullScreenVaryings input) : SV_Target
     gbuffer.uv          = input.uv;
 
     GBufferData gbufferData = DecodeGBuffer(gbuffer);
-    float screen_space_AO    = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
+    float screen_space_AO   = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, input.uv).r);
     if (gbufferData.shading_model_id == SHADING_MODEL_STANDARD)
     {
         StandardSurface surface = GBuffer2StandardSurface(gbufferData);
         float final_diffuse_AO  = min(surface.material_AO, screen_space_AO);
         float3 diffuse          = surface.diffuse_color * EvaluateDDGIDiffuseLighting(surface) * final_diffuse_AO;
-        return float4(ApplyPreExposure(diffuse), 0.0f);
-    }
-
-    if (gbufferData.shading_model_id == SHADING_MODEL_OPENPBR)
-    {
-        OpenPBRSurface surface  = GBuffer2OpenPBRSurface(gbufferData);
-        float3 diffuse_lighting = EvaluateDDGIDiffuseLighting(surface);
-        float final_diffuse_AO  = min(saturate(gbufferData.material_AO), screen_space_AO);
-        float3 diffuse          = OpenPBREvaluateDiffuseIndirect(surface, diffuse_lighting) * final_diffuse_AO;
         return float4(ApplyPreExposure(diffuse), 0.0f);
     }
 

@@ -2,7 +2,6 @@
 #define YUTREL_DIRECTIONAL_LIGHT_PASS_INCLUDED
 
 #include "Utils/ShadingModelStandard.hlsl"
-#include "Utils/ShadingModelOpenPBR.hlsl"
 
 int _LightIndex;
 
@@ -28,16 +27,6 @@ float4 DirectionalLightFragment(FullScreenVaryings input) : SV_Target
         Light light             = GetDirectionalLight(_LightIndex, gbuffer.uv);
 
         out_color = StandardShading(surface, light);
-        break;
-    }
-    case SHADING_MODEL_OPENPBR:
-    {
-        // OpenPBREvaluateBRDF returns f * light.color * illuminance * occlusion;
-        // f already includes cos(theta), so NoL must NOT be applied again.
-        OpenPBRSurface surface = GBuffer2OpenPBRSurface(gbuffer_data);
-        Light light            = GetDirectionalLight(_LightIndex, gbuffer.uv);
-
-        out_color = OpenPBREvaluateBRDF(surface, light);
         break;
     }
     default:

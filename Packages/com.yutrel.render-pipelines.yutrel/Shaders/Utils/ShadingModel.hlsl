@@ -18,8 +18,7 @@ int DecodeShadingModelID(float encoded_shading_model_id)
 
 bool ShadingModelUsesDeferredLighting(int shading_model_id)
 {
-    return shading_model_id == SHADING_MODEL_STANDARD ||
-           shading_model_id == SHADING_MODEL_OPENPBR;
+    return shading_model_id == SHADING_MODEL_STANDARD;
 }
 
 bool ShadingModelHasSurfaceNormal(int shading_model_id)

@@ -19,8 +19,6 @@ namespace YutrelRP
         internal static void Record(RenderGraph render_graph, Camera camera,
             Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings)
         {
-            OpenPBRLUTs.EnsureCreated();
-
             var exposure = post_process_settings.exposure;
             var pre_exposure = exposure.pre_exposure;
 
@@ -32,8 +30,6 @@ namespace YutrelRP
 
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
-            OpenPBRLUTs.RegisterGlobals(render_graph, builder);
-
             builder.SetRenderFunc<SetupPass>(static (pass, context) => { pass.Render(context); });
         }
 

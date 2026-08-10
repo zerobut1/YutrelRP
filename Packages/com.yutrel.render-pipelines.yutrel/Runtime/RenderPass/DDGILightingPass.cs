@@ -93,7 +93,6 @@ namespace YutrelRP
             builder.UseTexture(pass.probe_irradiance);
             builder.UseTexture(pass.probe_distance);
             builder.UseTexture(pass.probe_data);
-            OpenPBRLUTs.UseGlobals(builder);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             builder.SetRenderFunc<DDGILightingPass>(static (pass, context) => pass.Render(context));
         }
