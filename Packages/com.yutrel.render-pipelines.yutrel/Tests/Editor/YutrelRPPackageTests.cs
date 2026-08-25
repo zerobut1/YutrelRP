@@ -309,19 +309,16 @@ namespace YutrelRP.Tests
         {
             var defaultLit = CreateMaterial("YutrelRP/DefaultLit");
             var openPbr = CreateMaterial("YutrelRP/OpenPBR");
-            var endfield = CreateMaterial("YutrelRP/Endfield/Character");
             try
             {
                 Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(defaultLit), Is.True);
                 Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(openPbr), Is.False);
-                Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(endfield), Is.False);
                 Assert.That(YutrelRayTracingAccelStruct.SupportsDDGIProbeTrace(null), Is.False);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(defaultLit);
                 UnityEngine.Object.DestroyImmediate(openPbr);
-                UnityEngine.Object.DestroyImmediate(endfield);
             }
         }
 

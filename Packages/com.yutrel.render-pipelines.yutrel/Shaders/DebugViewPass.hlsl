@@ -198,7 +198,7 @@ float4 SampleDebugViewAmbientOcclusion(float2 uv)
 
     GBufferData gbuffer_data = DecodeGBuffer(gbuffer);
     float screen_space_AO    = saturate(SAMPLE_TEXTURE2D(_ScreenSpaceAO, sampler_ScreenSpaceAO, uv).r);
-    if (gbuffer_data.shading_model_id == SHADING_MODEL_ENDFIELD)
+    if (gbuffer_data.shading_model_id == SHADING_MODEL_FORWARD_ONLY)
     {
         return float4(screen_space_AO.xxx, 1.0f);
     }

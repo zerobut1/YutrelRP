@@ -5,14 +5,14 @@ using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
-    internal class EndfieldForwardPass
+    internal class ForwardOnlyPass
     {
         private const int environment_diffuse_none = 0;
         private const int environment_diffuse_sh = 1;
         private const int environment_diffuse_ddgi = 2;
 
-        private static readonly ProfilingSampler sampler = new("Endfield Forward Pass");
-        private static readonly ShaderTagId shader_tag_id = new("EndfieldForward");
+        private static readonly ProfilingSampler sampler = new("Forward Only Pass");
+        private static readonly ShaderTagId shader_tag_id = new("YutrelForwardOnly");
         private static readonly int directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount");
         private static readonly int environment_diffuse_mode_ID = Shader.PropertyToID("_EnvironmentDiffuseMode");
         private static readonly int environment_specular_enabled_ID =
@@ -57,7 +57,7 @@ namespace YutrelRP
             {
                 if (!warned_missing_dfg_lut)
                 {
-                    Debug.LogError("YutrelRP: EndfieldForwardPass skipped because the fixed DFG LUT is missing at Resources/Texture/DFG_LUT.");
+                    Debug.LogError("YutrelRP: ForwardOnlyPass skipped because the fixed DFG LUT is missing from the runtime shader resources.");
                     warned_missing_dfg_lut = true;
                 }
 
@@ -79,7 +79,7 @@ namespace YutrelRP
             }
 
             using var builder =
-                render_graph.AddRasterRenderPass<EndfieldForwardPass>(sampler.name, out var pass, sampler);
+                render_graph.AddRasterRenderPass<ForwardOnlyPass>(sampler.name, out var pass, sampler);
 
             var renderer_desc = new RendererListDesc(shader_tag_id, culling_results, camera)
             {
@@ -143,7 +143,7 @@ namespace YutrelRP
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);
             builder.AllowGlobalStateModification(true);
-            builder.SetRenderFunc<EndfieldForwardPass>(static (pass, context) => pass.Render(context));
+            builder.SetRenderFunc<ForwardOnlyPass>(static (pass, context) => pass.Render(context));
         }
 
         private RendererListHandle renderer_list;

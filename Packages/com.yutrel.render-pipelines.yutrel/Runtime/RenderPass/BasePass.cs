@@ -12,7 +12,7 @@ namespace YutrelRP
         private static readonly ShaderTagId[] shader_tag_ids =
         {
             new("GBuffer"),
-            new("EndfieldBase")
+            new("YutrelForwardOnlyBase")
         };
 
         public static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,

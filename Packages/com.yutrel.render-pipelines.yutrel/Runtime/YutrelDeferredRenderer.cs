@@ -123,7 +123,7 @@ namespace YutrelRP
                 EnvironmentLightingPass.Record(renderGraph, textures, lightResources);
             }
 
-            EndfieldForwardPass.Record(
+            ForwardOnlyPass.Record(
                 renderGraph,
                 camera,
                 cullingResults,
