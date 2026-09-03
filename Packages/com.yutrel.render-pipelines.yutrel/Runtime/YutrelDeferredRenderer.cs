@@ -123,6 +123,9 @@ namespace YutrelRP
                 EnvironmentLightingPass.Record(renderGraph, textures, lightResources);
             }
 
+            var currentEndfieldSettings = EndfieldVolumeSettings.Resolve(VolumeManager.instance.stack);
+            var useScreenSpaceAo = settings.ambientOcclusionSettings != null &&
+                                   settings.ambientOcclusionSettings.mode != AmbientOcclusionSettings.Mode.Disabled;
             ForwardOnlyPass.Record(
                 renderGraph,
                 camera,
@@ -130,7 +133,9 @@ namespace YutrelRP
                 textures,
                 lightResources,
                 currentDdgiResources,
-                currentDdgiSettings);
+                currentDdgiSettings,
+                currentEndfieldSettings,
+                useScreenSpaceAo);
 
             SkyboxPass.Record(renderGraph, camera, textures, lightResources);
 

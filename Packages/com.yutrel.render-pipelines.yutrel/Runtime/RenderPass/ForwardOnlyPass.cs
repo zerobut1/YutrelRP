@@ -33,6 +33,12 @@ namespace YutrelRP
             Shader.PropertyToID("_DDGIProbeRelocationEnabled");
         private static readonly int probe_classification_enabled_ID =
             Shader.PropertyToID("_DDGIProbeClassificationEnabled");
+        private static readonly int endfield_shadow_fill_color_ID =
+            Shader.PropertyToID("_EndfieldShadowFillColor");
+        private static readonly int endfield_shadow_fill_intensity_ID =
+            Shader.PropertyToID("_EndfieldShadowFillIntensity");
+        private static readonly int endfield_use_screen_space_ao_ID =
+            Shader.PropertyToID("_EndfieldUseScreenSpaceAO");
 
         private static readonly int[] ibl_sh_IDs =
         {
@@ -51,7 +57,8 @@ namespace YutrelRP
 
         internal static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
             RenderTargets textures, LightResources light_resources, DDGIResources ddgi_resources,
-            ResolvedDDGISettings ddgi_settings)
+            ResolvedDDGISettings ddgi_settings, ResolvedEndfieldSettings endfield_settings,
+            bool use_screen_space_ao)
         {
             if (!light_resources.has_DFG_LUT)
             {
@@ -100,9 +107,16 @@ namespace YutrelRP
             pass.environment_specular_multiplier = light_resources.environment_specular_multiplier;
             pass.ibl_roughness_one_level = light_resources.ibl_roughness_one_level;
             pass.ambient_probe = light_resources.environment_diffuse_sh;
+            pass.screen_space_ao = textures.screen_space_ao.IsValid()
+                ? textures.screen_space_ao
+                : render_graph.defaultResources.whiteTexture;
+            pass.endfield_shadow_fill_color = endfield_settings.shadow_fill_color;
+            pass.endfield_shadow_fill_intensity = endfield_settings.shadow_fill_intensity;
+            pass.use_screen_space_ao = use_screen_space_ao;
 
             builder.UseRendererList(pass.renderer_list);
             builder.UseTexture(pass.DFG_LUT);
+            builder.UseTexture(pass.screen_space_ao);
             if (pass.directional_light_count > 0)
             {
                 builder.UseBuffer(pass.directional_light_data_buffer);
@@ -172,9 +186,17 @@ namespace YutrelRP
         private float irradiance_encoding_gamma;
         private int probe_relocation_enabled;
         private int probe_classification_enabled;
+        private TextureHandle screen_space_ao;
+        private Color endfield_shadow_fill_color;
+        private float endfield_shadow_fill_intensity;
+        private bool use_screen_space_ao;
 
         private void Render(RasterGraphContext context)
         {
+            context.cmd.SetGlobalVector(endfield_shadow_fill_color_ID, endfield_shadow_fill_color);
+            context.cmd.SetGlobalFloat(endfield_shadow_fill_intensity_ID, endfield_shadow_fill_intensity);
+            context.cmd.SetGlobalFloat(endfield_use_screen_space_ao_ID, use_screen_space_ao ? 1.0f : 0.0f);
+            context.cmd.SetGlobalTexture(RenderTargets.screen_space_ao_ID, screen_space_ao);
             context.cmd.SetGlobalInt(directional_light_count_ID, directional_light_count);
             if (directional_light_count > 0)
             {
