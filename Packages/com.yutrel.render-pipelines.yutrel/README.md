@@ -1,6 +1,6 @@
 # Yutrel Render Pipeline
 
-YutrelRP is a desktop-focused deferred Scriptable Render Pipeline for Unity 6000.5.
+YutrelRP is a desktop-focused deferred Scriptable Render Pipeline for Unity 6000.6 and SRP Core 17.6.0.
 
 ## Install from disk
 

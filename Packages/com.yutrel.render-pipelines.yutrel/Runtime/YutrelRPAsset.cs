@@ -22,7 +22,7 @@ namespace YutrelRP
 
         [NonSerialized] private YutrelRenderer[] renderers;
         [NonSerialized] private YutrelDeferredRendererData legacyRendererData;
-        [NonSerialized] private readonly HashSet<int> warnedCameraIds = new();
+        [NonSerialized] private readonly HashSet<EntityId> warnedCameraIds = new();
 #if UNITY_EDITOR
         [NonSerialized] private int sceneViewRendererIndex =
             YutrelAdditionalCameraData.DefaultRendererIndex;
@@ -140,7 +140,7 @@ namespace YutrelRP
 
             if (index != YutrelAdditionalCameraData.DefaultRendererIndex && !ValidateRendererData(index))
             {
-                var cameraId = camera.GetEntityId().GetHashCode();
+                var cameraId = camera.GetEntityId();
                 if (warnedCameraIds.Add(cameraId))
                 {
                     Debug.LogWarning(
