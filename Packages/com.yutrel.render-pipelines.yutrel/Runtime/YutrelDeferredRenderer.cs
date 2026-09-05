@@ -132,8 +132,6 @@ namespace YutrelRP
                 cullingResults,
                 textures,
                 lightResources,
-                currentDdgiResources,
-                currentDdgiSettings,
                 currentEndfieldSettings,
                 useScreenSpaceAo);
 
