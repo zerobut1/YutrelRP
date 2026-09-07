@@ -12,22 +12,36 @@ namespace YutrelRP
         public const float DefaultAmbientIntensity = 0.28772247f;
         public const float DefaultLightingReferenceScale = 1.6243868f;
         public const float MinLightingReferenceScale = 0.0001f;
+        public const float DefaultEndfieldScenePreExposure = 1.0f;
+        public const float MinEndfieldScenePreExposure = 0.0f;
+        public const float ReferenceIlluminanceLux = 100000.0f;
 
         public readonly float lighting_reference_scale;
         public readonly Color ambient_color;
         public readonly float ambient_intensity;
+        public readonly float endfield_scene_pre_exposure;
 
         public ResolvedEndfieldSettings(Color ambient_color, float ambient_intensity,
-            float lighting_reference_scale = DefaultLightingReferenceScale)
+            float lighting_reference_scale = DefaultLightingReferenceScale,
+            float endfield_scene_pre_exposure = DefaultEndfieldScenePreExposure)
         {
             this.lighting_reference_scale = Mathf.Max(MinLightingReferenceScale, lighting_reference_scale);
             this.ambient_color = ambient_color;
             this.ambient_intensity = Mathf.Max(0.0f, ambient_intensity);
+            this.endfield_scene_pre_exposure = Mathf.Max(
+                MinEndfieldScenePreExposure, endfield_scene_pre_exposure);
         }
 
         public static ResolvedEndfieldSettings Default => new(
             DefaultAmbientColor,
             DefaultAmbientIntensity);
+
+        public float GetYutrelInputScale(float yutrel_pre_exposure)
+        {
+            var safe_yutrel_pre_exposure = Mathf.Max(yutrel_pre_exposure, 1e-12f);
+            return lighting_reference_scale /
+                   (ReferenceIlluminanceLux * safe_yutrel_pre_exposure);
+        }
 
         public static ResolvedEndfieldSettings Resolve(VolumeStack stack)
         {
@@ -41,10 +55,17 @@ namespace YutrelRP
     [SupportedOnRenderPipeline(typeof(YutrelRPAsset))]
     public sealed class EndfieldVolumeSettings : VolumeComponent
     {
-        [Tooltip("Core directional light intensity at 100000 lux. Output uses the reciprocal scale before camera exposure.")]
+        [Tooltip("Endfield Core directional light intensity at 100000 lux.")]
         public MinFloatParameter lightingReferenceScale = new(
             ResolvedEndfieldSettings.DefaultLightingReferenceScale,
             ResolvedEndfieldSettings.MinLightingReferenceScale);
+
+        [Header("Scene Output")]
+        [DisplayInfo(name = "Scene Pre-Exposure")]
+        [Tooltip("Endfield scene-color pre-exposure. Keep at 1 until a capture-specific value is available.")]
+        public MinFloatParameter endfieldScenePreExposure = new(
+            ResolvedEndfieldSettings.DefaultEndfieldScenePreExposure,
+            ResolvedEndfieldSettings.MinEndfieldScenePreExposure);
 
         [Header("Ambient")]
         [DisplayInfo(name = "Color")]
@@ -58,7 +79,7 @@ namespace YutrelRP
 
         [DisplayInfo(name = "Intensity")]
         [FormerlySerializedAs("shadowFillIntensity")]
-        [Tooltip("Flat ambient intensity in Core units. Zero retains the shader's base shadow fill. Output receives the reciprocal lighting scale and camera exposure.")]
+        [Tooltip("Flat ambient intensity in Endfield Core units. Zero retains the shader's base shadow fill.")]
         public MinFloatParameter ambientIntensity = new(
             ResolvedEndfieldSettings.DefaultAmbientIntensity,
             0.0f);
@@ -71,7 +92,10 @@ namespace YutrelRP
         internal ResolvedEndfieldSettings Resolve()
         {
             return new ResolvedEndfieldSettings(
-                ambientColor.value, ambientIntensity.value, lightingReferenceScale.value);
+                ambientColor.value,
+                ambientIntensity.value,
+                lightingReferenceScale.value,
+                endfieldScenePreExposure.value);
         }
     }
 }

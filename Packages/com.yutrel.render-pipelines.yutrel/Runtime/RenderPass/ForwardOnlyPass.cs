@@ -12,16 +12,18 @@ namespace YutrelRP
         private static readonly int directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount");
         private static readonly int endfield_ambient_color_ID =
             Shader.PropertyToID("_EndfieldAmbientColor");
-        private static readonly int endfield_lighting_input_scale_ID =
-            Shader.PropertyToID("_EndfieldLightingInputScale");
+        private static readonly int endfield_yutrel_input_scale_ID =
+            Shader.PropertyToID("_EndfieldYutrelInputScale");
         private static readonly int endfield_ambient_intensity_ID =
             Shader.PropertyToID("_EndfieldAmbientIntensity");
+        private static readonly int endfield_scene_pre_exposure_ID =
+            Shader.PropertyToID("_EndfieldScenePreExposure");
         private static readonly int endfield_use_screen_space_ao_ID =
             Shader.PropertyToID("_EndfieldUseScreenSpaceAO");
 
         internal static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
             RenderTargets textures, LightResources light_resources, ResolvedEndfieldSettings endfield_settings,
-            bool use_screen_space_ao)
+            float yutrel_pre_exposure, bool use_screen_space_ao)
         {
             // Endfield uses its own BRDF LUT and Volume ambient, including scenes without a main light.
             using var builder =
@@ -40,8 +42,10 @@ namespace YutrelRP
                 ? textures.screen_space_ao
                 : render_graph.defaultResources.whiteTexture;
             pass.endfield_ambient_color = endfield_settings.ambient_color;
-            pass.endfield_lighting_input_scale = endfield_settings.lighting_reference_scale / 100000.0f;
+            pass.endfield_yutrel_input_scale =
+                endfield_settings.GetYutrelInputScale(yutrel_pre_exposure);
             pass.endfield_ambient_intensity = endfield_settings.ambient_intensity;
+            pass.endfield_scene_pre_exposure = endfield_settings.endfield_scene_pre_exposure;
             pass.use_screen_space_ao = use_screen_space_ao;
 
             builder.UseRendererList(pass.renderer_list);
@@ -64,15 +68,17 @@ namespace YutrelRP
         private TextureHandle shadow_mask;
         private TextureHandle screen_space_ao;
         private Color endfield_ambient_color;
-        private float endfield_lighting_input_scale;
+        private float endfield_yutrel_input_scale;
         private float endfield_ambient_intensity;
+        private float endfield_scene_pre_exposure;
         private bool use_screen_space_ao;
 
         private void Render(RasterGraphContext context)
         {
             context.cmd.SetGlobalVector(endfield_ambient_color_ID, endfield_ambient_color);
-            context.cmd.SetGlobalFloat(endfield_lighting_input_scale_ID, endfield_lighting_input_scale);
+            context.cmd.SetGlobalFloat(endfield_yutrel_input_scale_ID, endfield_yutrel_input_scale);
             context.cmd.SetGlobalFloat(endfield_ambient_intensity_ID, endfield_ambient_intensity);
+            context.cmd.SetGlobalFloat(endfield_scene_pre_exposure_ID, endfield_scene_pre_exposure);
             context.cmd.SetGlobalFloat(endfield_use_screen_space_ao_ID, use_screen_space_ao ? 1.0f : 0.0f);
             context.cmd.SetGlobalTexture(RenderTargets.screen_space_ao_ID, screen_space_ao);
             context.cmd.SetGlobalInt(directional_light_count_ID, directional_light_count);

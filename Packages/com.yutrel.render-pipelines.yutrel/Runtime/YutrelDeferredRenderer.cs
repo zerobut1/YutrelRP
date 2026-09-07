@@ -133,6 +133,7 @@ namespace YutrelRP
                 textures,
                 lightResources,
                 currentEndfieldSettings,
+                context.preExposure,
                 useScreenSpaceAo);
 
             SkyboxPass.Record(renderGraph, camera, textures, lightResources);
