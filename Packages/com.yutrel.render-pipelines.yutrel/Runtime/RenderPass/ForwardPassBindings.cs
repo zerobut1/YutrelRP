@@ -14,6 +14,10 @@ namespace YutrelRP
         private readonly int light_count;
         private readonly BufferHandle light_data;
         private readonly TextureHandle shadow_mask, screen_space_ao, white_texture;
+        private readonly TextureHandle environment_cube;
+        private readonly Vector4 environment_cube_hdr;
+        private readonly float ibl_roughness_one_level;
+        private readonly bool environment_available;
         private readonly EndfieldShaderGlobals endfield_globals;
         private readonly DirectionalShadowBindings shadows;
         private readonly float pre_exposure;
@@ -32,6 +36,10 @@ namespace YutrelRP
             this.shadows = shadows;
             this.endfield_globals = endfield_globals;
             this.pre_exposure = pre_exposure;
+            environment_available = lights.has_environment_reflection && lights.environment_reflection_cube.IsValid();
+            environment_cube = environment_available ? lights.environment_reflection_cube : white_texture;
+            environment_cube_hdr = environment_available ? lights.environment_reflection_cube_hdr : Vector4.zero;
+            ibl_roughness_one_level = environment_available ? lights.ibl_roughness_one_level : 0.0f;
         }
 
         internal void DeclareResources(IBaseRenderGraphBuilder builder, bool use_screen_space_ao, bool transparent = false)
@@ -41,6 +49,7 @@ namespace YutrelRP
             builder.UseBuffer(light_data);
             builder.UseTexture(shadow_mask);
             builder.UseTexture(use_screen_space_ao ? screen_space_ao : white_texture);
+            builder.UseTexture(environment_cube);
         }
 
         private class PreparePass
@@ -74,6 +83,9 @@ namespace YutrelRP
             cmd.SetGlobalTexture(RenderTargets.shadow_mask_ID, shadow_mask);
             cmd.SetGlobalTexture(RenderTargets.screen_space_ao_ID,
                 use_screen_space_ao ? screen_space_ao : white_texture);
+            cmd.SetGlobalTexture(LightResources.environment_reflection_cube_ID, environment_cube);
+            cmd.SetGlobalVector(LightResources.environment_reflection_cube_hdr_ID, environment_cube_hdr);
+            cmd.SetGlobalFloat(LightResources.ibl_roughness_one_level_ID, ibl_roughness_one_level);
             cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
             cmd.SetGlobalFloat(inverse_pre_exposure_ID, 1.0f / pre_exposure);
             endfield_globals.Bind(cmd, use_screen_space_ao && ao_available);

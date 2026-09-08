@@ -24,6 +24,10 @@
 Endfield 的环境光、输入尺度和曝光兼容参数集中在 `EndfieldShaderGlobals`，
 通用 TransparentPass 不包含角色、EID 或 stencil 分类分支。
 
+透明衣服 832 属于 Capture 中具有环境镜面反射的材质族：TransparentPass 会显式绑定当前相机
+环境立方图及 HDR 参数，Core 的基础层和次级层继续各自执行 split-sum IBL。环境强度使用
+20000 参考亮度、Lighting Reference Scale 与当前 `P/P_ref`；810 半透明头发保持无 IBL。
+
 无方向光或 ShadowMask 无效时显式绑定白图；关闭阴影时沿用 ShadowMaskPass 的白图回退。
 无方向光仍绑定当前相机创建的 buffer，并将计数设为 0。透明阶段始终绑定白色 SSAO，
 同时将 `_EndfieldUseScreenSpaceAO` 设为 0；不透明阶段维持原来的 SSAO 开关。
