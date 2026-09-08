@@ -98,7 +98,7 @@ namespace YutrelRP
                 pass.directional_shadow_cascade_data_buffer = shadow_resources.directional_cascade_data_buffer;
                 pass.directional_shadow_cascade_count = shadow_settings.directional.cascade_count;
                 pass.directional_shadow_distance_fade =
-                    ShadowMaskPass.GetDirectionalShadowDistanceFade(shadow_settings);
+                    DirectionalShadowBindings.GetDistanceFade(shadow_settings);
 
                 builder.UseTexture(pass.scene_depth);
                 builder.UseBuffer(pass.directional_shadow_vp_matrices_buffer);

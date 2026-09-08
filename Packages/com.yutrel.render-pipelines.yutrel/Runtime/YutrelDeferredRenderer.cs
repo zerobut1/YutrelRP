@@ -73,12 +73,12 @@ namespace YutrelRP
 
             BasePass.Record(renderGraph, camera, cullingResults, textures);
 
+            var shadowBindings = new DirectionalShadowBindings(renderGraph, shadowResources, currentShadowSettings);
             ShadowMaskPass.Record(
                 renderGraph,
                 textures,
                 lightResources,
-                shadowResources,
-                currentShadowSettings,
+                shadowBindings,
                 context.targetSize);
 
             DirectionalLightPass.Record(renderGraph, textures, lightResources);
@@ -126,7 +126,7 @@ namespace YutrelRP
             var currentEndfieldSettings = EndfieldVolumeSettings.Resolve(VolumeManager.instance.stack);
             var useScreenSpaceAo = settings.ambientOcclusionSettings != null &&
                                    settings.ambientOcclusionSettings.mode != AmbientOcclusionSettings.Mode.Disabled;
-            var forwardBindings = new ForwardPassBindings(renderGraph, textures, lightResources,
+            var forwardBindings = new ForwardPassBindings(renderGraph, textures, lightResources, shadowBindings,
                 new EndfieldShaderGlobals(currentEndfieldSettings, context.preExposure), context.preExposure);
             ForwardOnlyPass.Record(renderGraph, camera, cullingResults, textures, forwardBindings, useScreenSpaceAo);
 

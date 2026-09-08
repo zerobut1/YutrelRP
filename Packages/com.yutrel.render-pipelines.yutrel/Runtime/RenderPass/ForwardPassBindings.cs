@@ -15,11 +15,12 @@ namespace YutrelRP
         private readonly BufferHandle light_data;
         private readonly TextureHandle shadow_mask, screen_space_ao, white_texture;
         private readonly EndfieldShaderGlobals endfield_globals;
+        private readonly DirectionalShadowBindings shadows;
         private readonly float pre_exposure;
         private readonly bool ao_available;
 
         internal ForwardPassBindings(RenderGraph render_graph, RenderTargets textures,
-            LightResources lights, EndfieldShaderGlobals endfield_globals, float pre_exposure)
+            LightResources lights, DirectionalShadowBindings shadows, EndfieldShaderGlobals endfield_globals, float pre_exposure)
         {
             light_count = lights.directional_light_count;
             light_data = lights.directional_light_data_buffer;
@@ -28,12 +29,14 @@ namespace YutrelRP
                 ? textures.shadow_mask : white_texture;
             ao_available = textures.screen_space_ao.IsValid();
             screen_space_ao = ao_available ? textures.screen_space_ao : white_texture;
+            this.shadows = shadows;
             this.endfield_globals = endfield_globals;
             this.pre_exposure = pre_exposure;
         }
 
-        internal void DeclareResources(IBaseRenderGraphBuilder builder, bool use_screen_space_ao)
+        internal void DeclareResources(IBaseRenderGraphBuilder builder, bool use_screen_space_ao, bool transparent = false)
         {
+            if (transparent) shadows.DeclareResources(builder);
             // LightResources always allocates this camera's buffer, including zero-light cameras.
             builder.UseBuffer(light_data);
             builder.UseTexture(shadow_mask);
@@ -43,7 +46,7 @@ namespace YutrelRP
         private class PreparePass
         {
             public ForwardPassBindings bindings;
-            public bool use_screen_space_ao;
+            public bool use_screen_space_ao, transparent;
         }
 
         private static readonly ProfilingSampler opaque_sampler = new("Opaque Forward Bindings");
@@ -56,14 +59,16 @@ namespace YutrelRP
             using var builder = render_graph.AddComputePass<PreparePass>(sampler.name, out var data, sampler);
             data.bindings = this;
             data.use_screen_space_ao = use_screen_space_ao;
-            DeclareResources(builder, use_screen_space_ao);
+            data.transparent = transparent;
+            DeclareResources(builder, use_screen_space_ao, transparent);
             builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc<PreparePass>(static (pass, context) =>
-                pass.bindings.Bind(context.cmd, pass.use_screen_space_ao));
+                pass.bindings.Bind(context.cmd, pass.use_screen_space_ao, pass.transparent));
         }
 
-        private void Bind(IBaseCommandBuffer cmd, bool use_screen_space_ao)
+        private void Bind(IBaseCommandBuffer cmd, bool use_screen_space_ao, bool transparent)
         {
+            if (transparent) shadows.BindGlobals(cmd);
             cmd.SetGlobalInt(light_count_ID, light_count);
             cmd.SetGlobalBuffer(LightResources.directional_light_data_ID, light_data);
             cmd.SetGlobalTexture(RenderTargets.shadow_mask_ID, shadow_mask);

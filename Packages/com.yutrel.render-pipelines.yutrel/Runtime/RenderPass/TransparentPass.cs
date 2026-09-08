@@ -22,7 +22,7 @@ namespace YutrelRP
             };
             pass.renderer_list = render_graph.CreateRendererList(desc);
             builder.UseRendererList(pass.renderer_list);
-            bindings.DeclareResources(builder, false);
+            bindings.DeclareResources(builder, false, transparent: true);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
             // Materials own depth/stencil state, including transparent depth writers.
             builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);

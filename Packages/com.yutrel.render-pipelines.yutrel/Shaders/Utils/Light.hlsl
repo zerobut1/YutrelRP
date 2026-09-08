@@ -29,7 +29,7 @@ struct Light
     float occlusion;
 };
 
-Light GetDirectionalLight(int index, float2 uv)
+Light GetUnshadowedDirectionalLight(int index)
 {
     DirectionalLightData data = _DirectionalLightData[index];
     Light light;
@@ -38,7 +38,13 @@ Light GetDirectionalLight(int index, float2 uv)
     light.direction   = normalize(data.direction.xyz);
     light.occlusion   = 1.0f;
 
-    if (data.shadow_data.index >= 0)
+    return light;
+}
+
+Light GetDirectionalLight(int index, float2 uv)
+{
+    Light light = GetUnshadowedDirectionalLight(index);
+    if (_DirectionalLightData[index].shadow_data.index >= 0)
     {
         light.occlusion = saturate(SAMPLE_TEXTURE2D(_ShadowMask, sampler_ShadowMask, uv).r);
     }
