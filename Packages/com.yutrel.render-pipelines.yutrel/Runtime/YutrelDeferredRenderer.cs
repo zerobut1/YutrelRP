@@ -126,17 +126,12 @@ namespace YutrelRP
             var currentEndfieldSettings = EndfieldVolumeSettings.Resolve(VolumeManager.instance.stack);
             var useScreenSpaceAo = settings.ambientOcclusionSettings != null &&
                                    settings.ambientOcclusionSettings.mode != AmbientOcclusionSettings.Mode.Disabled;
-            ForwardOnlyPass.Record(
-                renderGraph,
-                camera,
-                cullingResults,
-                textures,
-                lightResources,
-                currentEndfieldSettings,
-                context.preExposure,
-                useScreenSpaceAo);
+            var forwardBindings = new ForwardPassBindings(renderGraph, textures, lightResources,
+                new EndfieldShaderGlobals(currentEndfieldSettings, context.preExposure), context.preExposure);
+            ForwardOnlyPass.Record(renderGraph, camera, cullingResults, textures, forwardBindings, useScreenSpaceAo);
 
             SkyboxPass.Record(renderGraph, camera, textures, lightResources);
+            TransparentPass.Record(renderGraph, camera, cullingResults, textures, forwardBindings);
 
 #if UNITY_EDITOR
             UnsupportedShadersPass.Record(renderGraph, camera, cullingResults, textures);

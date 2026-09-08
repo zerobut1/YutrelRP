@@ -5,28 +5,28 @@ using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
-    internal class ForwardOnlyPass
+    internal class TransparentPass
     {
-        private static readonly ProfilingSampler sampler = new("Forward Only Pass");
+        private static readonly ProfilingSampler sampler = new("Transparent Pass");
         private static readonly ShaderTagId shader_tag_id = new("YutrelForwardOnly");
 
         internal static void Record(RenderGraph render_graph, Camera camera, CullingResults culling_results,
-            RenderTargets textures, ForwardPassBindings bindings, bool use_screen_space_ao)
+            RenderTargets textures, ForwardPassBindings bindings)
         {
-            bindings.RecordPreparation(render_graph, use_screen_space_ao, transparent: false);
-            using var builder = render_graph.AddRasterRenderPass<ForwardOnlyPass>(sampler.name, out var pass, sampler);
+            bindings.RecordPreparation(render_graph, false, transparent: true);
+            using var builder = render_graph.AddRasterRenderPass<TransparentPass>(sampler.name, out var pass, sampler);
             var desc = new RendererListDesc(shader_tag_id, culling_results, camera)
             {
-                sortingCriteria = SortingCriteria.CommonOpaque,
-                renderQueueRange = RenderQueueRange.opaque
+                sortingCriteria = SortingCriteria.CommonTransparent,
+                renderQueueRange = RenderQueueRange.transparent
             };
             pass.renderer_list = render_graph.CreateRendererList(desc);
             builder.UseRendererList(pass.renderer_list);
-            bindings.DeclareResources(builder, use_screen_space_ao);
+            bindings.DeclareResources(builder, false);
             builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
-            // Materials own depth/stencil state.
+            // Materials own depth/stencil state, including transparent depth writers.
             builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);
-            builder.SetRenderFunc<ForwardOnlyPass>(static (data, context) =>
+            builder.SetRenderFunc<TransparentPass>(static (data, context) =>
             {
                 context.cmd.DrawRendererList(data.renderer_list);
             });
