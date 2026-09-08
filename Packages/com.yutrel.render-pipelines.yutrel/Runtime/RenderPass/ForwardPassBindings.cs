@@ -37,7 +37,8 @@ namespace YutrelRP
             this.endfield_globals = endfield_globals;
             this.pre_exposure = pre_exposure;
             environment_available = lights.has_environment_reflection && lights.environment_reflection_cube.IsValid();
-            environment_cube = environment_available ? lights.environment_reflection_cube : white_texture;
+            environment_cube = environment_available ? lights.environment_reflection_cube
+                : LightResources.ImportBlackEnvironment(render_graph);
             environment_cube_hdr = environment_available ? lights.environment_reflection_cube_hdr : Vector4.zero;
             ibl_roughness_one_level = environment_available ? lights.ibl_roughness_one_level : 0.0f;
         }

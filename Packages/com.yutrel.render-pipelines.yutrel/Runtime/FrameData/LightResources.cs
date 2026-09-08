@@ -27,6 +27,7 @@ namespace YutrelRP
         private static RTHandle dfg_lut_rt_handle;
         private static Texture environment_reflection_texture;
         private static RTHandle environment_reflection_rt_handle;
+        private static RTHandle black_environment_rt_handle;
         private static Texture environment_skybox_texture;
         private static RTHandle environment_skybox_rt_handle;
 
@@ -207,9 +208,20 @@ namespace YutrelRP
 
         public static void Cleanup()
         {
+            if (black_environment_rt_handle != null)
+            {
+                RTHandles.Release(black_environment_rt_handle);
+                black_environment_rt_handle = null;
+            }
             ReleaseDfgLut();
             ReleaseEnvironmentReflection();
             ReleaseEnvironmentSkybox();
+        }
+
+        internal static TextureHandle ImportBlackEnvironment(RenderGraph render_graph)
+        {
+            black_environment_rt_handle ??= RTHandles.Alloc(CoreUtils.blackCubeTexture);
+            return render_graph.ImportTexture(black_environment_rt_handle);
         }
 
         private void ImportDfgLut(RenderGraph render_graph)

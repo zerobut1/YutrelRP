@@ -24,11 +24,16 @@ namespace YutrelRP
             ambient_intensity = settings.ambient_intensity;
             input_scale = settings.GetYutrelInputScale();
             scene_pre_exposure = settings.endfield_scene_pre_exposure;
-            environment_intensity = lights.has_environment_reflection
-                ? 20000.0f * settings.lighting_reference_scale *
+            var has_environment = lights.has_environment_reflection && lights.environment_reflection_cube.IsValid();
+            environment_intensity = has_environment
+                // The Endfield Core input domain is normalized to the 100000-lux
+                // directional-light calibration. Convert the environment's 20000
+                // cd/m^2 reference before applying the shared exposure ratio.
+                ? (20000.0f / ResolvedEndfieldSettings.ReferenceIlluminanceLux) *
+                  settings.lighting_reference_scale *
                   (pre_exposure / ResolvedEndfieldSettings.ReferencePreExposure)
                 : 0.0f;
-            environment_specular_multiplier = lights.has_environment_reflection
+            environment_specular_multiplier = has_environment
                 ? lights.environment_specular_multiplier : 0.0f;
         }
 
