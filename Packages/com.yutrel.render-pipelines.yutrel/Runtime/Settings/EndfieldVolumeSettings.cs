@@ -15,6 +15,8 @@ namespace YutrelRP
         public const float DefaultEndfieldScenePreExposure = 1.0f;
         public const float MinEndfieldScenePreExposure = 0.0f;
         public const float ReferenceIlluminanceLux = 100000.0f;
+        // Fixed calibration: EV100 14, compensation 0. Do not follow mutable camera defaults.
+        public const float ReferencePreExposure = 1.0f / (1.2f * 16384.0f);
 
         public readonly float lighting_reference_scale;
         public readonly Color ambient_color;
@@ -36,11 +38,11 @@ namespace YutrelRP
             DefaultAmbientColor,
             DefaultAmbientIntensity);
 
-        public float GetYutrelInputScale(float yutrel_pre_exposure)
+        public float GetYutrelInputScale()
         {
-            var safe_yutrel_pre_exposure = Mathf.Max(yutrel_pre_exposure, 1e-12f);
+            // The shader multiplies the current camera's _PreExposure exactly once.
             return lighting_reference_scale /
-                   (ReferenceIlluminanceLux * safe_yutrel_pre_exposure);
+                   (ReferenceIlluminanceLux * ReferencePreExposure);
         }
 
         public static ResolvedEndfieldSettings Resolve(VolumeStack stack)
@@ -55,7 +57,7 @@ namespace YutrelRP
     [SupportedOnRenderPipeline(typeof(YutrelRPAsset))]
     public sealed class EndfieldVolumeSettings : VolumeComponent
     {
-        [Tooltip("Endfield Core directional light intensity at 100000 lux.")]
+        [Tooltip("Endfield Core directional light intensity at 100000 lux and reference EV100 14 (compensation 0). Camera exposure scales this input.")]
         public MinFloatParameter lightingReferenceScale = new(
             ResolvedEndfieldSettings.DefaultLightingReferenceScale,
             ResolvedEndfieldSettings.MinLightingReferenceScale);

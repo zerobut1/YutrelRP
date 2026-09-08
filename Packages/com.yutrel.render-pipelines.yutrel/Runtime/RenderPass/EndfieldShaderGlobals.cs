@@ -15,11 +15,11 @@ namespace YutrelRP
         private readonly Color ambient_color;
         private readonly float ambient_intensity, input_scale, scene_pre_exposure;
 
-        internal EndfieldShaderGlobals(ResolvedEndfieldSettings settings, float pre_exposure)
+        internal EndfieldShaderGlobals(ResolvedEndfieldSettings settings)
         {
             ambient_color = settings.ambient_color;
             ambient_intensity = settings.ambient_intensity;
-            input_scale = settings.GetYutrelInputScale(pre_exposure);
+            input_scale = settings.GetYutrelInputScale();
             scene_pre_exposure = settings.endfield_scene_pre_exposure;
         }
 

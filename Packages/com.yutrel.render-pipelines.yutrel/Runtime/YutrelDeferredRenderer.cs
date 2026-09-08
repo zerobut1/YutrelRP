@@ -127,7 +127,7 @@ namespace YutrelRP
             var useScreenSpaceAo = settings.ambientOcclusionSettings != null &&
                                    settings.ambientOcclusionSettings.mode != AmbientOcclusionSettings.Mode.Disabled;
             var forwardBindings = new ForwardPassBindings(renderGraph, textures, lightResources, shadowBindings,
-                new EndfieldShaderGlobals(currentEndfieldSettings, context.preExposure), context.preExposure);
+                new EndfieldShaderGlobals(currentEndfieldSettings), context.preExposure);
             ForwardOnlyPass.Record(renderGraph, camera, cullingResults, textures, forwardBindings, useScreenSpaceAo);
 
             SkyboxPass.Record(renderGraph, camera, textures, lightResources);
