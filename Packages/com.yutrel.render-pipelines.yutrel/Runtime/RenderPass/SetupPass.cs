@@ -52,9 +52,10 @@ namespace YutrelRP
             // scene depth
             var scene_depth_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
-                colorFormat = SystemInfo.GetGraphicsFormat(DefaultFormat.LDR),
-                depthBufferBits = DepthBits.Depth32,
-                clearBuffer = camera.clearFlags <= CameraClearFlags.Depth,
+                format = GraphicsFormat.D32_SFloat_S8_UInt,
+                // This is a new per-camera attachment, not inherited camera depth.
+                // RenderGraph clears depth to far and stencil to zero on first use.
+                clearBuffer = true,
                 name = "Scene Depth"
             };
             textures.scene_depth = render_graph.CreateTexture(scene_depth_desc);
