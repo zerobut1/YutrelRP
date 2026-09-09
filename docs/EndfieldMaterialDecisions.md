@@ -53,6 +53,15 @@ Endfield Settings 的 **Scene Pre-Exposure** 是独立输出系数，默认 1：
 | 假阴影 | 791/796/799 保持已有 stencil 分类与颜色叠加，不当作普通受光材质另加曝光或阴影。 |
 | 雾效 | 当前明确不需要，不接捕获雾或新增管线雾效。 |
 | 湿润 | Core 有算法，当前 Unity 适配使用干燥路径；湿润输入接入另行处理。 |
+| 透明材质 ShadowCaster | 2026-09-09 明确暂不支持透明材质独立投影，包括绒毛 827（捕获投影 310）与透明衣服 832（捕获投影 315）。透明头发/描边不增加重复投影，继续由现有不透明头发投影；透明表面接收 CSM 阴影保持已有实现。 |
+
+## 材质算法一致性约束（2026-09-09）
+
+除上表明确暂缓的功能与场景光照输入适配外，材质内部算法必须与当前 RDC Shader 一致。
+不得用 NdotV、常数、经验曲线或简化采样替换原有分支，也不得因本帧权重为零而省略能力。
+平台适配只转换坐标、深度编码、资源格式与绑定；算法和材质变体保留在 Sandbox/Core。
+普通不透明头发使用 scene-depth sheen；透明头发原 Shader 本身使用 NdotV sheen，二者必须区分。
+模型输入另有明确约定：保留 rest position/normal，排除捕获中的表情形变；这不仅适用于眉毛 708，也适用于其它涉及表情形变的网格。此约定不允许简化材质着色算法。
 
 透明阶段与资源约定见 [Transparency.md](Transparency.md)。捕获两路阴影证据见
 [TransparentSurfaceShadows.md](D:/Project/Unity/YutrelSandbox/Renderdoc/Endfield/2026-08-29-tangtang/Docs/TransparentSurfaceShadows.md)。
@@ -98,6 +107,7 @@ BasePass、ForwardOnlyPass 没有描边专用标签、列表或分支，也未�
 
 管线只提供通用相机法线、可选 Base 深度快照及可用性标记，见
 [CameraSurfaceTextures.md](CameraSurfaceTextures.md)。`copyDepthForForward` 默认 false，Sandbox 显式开启；
-无快照时绑定远深度并置标记为 0，是否关闭 sheen 由 Sandbox 材质决定。
+无快照时绑定远深度并置标记为 0。694/736 的精确材质路径要求有效深度快照，
+Sandbox 不再以缺少深度为由关闭或替代原 sheen 算法。
 运行时实现和验收记录见
 [OutlineImplementation.md](D:/Project/Unity/YutrelSandbox/Renderdoc/Endfield/2026-08-29-tangtang/Docs/OutlineImplementation.md)。
