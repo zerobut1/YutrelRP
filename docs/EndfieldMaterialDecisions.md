@@ -48,8 +48,8 @@ Endfield Settings 的 **Scene Pre-Exposure** 是独立输出系数，默认 1：
 | 环境漫反射 | 明确使用 Endfield Volume 的固定 Ambient Color / Intensity，直接进入 Core 的 hueTint / scale；不接 SH、DDGI 或捕获 Ambient Volume。不乘 Lighting Reference Scale 或当前相机曝光。Intensity=0 仍可能保留 Core 的基础暗部项。 |
 | 环境镜面反射 | 已接入 YutrelRP 环境立方图。环境参考亮度为 20000，但先按平行光的 100000-lux 校准换算到 Endfield Core 输入域，因此参考曝光下 Core 强度为 `0.2 * LightingReferenceScale`，再随 `P/P_ref` 变化。仅 Cloth 669/679/684、Ear 674、透明衣服 832 启用；其他材质保持 0。保留 Endfield split-sum BRDF，不叠加 YutrelRP 原生 DFG。 |
 | Local light | 明确暂不接入局部光 / Cluster；多方向光也未接入。 |
-| 阴影 | 不透明使用 YutrelRP 屏幕 ShadowMask；透明头发 810、透明衣服 832 用自身世界坐标与几何法线查询 YutrelRP CSM。映射为 mainLightVisibility=1、contactShadowVisibility=可见度，强度仅在管线应用一次。无主光/无有效阴影时全受光。 |
-| 阴影差异 | 保留 YutrelRP 的级联布局、偏移与过滤，不复刻原游戏 Poisson、atlas/embedded/detail 系统。当前未接 RT 或透明透光投影；绒毛与描边尚未迁移到表面阴影接口。 |
+| 阴影 | 不透明使用 YutrelRP 屏幕 ShadowMask；透明头发 810、透明衣服 832 和绒毛 827 用自身世界坐标与几何法线查询 YutrelRP CSM。映射为 mainLightVisibility=1、contactShadowVisibility=可见度，强度仅在管线应用一次。无主光/无有效阴影时全受光。 |
+| 阴影差异 | 保留 YutrelRP 的级联布局、偏移与过滤，不复刻原游戏 Poisson、atlas/embedded/detail 系统。当前未接 RT 或透明透光投影；描边尚未迁移到表面阴影接口。 |
 | 假阴影 | 791/796/799 保持已有 stencil 分类与颜色叠加，不当作普通受光材质另加曝光或阴影。 |
 | 雾效 | 当前明确不需要，不接捕获雾或新增管线雾效。 |
 | 湿润 | Core 有算法，当前 Unity 适配使用干燥路径；湿润输入接入另行处理。 |
