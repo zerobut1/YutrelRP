@@ -48,8 +48,8 @@ Endfield Settings 的 **Scene Pre-Exposure** 是独立输出系数，默认 1：
 | 环境漫反射 | 明确使用 Endfield Volume 的固定 Ambient Color / Intensity，直接进入 Core 的 hueTint / scale；不接 SH、DDGI 或捕获 Ambient Volume。不乘 Lighting Reference Scale 或当前相机曝光。Intensity=0 仍可能保留 Core 的基础暗部项。 |
 | 环境镜面反射 | 已接入 YutrelRP 环境立方图。环境参考亮度为 20000，但先按平行光的 100000-lux 校准换算到 Endfield Core 输入域，因此参考曝光下 Core 强度为 `0.2 * LightingReferenceScale`，再随 `P/P_ref` 变化。仅 Cloth 669/679/684、Ear 674、透明衣服 832 启用；其他材质保持 0。保留 Endfield split-sum BRDF，不叠加 YutrelRP 原生 DFG。 |
 | Local light | 明确暂不接入局部光 / Cluster；多方向光也未接入。 |
-| 阴影 | 不透明使用 YutrelRP 屏幕 ShadowMask；透明头发 810、透明衣服 832 和绒毛 827 用自身世界坐标与几何法线查询 YutrelRP CSM。映射为 mainLightVisibility=1、contactShadowVisibility=可见度，强度仅在管线应用一次。无主光/无有效阴影时全受光。 |
-| 阴影差异 | 保留 YutrelRP 的级联布局、偏移与过滤，不复刻原游戏 Poisson、atlas/embedded/detail 系统。当前未接 RT 或透明透光投影；描边尚未迁移到表面阴影接口。 |
+| 阴影 | 不透明使用 YutrelRP 屏幕 ShadowMask；透明头发 810、透明衣服 832 和绒毛 827 用自身世界坐标与几何法线查询 YutrelRP CSM；半透明描边 815 使用壳的源世界位置与烘焙外扩法线查询 CSM。映射为 mainLightVisibility=1、contactShadowVisibility=可见度，强度仅在管线应用一次。无主光/无有效阴影时全受光。 |
+| 阴影差异 | 保留 YutrelRP 的级联布局、偏移与过滤，不复刻原游戏 Poisson、atlas/embedded/detail 系统。当前未接 RT 或透明透光投影。不透明描边在未外扩源像素查询 ShadowMask；半透明描边已接表面 CSM。 |
 | 假阴影 | 791/796/799 保持已有 stencil 分类与颜色叠加，不当作普通受光材质另加曝光或阴影。 |
 | 雾效 | 当前明确不需要，不接捕获雾或新增管线雾效。 |
 | 湿润 | Core 有算法，当前 Unity 适配使用干燥路径；湿润输入接入另行处理。 |
@@ -82,3 +82,22 @@ YutrelRP harness compile 通过，0 警告、0 错误。
 Sandbox 的 `--no-restore` 构建仍缺少 `Temp/obj/*/project.assets.json`；
 该缓存问题独立于 Shader 编译错误，此处不将此前曝光修正的构建结果当作本次结果。
 未启动 Unity，运行时重编译和画面仍待验收。未修改 TangTang 场景资源。
+
+## 描边接入（2026-09-09）
+
+描边保留固定环境漫反射和既有主光曝光标尺，不新增环境镜面、局部光或雾。
+不透明描边使用源像素 ShadowMask 与原生 GBuffer_B XYZ 法线；捕获的 oct 编码不直接套用。
+头发描边 736 使用 Base 结束后的 R32_SFloat 只读深度快照抑制内侧 sheen，
+815 保留捕获的 NdotV 曲线。深度快照由 RasterPass 完成，无 UnsafePass 或附件读写反馈。
+
+所有描边调度留在 Sandbox：饰品/衣服用同 Renderer 的 Base＋Forward；头发分为 485 Base
+（队列 2016）和 736 Forward（2012），共享 Mesh 和生成参数。复用 `YutrelForwardOnlyBase` /
+`YutrelForwardOnly`，队列表达 Base 的饰品→衣服1/2→头发与 Forward 的身体→脸→头发→饰品→衣服1/2。
+BasePass、ForwardOnlyPass 没有描边专用标签、列表或分支，也未加入 RenderFeature。
+身体、脸和透明描边没有独立的描边 Base，直接在 Forward 写深度。
+
+管线只提供通用相机法线、可选 Base 深度快照及可用性标记，见
+[CameraSurfaceTextures.md](CameraSurfaceTextures.md)。`copyDepthForForward` 默认 false，Sandbox 显式开启；
+无快照时绑定远深度并置标记为 0，是否关闭 sheen 由 Sandbox 材质决定。
+运行时实现和验收记录见
+[OutlineImplementation.md](D:/Project/Unity/YutrelSandbox/Renderdoc/Endfield/2026-08-29-tangtang/Docs/OutlineImplementation.md)。

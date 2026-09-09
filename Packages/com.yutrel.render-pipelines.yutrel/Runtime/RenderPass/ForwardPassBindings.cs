@@ -10,11 +10,16 @@ namespace YutrelRP
         private static readonly int light_count_ID = Shader.PropertyToID("_DirectionalLightCount");
         private static readonly int pre_exposure_ID = Shader.PropertyToID("_PreExposure");
         private static readonly int inverse_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure");
+        private static readonly int camera_normal_ID = Shader.PropertyToID("_CameraNormalsTexture");
+        private static readonly int camera_depth_ID = Shader.PropertyToID("_CameraDepthTexture");
 
         private readonly int light_count;
         private readonly BufferHandle light_data;
         private readonly TextureHandle shadow_mask, screen_space_ao, white_texture;
         private readonly TextureHandle environment_cube;
+        private readonly TextureHandle camera_normal, camera_depth;
+        private readonly bool camera_depth_available;
+        private static readonly int camera_depth_available_ID = Shader.PropertyToID("_CameraDepthTextureAvailable");
         private readonly Vector4 environment_cube_hdr;
         private readonly float ibl_roughness_one_level;
         private readonly bool environment_available;
@@ -24,9 +29,14 @@ namespace YutrelRP
         private readonly bool ao_available;
 
         internal ForwardPassBindings(RenderGraph render_graph, RenderTargets textures,
-            LightResources lights, DirectionalShadowBindings shadows, EndfieldShaderGlobals endfield_globals, float pre_exposure)
+            LightResources lights, DirectionalShadowBindings shadows, EndfieldShaderGlobals endfield_globals, float pre_exposure, TextureHandle depth_snapshot)
         {
             light_count = lights.directional_light_count;
+            camera_normal = textures.GBuffer_B;
+            camera_depth_available = depth_snapshot.IsValid();
+            camera_depth = camera_depth_available ? depth_snapshot
+                : SystemInfo.usesReversedZBuffer ? render_graph.defaultResources.blackTexture
+                : render_graph.defaultResources.whiteTexture;
             light_data = lights.directional_light_data_buffer;
             white_texture = render_graph.defaultResources.whiteTexture;
             shadow_mask = light_count > 0 && textures.shadow_mask.IsValid()
@@ -51,6 +61,8 @@ namespace YutrelRP
             builder.UseTexture(shadow_mask);
             builder.UseTexture(use_screen_space_ao ? screen_space_ao : white_texture);
             builder.UseTexture(environment_cube);
+            builder.UseTexture(camera_normal);
+            builder.UseTexture(camera_depth);
         }
 
         private class PreparePass
@@ -79,6 +91,11 @@ namespace YutrelRP
         private void Bind(IBaseCommandBuffer cmd, bool use_screen_space_ao, bool transparent)
         {
             if (transparent) shadows.BindGlobals(cmd);
+            // Both forward stages see this camera's completed Base normal/depth.
+            // Bind defaults and availability every camera to prevent stale globals.
+            cmd.SetGlobalTexture(camera_normal_ID, camera_normal);
+            cmd.SetGlobalTexture(camera_depth_ID, camera_depth);
+            cmd.SetGlobalFloat(camera_depth_available_ID, camera_depth_available ? 1.0f : 0.0f);
             cmd.SetGlobalInt(light_count_ID, light_count);
             cmd.SetGlobalBuffer(LightResources.directional_light_data_ID, light_data);
             cmd.SetGlobalTexture(RenderTargets.shadow_mask_ID, shadow_mask);

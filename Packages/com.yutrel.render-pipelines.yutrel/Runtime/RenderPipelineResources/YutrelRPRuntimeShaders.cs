@@ -22,6 +22,9 @@ namespace YutrelRP
         [SerializeField, ResourcePath("Shaders/EnvironmentLightingPass.shader")]
         private Shader environmentLightingPass;
 
+        [SerializeField, ResourcePath("Shaders/DepthCopy.shader")]
+        private Shader depthCopy;
+
         [SerializeField, ResourcePath("Shaders/SkyboxEquirectangular.shader")]
         private Shader skyboxPass;
 
@@ -45,6 +48,7 @@ namespace YutrelRP
 
         public Shader directional_light_pass => directionalLightPass;
         public Shader environment_lighting_pass => environmentLightingPass;
+        public Shader depth_copy => depthCopy;
         public Shader skybox_pass => skyboxPass;
         public Shader shadow_mask_pass => shadowMaskPass;
         public Shader tone_mapping => toneMapping;

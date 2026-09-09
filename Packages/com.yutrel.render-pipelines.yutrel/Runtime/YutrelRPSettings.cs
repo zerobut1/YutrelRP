@@ -4,6 +4,9 @@ namespace YutrelRP
     [System.Serializable]
     public class YutrelDeferredRendererSettings
     {
+        [Tooltip("Expose a read-only device-depth snapshot after Base to opaque and transparent forward materials.")]
+        public bool copyDepthForForward;
+
         public ShadowSettings shadowSettings = new();
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();
