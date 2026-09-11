@@ -14,7 +14,10 @@ namespace YutrelRP
             rt_size_ID = Shader.PropertyToID("_CameraBufferSize"),
             inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP"),
             pre_exposure_ID = Shader.PropertyToID("_PreExposure"),
-            one_over_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure");
+            one_over_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure"),
+            time_ID = Shader.PropertyToID("_Time"),
+            sin_time_ID = Shader.PropertyToID("_SinTime"),
+            cos_time_ID = Shader.PropertyToID("_CosTime");
 
         internal static void Record(RenderGraph render_graph, Camera camera,
             Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings)
@@ -105,6 +108,15 @@ namespace YutrelRP
             cmd.SetupCameraProperties(camera);
             cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
             cmd.SetGlobalFloat(one_over_pre_exposure_ID, one_over_pre_exposure);
+
+            // 与 Unity 内置管线相同的 _Time 语义；SRP 不会自动设置，必须由管线每帧写一次。
+            var time = Time.timeSinceLevelLoad;
+            cmd.SetGlobalVector(time_ID, new Vector4(time / 20.0f, time, time * 2.0f, time * 3.0f));
+            cmd.SetGlobalVector(sin_time_ID, new Vector4(
+                Mathf.Sin(time / 8.0f), Mathf.Sin(time / 4.0f), Mathf.Sin(time / 2.0f), Mathf.Sin(time)));
+            cmd.SetGlobalVector(cos_time_ID, new Vector4(
+                Mathf.Cos(time / 8.0f), Mathf.Cos(time / 4.0f), Mathf.Cos(time / 2.0f), Mathf.Cos(time)));
+
             cmd.SetGlobalVector(rt_size_ID,
                 new Vector4(1.0f / rt_size.x,
                     1.0f / rt_size.y,
