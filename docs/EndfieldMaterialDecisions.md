@@ -63,6 +63,20 @@ Endfield Settings 的 **Scene Pre-Exposure** 是独立输出系数，默认 1：
 普通不透明头发使用 scene-depth sheen；透明头发原 Shader 本身使用 NdotV sheen，二者必须区分。
 模型输入另有明确约定：保留 rest position/normal，排除捕获中的表情形变；这不仅适用于眉毛 708，也适用于其它涉及表情形变的网格。此约定不允许简化材质着色算法。
 
+## Core / YutrelRP 边界（2026-09-12）
+
+YutrelRP 是平台输入适配层，不是 `Assets/Endfield/Shaders/2026_09/Core` 的算法所有者。
+YutrelRP 可以负责坐标、深度编码、资源格式、绑定和输出 epilogue，并把语义化的
+instance / main-light / ambient 输入传入 Core；Core 不反向 include YutrelRP，也不认识
+`Shader.PropertyToID`、RenderGraph 句柄或平台全局绑定名。公共 Core helper 的纹理、Sampler
+和 Buffer 依赖应通过显式参数或紧邻契约传入，不为方便新增总 Context 或公共全局资源。
+
+2026-09 的 Core 静态门禁会检查模块允许依赖、两个登记的材质入口遗留 root 依赖、公共
+Surface 叶子接口和顶层资源声明。它不把 YutrelRP 的当前绑定实现误判为 Core 算法证明：
+无法仅靠源码稳定判断的隐式资源读取仍需人工审查；适配层改变时仍按对应 capture case
+的 ABI、变体和运行时画面分别验收。当前决策不要求为完成 Core 架构整理而恢复已冻结的
+2026_08 适配，也不以启动 Unity 代替离线静态、编译和 RenderDoc 精确验证。
+
 透明阶段与资源约定见 [Transparency.md](Transparency.md)。捕获两路阴影证据见
 [TransparentSurfaceShadows.md](D:/Project/Unity/YutrelSandbox/Renderdoc/Endfield/2026-08-29-tangtang/Docs/TransparentSurfaceShadows.md)。
 
