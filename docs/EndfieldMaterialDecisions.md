@@ -71,8 +71,9 @@ instance / main-light / ambient 输入传入 Core；Core 不反向 include Yutre
 `Shader.PropertyToID`、RenderGraph 句柄或平台全局绑定名。公共 Core helper 的纹理、Sampler
 和 Buffer 依赖应通过显式参数或紧邻契约传入，不为方便新增总 Context 或公共全局资源。
 
-2026-09 的 Core 静态门禁会检查模块允许依赖、两个登记的材质入口遗留 root 依赖、公共
-Surface 叶子接口和顶层资源声明。它不把 YutrelRP 的当前绑定实现误判为 Core 算法证明：
+2026-09 的 Core 静态门禁会检查模块允许依赖、`Materials → root` 禁止边界、公共 Surface
+叶子接口和顶层资源声明；B1 已移除两个历史材质入口例外。它不把 YutrelRP 的当前绑定
+实现误判为 Core 算法证明：
 无法仅靠源码稳定判断的隐式资源读取仍需人工审查；适配层改变时仍按对应 capture case
 的 ABI、变体和运行时画面分别验收。当前决策不要求为完成 Core 架构整理而恢复已冻结的
 2026_08 适配，也不以启动 Unity 代替离线静态、编译和 RenderDoc 精确验证。
