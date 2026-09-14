@@ -16,7 +16,7 @@ namespace YutrelRP
         private readonly int light_count;
         private readonly BufferHandle light_data;
         private readonly TextureHandle shadow_mask, screen_space_ao, white_texture;
-        private readonly TextureHandle scene_color;
+        private readonly TextureHandle bangs_shadow_mask;
         private readonly TextureHandle environment_cube;
         private readonly TextureHandle camera_normal, camera_depth;
         private readonly bool camera_depth_available;
@@ -39,7 +39,10 @@ namespace YutrelRP
                 : SystemInfo.usesReversedZBuffer ? render_graph.defaultResources.blackTexture
                 : render_graph.defaultResources.whiteTexture;
             light_data = lights.directional_light_data_buffer;
-            scene_color = textures.scene_color;
+            // Typhoeus EID1069 samples Base prepass RT3. In the current GBuffer
+            // layout that attachment is GBuffer_C; its alpha is emitted by the
+            // ForwardOnlyBase pass as the face/hair shadow mask marker.
+            bangs_shadow_mask = textures.GBuffer_C;
             white_texture = render_graph.defaultResources.whiteTexture;
             shadow_mask = light_count > 0 && textures.shadow_mask.IsValid()
                 ? textures.shadow_mask : white_texture;
@@ -60,6 +63,7 @@ namespace YutrelRP
             if (transparent)
             {
                 shadows.DeclareResources(builder);
+                builder.UseTexture(bangs_shadow_mask);
             }
             // LightResources always allocates this camera's buffer, including zero-light cameras.
             builder.UseBuffer(light_data);
@@ -88,11 +92,6 @@ namespace YutrelRP
             data.use_screen_space_ao = use_screen_space_ao;
             data.transparent = transparent;
             DeclareResources(builder, use_screen_space_ao, transparent);
-            // The preparation pass binds the current scene color for BangsShadow's
-            // screen-mask read. The raster pass declares the same handle as its
-            // color attachment, so it must not also call UseTexture(scene_color).
-            if (transparent)
-                builder.UseTexture(scene_color);
             builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc<PreparePass>(static (pass, context) =>
                 pass.bindings.Bind(context.cmd, pass.use_screen_space_ao, pass.transparent));
@@ -103,7 +102,7 @@ namespace YutrelRP
             if (transparent)
             {
                 shadows.BindGlobals(cmd);
-                cmd.SetGlobalTexture(RenderTargets.scene_color_ID, scene_color);
+                cmd.SetGlobalTexture(RenderTargets.GBuffer_C_ID, bangs_shadow_mask);
             }
             // Both forward stages see this camera's completed Base normal/depth.
             // Bind defaults and availability every camera to prevent stale globals.
