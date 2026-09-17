@@ -18,6 +18,7 @@ namespace YutrelRP
         private readonly TextureHandle shadow_mask, screen_space_ao, white_texture;
         private readonly TextureHandle bangs_shadow_mask;
         private readonly TextureHandle environment_cube;
+        private readonly TextureHandle gbuffer_a, gbuffer_b, gbuffer_c, gbuffer_d;
         private readonly TextureHandle camera_normal, camera_depth;
         private readonly bool camera_depth_available;
         private static readonly int camera_depth_available_ID = Shader.PropertyToID("_CameraDepthTextureAvailable");
@@ -25,15 +26,22 @@ namespace YutrelRP
         private readonly float ibl_roughness_one_level;
         private readonly bool environment_available;
         private readonly EndfieldShaderGlobals endfield_globals;
+        private readonly NteShaderGlobals nte_globals;
         private readonly DirectionalShadowBindings shadows;
         private readonly float pre_exposure;
         private readonly bool ao_available;
 
         internal ForwardPassBindings(RenderGraph render_graph, RenderTargets textures,
-            LightResources lights, DirectionalShadowBindings shadows, EndfieldShaderGlobals endfield_globals, float pre_exposure, TextureHandle depth_snapshot)
+            LightResources lights, DirectionalShadowBindings shadows,
+            EndfieldShaderGlobals endfield_globals, NteShaderGlobals nte_globals,
+            float pre_exposure, TextureHandle depth_snapshot)
         {
             light_count = lights.directional_light_count;
-            camera_normal = textures.GBuffer_B;
+            gbuffer_a = textures.GBuffer_A;
+            gbuffer_b = textures.GBuffer_B;
+            gbuffer_c = textures.GBuffer_C;
+            gbuffer_d = textures.GBuffer_D;
+            camera_normal = gbuffer_b;
             camera_depth_available = depth_snapshot.IsValid();
             camera_depth = camera_depth_available ? depth_snapshot
                 : SystemInfo.usesReversedZBuffer ? render_graph.defaultResources.blackTexture
@@ -42,7 +50,7 @@ namespace YutrelRP
             // Typhoeus EID1069 samples Base prepass RT3. In the current GBuffer
             // layout that attachment is GBuffer_C; its alpha is emitted by the
             // ForwardOnlyBase pass as the face/hair shadow mask marker.
-            bangs_shadow_mask = textures.GBuffer_C;
+            bangs_shadow_mask = gbuffer_c;
             white_texture = render_graph.defaultResources.whiteTexture;
             shadow_mask = light_count > 0 && textures.shadow_mask.IsValid()
                 ? textures.shadow_mask : white_texture;
@@ -50,6 +58,7 @@ namespace YutrelRP
             screen_space_ao = ao_available ? textures.screen_space_ao : white_texture;
             this.shadows = shadows;
             this.endfield_globals = endfield_globals;
+            this.nte_globals = nte_globals;
             this.pre_exposure = pre_exposure;
             environment_available = lights.has_environment_reflection && lights.environment_reflection_cube.IsValid();
             environment_cube = environment_available ? lights.environment_reflection_cube
@@ -70,7 +79,10 @@ namespace YutrelRP
             builder.UseTexture(shadow_mask);
             builder.UseTexture(use_screen_space_ao ? screen_space_ao : white_texture);
             builder.UseTexture(environment_cube);
-            builder.UseTexture(camera_normal);
+            builder.UseTexture(gbuffer_a);
+            builder.UseTexture(gbuffer_b);
+            builder.UseTexture(gbuffer_c);
+            builder.UseTexture(gbuffer_d);
             builder.UseTexture(camera_depth);
         }
 
@@ -106,6 +118,10 @@ namespace YutrelRP
             }
             // Both forward stages see this camera's completed Base normal/depth.
             // Bind defaults and availability every camera to prevent stale globals.
+            cmd.SetGlobalTexture(RenderTargets.GBuffer_A_ID, gbuffer_a);
+            cmd.SetGlobalTexture(RenderTargets.GBuffer_B_ID, gbuffer_b);
+            cmd.SetGlobalTexture(RenderTargets.GBuffer_C_ID, gbuffer_c);
+            cmd.SetGlobalTexture(RenderTargets.GBuffer_D_ID, gbuffer_d);
             cmd.SetGlobalTexture(camera_normal_ID, camera_normal);
             cmd.SetGlobalTexture(camera_depth_ID, camera_depth);
             cmd.SetGlobalFloat(camera_depth_available_ID, camera_depth_available ? 1.0f : 0.0f);
@@ -120,6 +136,7 @@ namespace YutrelRP
             cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
             cmd.SetGlobalFloat(inverse_pre_exposure_ID, 1.0f / pre_exposure);
             endfield_globals.Bind(cmd, use_screen_space_ao && ao_available);
+            nte_globals.Bind(cmd);
         }
     }
 }

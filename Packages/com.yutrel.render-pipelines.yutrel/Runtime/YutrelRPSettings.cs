@@ -4,8 +4,14 @@ namespace YutrelRP
     [System.Serializable]
     public class YutrelDeferredRendererSettings
     {
+        [Tooltip("Draw opaque materials that explicitly provide a DepthOnly pass before Base.")]
+        public bool enableDepthPrepass;
+
         [Tooltip("Expose a read-only device-depth snapshot after Base to opaque and transparent forward materials.")]
         public bool copyDepthForForward;
+
+        [Tooltip("Optional host-project implementation of the deferred directional-light pass.")]
+        public Shader directionalLightShaderOverride;
 
         public ShadowSettings shadowSettings = new();
 

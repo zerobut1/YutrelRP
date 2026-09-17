@@ -98,6 +98,15 @@ def add_project_reference(root: ET.Element, project: Path) -> None:
     item.attrib["Include"] = str(project.relative_to(PROJECT_ROOT))
 
 
+def replace_or_add_project_reference(root: ET.Element, source: str, replacement: Path) -> None:
+    for item in root.iter("ProjectReference"):
+        include = item.attrib.get("Include", "")
+        if include.lower() == source.lower():
+            item.attrib["Include"] = str(replacement.relative_to(PROJECT_ROOT))
+            return
+    add_project_reference(root, replacement)
+
+
 def add_compile_items(root: ET.Element, sources: list[Path]) -> None:
     group = ET.SubElement(root, "ItemGroup")
     for source in sources:
@@ -120,8 +129,17 @@ def prepare_fast_project(
     add_compile_items(root, sources)
     if project_reference is not None:
         replace_project_reference(root, "Assembly-CSharp.csproj", project_reference)
+        replace_project_reference(
+            root,
+            "Yutrel.RenderPipelines.Yutrel.Runtime.csproj",
+            project_reference,
+        )
     for reference in additional_project_references:
-        add_project_reference(root, reference)
+        replace_or_add_project_reference(
+            root,
+            "Yutrel.RenderPipelines.Yutrel.Editor.csproj",
+            reference,
+        )
 
     obj_dir = CSHARP_LOG_DIR / "obj" / obj_name
     bin_dir = CSHARP_LOG_DIR / "bin" / "Debug"
@@ -202,27 +220,29 @@ def command_csharp_compile(args: argparse.Namespace) -> int:
 
     try:
         prepare_fast_project(
-            RUNTIME_PROJECT,
+            PACKAGE_RUNTIME_PROJECT if PACKAGE_RUNTIME_PROJECT.exists() else RUNTIME_PROJECT,
             FAST_RUNTIME_PROJECT,
             runtime_sources,
             "Assembly-CSharp",
+            assembly_name="Assembly-CSharp",
         )
         prepare_fast_project(
-            EDITOR_PROJECT,
+            PACKAGE_EDITOR_PROJECT if PACKAGE_EDITOR_PROJECT.exists() else EDITOR_PROJECT,
             FAST_EDITOR_PROJECT,
             editor_sources,
             "Assembly-CSharp-Editor",
-            FAST_RUNTIME_PROJECT,
+            FAST_RUNTIME_PROJECT if runtime_sources else FAST_PACKAGE_RUNTIME_PROJECT,
+            assembly_name="Assembly-CSharp-Editor",
         )
         prepare_fast_project(
-            RUNTIME_PROJECT,
+            PACKAGE_RUNTIME_PROJECT if PACKAGE_RUNTIME_PROJECT.exists() else RUNTIME_PROJECT,
             FAST_PACKAGE_RUNTIME_PROJECT,
             package_runtime_sources,
             "Yutrel.Runtime",
             assembly_name="Yutrel.RenderPipelines.Yutrel.Runtime",
         )
         prepare_fast_project(
-            EDITOR_PROJECT,
+            PACKAGE_EDITOR_PROJECT if PACKAGE_EDITOR_PROJECT.exists() else EDITOR_PROJECT,
             FAST_PACKAGE_EDITOR_PROJECT,
             package_editor_sources,
             "Yutrel.Editor",
@@ -231,7 +251,7 @@ def command_csharp_compile(args: argparse.Namespace) -> int:
         )
         if package_test_sources:
             prepare_fast_project(
-                EDITOR_PROJECT,
+                PACKAGE_TEST_PROJECT if PACKAGE_TEST_PROJECT.exists() else EDITOR_PROJECT,
                 FAST_PACKAGE_TEST_PROJECT,
                 package_test_sources,
                 "Yutrel.Editor.Tests",
@@ -242,23 +262,15 @@ def command_csharp_compile(args: argparse.Namespace) -> int:
 
         projects: list[Path] = []
         if args.assembly in {"all", "runtime"}:
-            projects.append(
-                PACKAGE_RUNTIME_PROJECT
-                if PACKAGE_RUNTIME_PROJECT.exists()
-                else FAST_PACKAGE_RUNTIME_PROJECT
-            )
+            # Unity-generated package projects are stale until Unity refreshes
+            # them, so they omit newly added package sources in no-Unity agent
+            # workflows. The fast project is regenerated from the filesystem
+            # above and is therefore the authoritative compile input here.
+            projects.append(FAST_PACKAGE_RUNTIME_PROJECT)
         if args.assembly in {"all", "editor"}:
-            projects.append(
-                PACKAGE_EDITOR_PROJECT
-                if PACKAGE_EDITOR_PROJECT.exists()
-                else FAST_PACKAGE_EDITOR_PROJECT
-            )
+            projects.append(FAST_PACKAGE_EDITOR_PROJECT)
             if package_test_sources:
-                projects.append(
-                    PACKAGE_TEST_PROJECT
-                    if PACKAGE_TEST_PROJECT.exists()
-                    else FAST_PACKAGE_TEST_PROJECT
-                )
+                projects.append(FAST_PACKAGE_TEST_PROJECT)
         if args.assembly in {"all", "runtime"} and runtime_sources:
             projects.append(FAST_RUNTIME_PROJECT)
         if args.assembly in {"all", "editor"} and editor_sources:

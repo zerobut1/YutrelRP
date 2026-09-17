@@ -8,16 +8,18 @@ namespace YutrelRP
     {
         private static readonly ProfilingSampler sampler = new ProfilingSampler("Directional Light Pass");
         private static Material material;
+        private static Shader material_shader;
         private static MaterialPropertyBlock property_block;
         private static bool warned_missing_dfg_lut;
         private static readonly int light_index_ID = Shader.PropertyToID("_LightIndex");
 
-        public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources)
+        public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources,
+            Shader shader_override = null)
         {
             if (light_resources.directional_light_count == 0) return;
             if (!ValidateLightingResources(light_resources)) return;
 
-            if (!TryEnsureMaterial()) return;
+            if (!TryEnsureMaterial(shader_override)) return;
             if (property_block == null) property_block = new MaterialPropertyBlock();
 
             for (int i = 0; i < light_resources.directional_light_count; i++)
@@ -105,20 +107,47 @@ namespace YutrelRP
         {
             CoreUtils.Destroy(material);
             material = null;
+            material_shader = null;
             property_block = null;
         }
 
-        private static bool TryEnsureMaterial()
+        private static bool TryEnsureMaterial(Shader shader_override)
         {
-            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+            Shader requested_shader;
+            string resource_name;
+            if (shader_override != null)
+            {
+                requested_shader = shader_override;
+                resource_name = nameof(YutrelDeferredRendererSettings.directionalLightShaderOverride);
+            }
+            else
+            {
+                if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
+                {
+                    return false;
+                }
+
+                requested_shader = resources.directional_light_pass;
+                resource_name = nameof(YutrelRPRuntimeShaders.directional_light_pass);
+            }
+
+            // Renderer data can change without a domain reload. Never keep a
+            // material whose shader no longer matches the selected override.
+            if (material != null && material_shader != requested_shader)
+            {
+                CoreUtils.Destroy(material);
+                material = null;
+                material_shader = null;
+            }
+
+            if (!YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                    requested_shader, resource_name, ref material))
             {
                 return false;
             }
 
-            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
-                resources.directional_light_pass,
-                nameof(YutrelRPRuntimeShaders.directional_light_pass),
-                ref material);
+            material_shader = requested_shader;
+            return true;
         }
 
         private static bool ValidateLightingResources(LightResources light_resources)

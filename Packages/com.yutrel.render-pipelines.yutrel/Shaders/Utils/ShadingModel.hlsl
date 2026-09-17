@@ -5,6 +5,7 @@
 #define SHADING_MODEL_STANDARD 1
 #define SHADING_MODEL_FORWARD_ONLY 2
 #define SHADING_MODEL_OPENPBR 3
+#define SHADING_MODEL_NTE 4
 
 float EncodeShadingModelID(int shading_model_id)
 {
@@ -25,7 +26,8 @@ bool ShadingModelHasSurfaceNormal(int shading_model_id)
 {
     return shading_model_id == SHADING_MODEL_STANDARD ||
            shading_model_id == SHADING_MODEL_FORWARD_ONLY ||
-           shading_model_id == SHADING_MODEL_OPENPBR;
+           shading_model_id == SHADING_MODEL_OPENPBR ||
+           shading_model_id == SHADING_MODEL_NTE;
 }
 
 #endif

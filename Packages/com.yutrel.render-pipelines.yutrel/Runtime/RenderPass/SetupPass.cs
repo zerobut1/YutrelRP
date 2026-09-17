@@ -64,10 +64,11 @@ namespace YutrelRP
             textures.scene_depth = render_graph.CreateTexture(scene_depth_desc);
 
             // GBuffer
-            var standard_gbuffer_format = GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.ARGB32, false);
             var gbuffer_desc = new TextureDesc(attachment_size.x, attachment_size.y)
             {
-                colorFormat = standard_gbuffer_format,
+                // RGB is sampled as logical linear data; the attachment performs the
+                // linear <-> sRGB conversion. Alpha remains the pipeline model byte.
+                colorFormat = GraphicsFormat.R8G8B8A8_SRGB,
                 depthBufferBits = 0,
                 msaaSamples = MSAASamples.None,
                 enableRandomWrite = false,
@@ -77,12 +78,13 @@ namespace YutrelRP
             };
             textures.GBuffer_A = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer B";
-            gbuffer_desc.colorFormat = standard_gbuffer_format;
+            gbuffer_desc.colorFormat = GraphicsFormat.R16G16B16A16_UNorm;
             textures.GBuffer_B = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer C";
-            gbuffer_desc.colorFormat = standard_gbuffer_format;
+            gbuffer_desc.colorFormat = GraphicsFormat.R8G8B8A8_UNorm;
             textures.GBuffer_C = render_graph.CreateTexture(gbuffer_desc);
             gbuffer_desc.name = "GBuffer D";
+            gbuffer_desc.colorFormat = GraphicsFormat.R8G8B8A8_UNorm;
             textures.GBuffer_D = render_graph.CreateTexture(gbuffer_desc);
 
         }

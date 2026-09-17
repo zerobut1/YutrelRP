@@ -149,6 +149,75 @@ namespace YutrelRP.Tests
         }
 
         [Test]
+        public void NteRendererSettings_DefaultToPackageShaderAndNoDepthPrepass()
+        {
+            var settings = new YutrelDeferredRendererSettings();
+
+            Assert.That(settings.enableDepthPrepass, Is.False);
+            Assert.That(settings.directionalLightShaderOverride, Is.Null);
+        }
+
+        [Test]
+        public void NteDefaults_MatchNanallyPaletteAndExposureConvention()
+        {
+            var settings = ResolvedNteSettings.Default;
+            var palettes = new[]
+            {
+                settings.palette0, settings.palette1, settings.palette2,
+                settings.palette3, settings.palette4
+            };
+
+            Assert.That(palettes, Has.Length.EqualTo(5));
+            Assert.That(palettes[0].at_one, Is.EqualTo(new Color(0.527845f, 0.498751f, 0.63f, 1.0f)));
+            Assert.That(palettes[4].at_zero, Is.EqualTo(new Color(0.55053f, 0.586263f, 0.713542f, 1.0f)));
+            Assert.That(settings.common_endpoint, Is.EqualTo(new Color(1.01f, 1.01f, 1.01f, 1.0f)));
+            Assert.That(settings.rim_color_at_one,
+                Is.EqualTo(new Color(0.018112f, 0.020736f, 0.03125f, 1.0f)));
+            Assert.That(settings.rim_color_at_zero, Is.EqualTo(Color.black));
+            Assert.That(settings.rim_width, Is.EqualTo(2.5f));
+            Assert.That(ResolvedNteSettings.NativeExposureInput, Is.EqualTo(1.0f));
+            Assert.That(settings.GetOutputScale(ResolvedNteSettings.ReferencePreExposure),
+                Is.EqualTo(1.0f).Within(1e-6f));
+            Assert.That(settings.GetOutputScale(ResolvedNteSettings.ReferencePreExposure * 2.0f),
+                Is.EqualTo(2.0f).Within(1e-6f));
+        }
+
+        [Test]
+        public void NteVolumeResolve_UsesBlendedValuesAndProducesIndependentSnapshots()
+        {
+            var first = ScriptableObject.CreateInstance<NteVolumeSettings>();
+            var second = ScriptableObject.CreateInstance<NteVolumeSettings>();
+            try
+            {
+                first.palette2AtZero.value = new Color(2.0f, 3.0f, 4.0f, 1.0f);
+                first.rimWidth.value = 3.25f;
+                first.outputMultiplier.value = 0.5f;
+                second.palette2AtZero.value = new Color(7.0f, 8.0f, 9.0f, 1.0f);
+                second.rimWidth.value = 6.5f;
+                second.outputMultiplier.value = 2.0f;
+
+                var first_snapshot = first.Resolve();
+                var second_snapshot = second.Resolve();
+
+                Assert.That(first_snapshot.palette2.at_zero,
+                    Is.EqualTo(new Color(2.0f, 3.0f, 4.0f, 1.0f)));
+                Assert.That(second_snapshot.palette2.at_zero,
+                    Is.EqualTo(new Color(7.0f, 8.0f, 9.0f, 1.0f)));
+                Assert.That(first_snapshot.rim_width, Is.EqualTo(3.25f));
+                Assert.That(second_snapshot.rim_width, Is.EqualTo(6.5f));
+                Assert.That(first_snapshot.GetOutputScale(ResolvedNteSettings.ReferencePreExposure),
+                    Is.EqualTo(0.5f).Within(1e-6f));
+                Assert.That(second_snapshot.GetOutputScale(ResolvedNteSettings.ReferencePreExposure),
+                    Is.EqualTo(2.0f).Within(1e-6f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+            }
+        }
+
+        [Test]
         public void SceneViewRendererOverride_ReusesCachedRenderer()
         {
             var asset = ScriptableObject.CreateInstance<YutrelRPAsset>();

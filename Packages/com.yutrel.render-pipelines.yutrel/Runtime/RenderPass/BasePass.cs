@@ -25,7 +25,9 @@ namespace YutrelRP
             builder.SetRenderAttachment(textures.GBuffer_B, 2);
             builder.SetRenderAttachment(textures.GBuffer_C, 3);
             builder.SetRenderAttachment(textures.GBuffer_D, 4);
-            builder.SetRenderAttachmentDepth(textures.scene_depth);
+            // Preserve an optional DepthOnly prepass result. Materials still own
+            // their depth state; enabling the prepass does not force ZTest Equal.
+            builder.SetRenderAttachmentDepth(textures.scene_depth, AccessFlags.ReadWrite);
 
             // 不透明
             var opaque_renderer_desc =

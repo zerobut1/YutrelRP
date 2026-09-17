@@ -61,6 +61,14 @@ namespace YutrelRP
                 ref lightResources,
                 ref shadowResources);
 
+            var currentNteSettings = NteVolumeSettings.Resolve(VolumeManager.instance.stack);
+            var nteGlobals = new NteShaderGlobals(
+                currentNteSettings,
+                lightResources,
+                context.preExposure,
+                context.frameIndex);
+            nteGlobals.RecordPreparation(renderGraph);
+
             ShadowPass.Record(renderGraph, camera, shadowResources, currentShadowSettings);
 
             SetupPass.CreateDeferredTargets(
@@ -70,6 +78,11 @@ namespace YutrelRP
                 context.targetSize,
                 context.sceneColorFormat,
                 context.preExposure);
+
+            if (settings.enableDepthPrepass)
+            {
+                DepthPrepass.Record(renderGraph, camera, cullingResults, textures);
+            }
 
             BasePass.Record(renderGraph, camera, cullingResults, textures);
             var depthSnapshot = settings.copyDepthForForward
@@ -84,7 +97,11 @@ namespace YutrelRP
                 shadowBindings,
                 context.targetSize);
 
-            DirectionalLightPass.Record(renderGraph, textures, lightResources);
+            DirectionalLightPass.Record(
+                renderGraph,
+                textures,
+                lightResources,
+                settings.directionalLightShaderOverride);
 
             ScreenSpaceAmbientOcclusionPass.Record(
                 renderGraph,
@@ -130,7 +147,10 @@ namespace YutrelRP
             var useScreenSpaceAo = settings.ambientOcclusionSettings != null &&
                                    settings.ambientOcclusionSettings.mode != AmbientOcclusionSettings.Mode.Disabled;
             var forwardBindings = new ForwardPassBindings(renderGraph, textures, lightResources, shadowBindings,
-                new EndfieldShaderGlobals(currentEndfieldSettings, lightResources, context.preExposure), context.preExposure, depthSnapshot);
+                new EndfieldShaderGlobals(currentEndfieldSettings, lightResources, context.preExposure),
+                nteGlobals,
+                context.preExposure,
+                depthSnapshot);
             ForwardOnlyPass.Record(renderGraph, camera, cullingResults, textures, forwardBindings, useScreenSpaceAo);
 
             SkyboxPass.Record(renderGraph, camera, textures, lightResources);
