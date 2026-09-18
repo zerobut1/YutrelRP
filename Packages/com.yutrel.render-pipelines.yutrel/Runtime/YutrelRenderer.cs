@@ -140,10 +140,10 @@ namespace YutrelRP
                         GizmoSubset.PreImageEffects);
 #endif
 
-                    var finalColor = ToneMappingPass.Record(
+                    var finalColor = RecordToneMapping(
                         renderGraph,
-                        output.sceneColor,
-                        targetSize,
+                        cameraContext,
+                        output,
                         postProcessSettings);
 
                     finalColor = RecordAfterPostProcessing(
@@ -191,6 +191,20 @@ namespace YutrelRP
         protected abstract YutrelRendererOutput RecordScene(
             RenderGraph renderGraph,
             in YutrelCameraRenderContext context);
+
+        protected virtual TextureHandle RecordToneMapping(
+            RenderGraph renderGraph,
+            in YutrelCameraRenderContext context,
+            in YutrelRendererOutput output,
+            in ResolvedPostProcessSettings postProcessSettings)
+        {
+            return ToneMappingPass.Record(
+                renderGraph,
+                output.sceneColor,
+                context.targetSize,
+                postProcessSettings,
+                ToneMappingPassInputs.Default);
+        }
 
         protected virtual TextureHandle RecordAfterPostProcessing(
             RenderGraph renderGraph,

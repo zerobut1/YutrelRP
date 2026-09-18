@@ -187,6 +187,10 @@ namespace YutrelRP
 
             return new YutrelDeferredRendererSettings
             {
+                enableDepthPrepass = legacySettings.enableDepthPrepass,
+                copyDepthForForward = legacySettings.copyDepthForForward,
+                directionalLightShaderOverride = legacySettings.directionalLightShaderOverride,
+                toneMappingShaderOverride = legacySettings.toneMappingShaderOverride,
                 shadowSettings = legacySettings.shadowSettings,
                 ambientOcclusionSettings = legacySettings.ambientOcclusionSettings,
                 ddgiSettings = legacySettings.ddgiSettings

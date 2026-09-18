@@ -13,6 +13,7 @@ namespace YutrelRP
 
         private ResolvedShadowSettings currentShadowSettings;
         private ResolvedDDGISettings currentDdgiSettings;
+        private ResolvedNteSettings currentNteSettings = ResolvedNteSettings.Default;
         private DDGIResources currentDdgiResources;
 
         internal YutrelDeferredRenderer(YutrelDeferredRendererSettings settings)
@@ -61,7 +62,7 @@ namespace YutrelRP
                 ref lightResources,
                 ref shadowResources);
 
-            var currentNteSettings = NteVolumeSettings.Resolve(VolumeManager.instance.stack);
+            currentNteSettings = NteVolumeSettings.Resolve(VolumeManager.instance.stack);
             var nteGlobals = new NteShaderGlobals(
                 currentNteSettings,
                 lightResources,
@@ -169,6 +170,31 @@ namespace YutrelRP
 #endif
 
             return new YutrelRendererOutput(textures.scene_color, textures.scene_depth);
+        }
+
+        protected override TextureHandle RecordToneMapping(
+            RenderGraph renderGraph,
+            in YutrelCameraRenderContext context,
+            in YutrelRendererOutput output,
+            in ResolvedPostProcessSettings postProcessSettings)
+        {
+            if (settings.toneMappingShaderOverride == null)
+            {
+                return base.RecordToneMapping(renderGraph, context, output, postProcessSettings);
+            }
+
+            var textures = frameData.GetOrCreate<RenderTargets>();
+            var inputs = new ToneMappingPassInputs(
+                settings.toneMappingShaderOverride,
+                textures.GBuffer_A,
+                currentNteSettings.character_grading_enabled,
+                currentNteSettings.character_grading_lut);
+            return ToneMappingPass.Record(
+                renderGraph,
+                output.sceneColor,
+                context.targetSize,
+                postProcessSettings,
+                inputs);
         }
 
         protected override TextureHandle RecordAfterPostProcessing(
