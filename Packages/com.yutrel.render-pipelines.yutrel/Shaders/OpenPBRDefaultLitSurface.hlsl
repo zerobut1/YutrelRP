@@ -15,7 +15,7 @@
 //   - D.rgb = specular_color
 //   - D.a   = sqrt(weighted_f0), weighted_f0 = min(specular_weight * f0(specular_ior), 0.9999)
 //   - B.a   = base_diffuse_roughness
-// Matching the GBuffer layout in docs/OpenPBR/OpenPBR_DefaultLit_Implementation.md §5.
+// Encoding and decoding are defined in Utils/GBuffer.hlsl.
 //
 // v1: specular_roughness_anisotropy is parsed but ignored (isotropic only;
 // anisotropic specular needs a tangent GBuffer).
