@@ -5,6 +5,13 @@ namespace YutrelRP
 {
     public abstract class YutrelRendererData : ScriptableObject
     {
+        [SerializeField] private YutrelPostProcessAsset postProcess;
+        public YutrelPostProcessAsset PostProcess
+        {
+            get => postProcess;
+            set => postProcess = value;
+        }
+
         [NonSerialized] private bool invalidated = true;
 
         internal bool IsInvalidated => invalidated;
@@ -17,6 +24,7 @@ namespace YutrelRP
         internal YutrelRenderer InternalCreateRenderer()
         {
             var renderer = CreateRenderer();
+            renderer.SetPostProcessData(this);
             invalidated = false;
             return renderer;
         }

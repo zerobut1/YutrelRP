@@ -155,7 +155,6 @@ namespace YutrelRP.Tests
 
             Assert.That(settings.enableDepthPrepass, Is.False);
             Assert.That(settings.directionalLightShaderOverride, Is.Null);
-            Assert.That(settings.toneMappingShaderOverride, Is.Null);
         }
 
         [Test]
@@ -176,8 +175,6 @@ namespace YutrelRP.Tests
                 Is.EqualTo(new Color(0.018112f, 0.020736f, 0.03125f, 1.0f)));
             Assert.That(settings.rim_color_at_zero, Is.EqualTo(Color.black));
             Assert.That(settings.rim_width, Is.EqualTo(2.5f));
-            Assert.That(settings.character_grading_enabled, Is.False);
-            Assert.That(settings.character_grading_lut, Is.Null);
             Assert.That(ResolvedNteSettings.NativeExposureInput, Is.EqualTo(1.0f));
             Assert.That(settings.GetOutputScale(ResolvedNteSettings.ReferencePreExposure),
                 Is.EqualTo(1.0f).Within(1e-6f));
@@ -190,7 +187,6 @@ namespace YutrelRP.Tests
         {
             var first = ScriptableObject.CreateInstance<NteVolumeSettings>();
             var second = ScriptableObject.CreateInstance<NteVolumeSettings>();
-            var invalid_lut = new Texture3D(4, 4, 4, TextureFormat.RGBA32, false);
             try
             {
                 first.palette2AtZero.value = new Color(2.0f, 3.0f, 4.0f, 1.0f);
@@ -199,8 +195,6 @@ namespace YutrelRP.Tests
                 second.palette2AtZero.value = new Color(7.0f, 8.0f, 9.0f, 1.0f);
                 second.rimWidth.value = 6.5f;
                 second.outputMultiplier.value = 2.0f;
-                first.characterGradingEnabled.value = true;
-                first.characterGradingLut.value = invalid_lut;
 
                 var first_snapshot = first.Resolve();
                 var second_snapshot = second.Resolve();
@@ -215,34 +209,11 @@ namespace YutrelRP.Tests
                     Is.EqualTo(0.5f).Within(1e-6f));
                 Assert.That(second_snapshot.GetOutputScale(ResolvedNteSettings.ReferencePreExposure),
                     Is.EqualTo(2.0f).Within(1e-6f));
-                Assert.That(first_snapshot.character_grading_enabled, Is.False);
-                Assert.That(first_snapshot.character_grading_lut, Is.Null);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(invalid_lut);
                 UnityEngine.Object.DestroyImmediate(first);
                 UnityEngine.Object.DestroyImmediate(second);
-            }
-        }
-
-        [Test]
-        public void NteCharacterGrading_AcceptsSampleableRgba16Fallback()
-        {
-            var lut = new Texture3D(
-                ResolvedNteSettings.CharacterGradingLutSize,
-                ResolvedNteSettings.CharacterGradingLutSize,
-                ResolvedNteSettings.CharacterGradingLutSize,
-                GraphicsFormat.R16G16B16A16_UNorm,
-                TextureCreationFlags.DontInitializePixels,
-                1);
-            try
-            {
-                Assert.That(ResolvedNteSettings.IsValidCharacterGradingLut(lut), Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(lut);
             }
         }
 

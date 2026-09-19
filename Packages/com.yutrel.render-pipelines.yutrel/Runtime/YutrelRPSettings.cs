@@ -13,9 +13,6 @@ namespace YutrelRP
         [Tooltip("Optional host-project implementation of the deferred directional-light pass.")]
         public Shader directionalLightShaderOverride;
 
-        [Tooltip("Optional host-project Tone Mapping shader. Pass 0 must be None and Pass 1 must be ACES.")]
-        public Shader toneMappingShaderOverride;
-
         public ShadowSettings shadowSettings = new();
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();

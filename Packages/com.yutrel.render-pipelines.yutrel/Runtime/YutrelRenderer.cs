@@ -10,13 +10,23 @@ namespace YutrelRP
     {
         public TextureHandle sceneColor { get; }
         public TextureHandle sceneDepth { get; }
+        public TextureHandle gbufferA { get; }
+        public TextureHandle gbufferB { get; }
+        public TextureHandle gbufferC { get; }
+        public TextureHandle gbufferD { get; }
 
         public bool isValid => sceneColor.IsValid();
 
-        public YutrelRendererOutput(TextureHandle sceneColor, TextureHandle sceneDepth = default)
+        public YutrelRendererOutput(TextureHandle sceneColor, TextureHandle sceneDepth = default,
+            TextureHandle gbufferA = default, TextureHandle gbufferB = default,
+            TextureHandle gbufferC = default, TextureHandle gbufferD = default)
         {
             this.sceneColor = sceneColor;
             this.sceneDepth = sceneDepth;
+            this.gbufferA = gbufferA;
+            this.gbufferB = gbufferB;
+            this.gbufferC = gbufferC;
+            this.gbufferD = gbufferD;
         }
     }
 
@@ -63,6 +73,10 @@ namespace YutrelRP
     public abstract class YutrelRenderer : IDisposable
     {
         private bool disposed;
+        private YutrelRendererData postProcessData;
+        private readonly YutrelPostProcessState postProcessState = new();
+
+        internal void SetPostProcessData(YutrelRendererData data) => postProcessData = data;
 
         internal void Render(
             RenderGraph renderGraph,
@@ -140,11 +154,10 @@ namespace YutrelRP
                         GizmoSubset.PreImageEffects);
 #endif
 
-                    var finalColor = RecordToneMapping(
-                        renderGraph,
-                        cameraContext,
-                        output,
-                        postProcessSettings);
+                    var postContext = new YutrelPostProcessContext(cameraContext, output,
+                        postProcessSettings, VolumeManager.instance.stack,
+                        GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, true));
+                    var finalColor = RecordPostProcessing(renderGraph, postContext);
 
                     finalColor = RecordAfterPostProcessing(
                         renderGraph,
@@ -192,18 +205,14 @@ namespace YutrelRP
             RenderGraph renderGraph,
             in YutrelCameraRenderContext context);
 
-        protected virtual TextureHandle RecordToneMapping(
-            RenderGraph renderGraph,
-            in YutrelCameraRenderContext context,
-            in YutrelRendererOutput output,
-            in ResolvedPostProcessSettings postProcessSettings)
+        internal TextureHandle RecordPostProcessing(RenderGraph graph, in YutrelPostProcessContext context)
         {
-            return ToneMappingPass.Record(
-                renderGraph,
-                output.sceneColor,
-                context.targetSize,
-                postProcessSettings,
-                ToneMappingPassInputs.Default);
+            if (disposed) throw new ObjectDisposedException(GetType().Name);
+            var processor = postProcessState.GetProcessor(postProcessData != null ? postProcessData.PostProcess : null);
+            var result = processor.Record(graph, context);
+            if (!result.IsValid())
+                throw new InvalidOperationException($"{processor.GetType().Name} returned an invalid post-processed color.");
+            return result;
         }
 
         protected virtual TextureHandle RecordAfterPostProcessing(
@@ -223,7 +232,8 @@ namespace YutrelRP
             }
 
             disposed = true;
-            Dispose(true);
+            try { Dispose(true); }
+            finally { postProcessState.Dispose(); }
             GC.SuppressFinalize(this);
         }
 

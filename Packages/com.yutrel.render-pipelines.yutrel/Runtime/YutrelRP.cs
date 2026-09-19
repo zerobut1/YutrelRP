@@ -43,7 +43,6 @@ namespace YutrelRP
             asset.DestroyRenderers();
             YutrelDeferredRenderer.CleanupSharedResources();
             OpenPBRLUTs.Cleanup();
-            ToneMappingPass.Cleanup();
             FinalPass.Cleanup();
             YutrelRPRuntimeShaderUtility.ClearWarnings();
             VolumeManager.instance.Deinitialize();

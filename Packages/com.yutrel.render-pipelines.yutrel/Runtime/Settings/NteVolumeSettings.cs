@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 namespace YutrelRP
@@ -25,7 +24,6 @@ namespace YutrelRP
         public const float NativeExposureInput = 1.0f;
         public const float DefaultOutputMultiplier = 1.0f;
         public const float DefaultRimWidth = 2.5f;
-        public const int CharacterGradingLutSize = 32;
 
         public static readonly Vector3 DefaultLightDirection =
             new(-0.9709105f, 0.19238801f, 0.14254709f);
@@ -69,14 +67,11 @@ namespace YutrelRP
         public readonly Color rim_color_at_zero;
         public readonly float rim_width;
         public readonly float output_multiplier;
-        public readonly bool character_grading_enabled;
-        public readonly Texture3D character_grading_lut;
 
         public ResolvedNteSettings(ResolvedNtePalette palette0, ResolvedNtePalette palette1,
             ResolvedNtePalette palette2, ResolvedNtePalette palette3, ResolvedNtePalette palette4,
             Color common_endpoint, Color rim_color_at_one, Color rim_color_at_zero,
-            float rim_width, float output_multiplier,
-            bool character_grading_enabled, Texture character_grading_lut)
+            float rim_width, float output_multiplier)
         {
             this.palette0 = palette0;
             this.palette1 = palette1;
@@ -88,33 +83,12 @@ namespace YutrelRP
             this.rim_color_at_zero = rim_color_at_zero;
             this.rim_width = Mathf.Max(0.0f, rim_width);
             this.output_multiplier = Mathf.Max(0.0f, output_multiplier);
-            var valid_character_lut = character_grading_lut as Texture3D;
-            this.character_grading_enabled = character_grading_enabled &&
-                                               IsValidCharacterGradingLut(valid_character_lut);
-            this.character_grading_lut = this.character_grading_enabled ? valid_character_lut : null;
         }
 
         public static ResolvedNteSettings Default => new(
             DefaultPalette0, DefaultPalette1, DefaultPalette2, DefaultPalette3, DefaultPalette4,
             DefaultCommonEndpoint, DefaultRimColorAtOne, DefaultRimColorAtZero,
-            DefaultRimWidth, DefaultOutputMultiplier, false, null);
-
-        public static bool IsValidCharacterGradingLut(Texture texture)
-        {
-            if (texture is not Texture3D texture_3d)
-                return false;
-
-            var format = texture_3d.graphicsFormat;
-            var supported_format = format == GraphicsFormat.A2B10G10R10_UNormPack32 ||
-                                   format == GraphicsFormat.R16G16B16A16_UNorm;
-            return
-                   texture_3d.width == CharacterGradingLutSize &&
-                   texture_3d.height == CharacterGradingLutSize &&
-                   texture_3d.depth == CharacterGradingLutSize &&
-                   texture_3d.mipmapCount == 1 &&
-                   supported_format &&
-                   !texture_3d.isDataSRGB;
-        }
+            DefaultRimWidth, DefaultOutputMultiplier);
 
         public float GetOutputScale(float current_pre_exposure)
         {
@@ -170,10 +144,6 @@ namespace YutrelRP
         [Tooltip("Independent NTE scene-color multiplier before the camera exposure ratio.")]
         public MinFloatParameter outputMultiplier = new(ResolvedNteSettings.DefaultOutputMultiplier, 0.0f);
 
-        [Header("Character Grading")]
-        public BoolParameter characterGradingEnabled = new(false);
-        public Texture3DParameter characterGradingLut = new(null);
-
         public static ResolvedNteSettings Resolve(VolumeStack stack) =>
             ResolvedNteSettings.Resolve(stack);
 
@@ -189,9 +159,7 @@ namespace YutrelRP
                 rimColorAtOne.value,
                 rimColorAtZero.value,
                 rimWidth.value,
-                outputMultiplier.value,
-                characterGradingEnabled.value,
-                characterGradingLut.value);
+                outputMultiplier.value);
         }
 
         private static ColorParameter Hdr(Color value) =>
