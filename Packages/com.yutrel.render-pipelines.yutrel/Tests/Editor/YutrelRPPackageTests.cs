@@ -149,12 +149,28 @@ namespace YutrelRP.Tests
         }
 
         [Test]
-        public void DeferredRendererSettings_DefaultToPackageShaderAndNoDepthPrepass()
+        public void DeferredRendererSettings_DefaultToNoDepthPrepass()
         {
             var settings = new YutrelDeferredRendererSettings();
 
             Assert.That(settings.enableDepthPrepass, Is.False);
-            Assert.That(settings.directionalLightShaderOverride, Is.Null);
+        }
+
+        [Test]
+        public void SceneRenderSettings_DefaultToNoExtensionMaterials()
+        {
+            var settings = ScriptableObject.CreateInstance<YutrelSceneRenderSettings>();
+            try
+            {
+                Assert.That(settings.directionalLightExtensionMaterial.overrideState, Is.False);
+                Assert.That(settings.directionalLightExtensionMaterial.value, Is.Null);
+                Assert.That(settings.beforeToneMappingMaterial.overrideState, Is.False);
+                Assert.That(settings.beforeToneMappingMaterial.value, Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+            }
         }
 
         [Test]

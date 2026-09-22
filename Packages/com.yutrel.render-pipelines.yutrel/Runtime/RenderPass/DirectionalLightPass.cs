@@ -1,169 +1,155 @@
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
 namespace YutrelRP
 {
-    internal class DirectionalLightPass
+    internal sealed class DirectionalLightPass
     {
-        private static readonly ProfilingSampler sampler = new ProfilingSampler("Directional Light Pass");
+        private const string ExtensionPassName = "DirectionalLightExtension";
+        private static readonly ProfilingSampler sampler = new("Directional Light Pass");
+        private static readonly ProfilingSampler extensionSampler = new("Directional Light Extension Pass");
+        private static readonly MaterialPropertyBlock properties = new();
+        private static readonly int lightIndexId = Shader.PropertyToID("_LightIndex");
         private static Material material;
-        private static Shader material_shader;
-        private static MaterialPropertyBlock property_block;
-        private static bool warned_missing_dfg_lut;
-        private static readonly int light_index_ID = Shader.PropertyToID("_LightIndex");
+        private static bool warnedMissingDfgLut;
 
-        public static void Record(RenderGraph graph, RenderTargets textures, LightResources light_resources,
-            Shader shader_override = null)
+        public static void Record(RenderGraph graph, RenderTargets textures, LightResources lightResources,
+            Material extensionMaterial = null)
         {
-            if (light_resources.directional_light_count == 0) return;
-            if (!ValidateLightingResources(light_resources)) return;
-
-            if (!TryEnsureMaterial(shader_override)) return;
-            if (property_block == null) property_block = new MaterialPropertyBlock();
-
-            for (int i = 0; i < light_resources.directional_light_count; i++)
+            if (lightResources.directional_light_count == 0 ||
+                !ValidateLightingResources(lightResources) ||
+                !TryEnsureMaterial())
             {
-                using var builder =
-                    graph.AddRasterRenderPass<DirectionalLightPass>(sampler.name + " " + i, out var pass, sampler);
-
-                pass.GBuffer_A_ID = RenderTargets.GBuffer_A_ID;
-                pass.GBuffer_B_ID = RenderTargets.GBuffer_B_ID;
-                pass.GBuffer_C_ID = RenderTargets.GBuffer_C_ID;
-                pass.GBuffer_D_ID = RenderTargets.GBuffer_D_ID;
-                pass.scene_depth_ID = RenderTargets.scene_depth_ID;
-                pass.shadow_mask_ID = RenderTargets.shadow_mask_ID;
-                pass.dfg_lut_ID = LightResources.dfg_lut_ID;
-                pass.directional_light_data_ID = LightResources.directional_light_data_ID;
-                pass.light_index_ID_field = DirectionalLightPass.light_index_ID;
-                pass.GBuffer_A = textures.GBuffer_A;
-                pass.GBuffer_B = textures.GBuffer_B;
-                pass.GBuffer_C = textures.GBuffer_C;
-                pass.GBuffer_D = textures.GBuffer_D;
-                pass.scene_depth = textures.scene_depth;
-                pass.shadow_mask = textures.shadow_mask;
-                pass.DFG_LUT = light_resources.DFG_LUT;
-                pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
-                pass.light_index = i;
-
-                builder.UseTexture(pass.GBuffer_A);
-                builder.UseTexture(pass.GBuffer_B);
-                builder.UseTexture(pass.GBuffer_C);
-                builder.UseTexture(pass.GBuffer_D);
-                builder.UseTexture(pass.scene_depth);
-                builder.UseTexture(pass.shadow_mask);
-                builder.UseTexture(pass.DFG_LUT);
-                builder.UseBuffer(pass.directional_light_data_buffer);
-                builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
-
-                builder.SetRenderFunc<DirectionalLightPass>(static (pass, context) => pass.Render(context));
+                return;
             }
-        }
 
-        // data
-        private int
-            GBuffer_A_ID,
-            GBuffer_B_ID,
-            GBuffer_C_ID,
-            GBuffer_D_ID,
-            scene_depth_ID,
-            shadow_mask_ID,
-            dfg_lut_ID,
-            directional_light_data_ID,
-            light_index_ID_field;
-
-        private int light_index;
-
-        private TextureHandle
-            GBuffer_A,
-            GBuffer_B,
-            GBuffer_C,
-            GBuffer_D,
-            scene_depth,
-            shadow_mask,
-            DFG_LUT;
-
-        private BufferHandle
-            directional_light_data_buffer;
-
-        private void Render(RasterGraphContext context)
-        {
-            var cmd = context.cmd;
-            property_block.Clear();
-            property_block.SetTexture(GBuffer_A_ID, GBuffer_A);
-            property_block.SetTexture(GBuffer_B_ID, GBuffer_B);
-            property_block.SetTexture(GBuffer_C_ID, GBuffer_C);
-            property_block.SetTexture(GBuffer_D_ID, GBuffer_D);
-            property_block.SetTexture(scene_depth_ID, scene_depth);
-            property_block.SetTexture(shadow_mask_ID, shadow_mask);
-            property_block.SetTexture(dfg_lut_ID, DFG_LUT);
-            property_block.SetBuffer(directional_light_data_ID, directional_light_data_buffer);
-            property_block.SetInteger(light_index_ID_field, light_index);
-
-            CoreUtils.DrawFullScreen(cmd, material, property_block);
+            var extensionPassIndex = FindExtensionPass(extensionMaterial);
+            for (var lightIndex = 0; lightIndex < lightResources.directional_light_count; ++lightIndex)
+            {
+                RecordLight(graph, textures, lightResources, material, 0, lightIndex, sampler);
+                if (extensionPassIndex >= 0)
+                {
+                    RecordLight(graph, textures, lightResources, extensionMaterial,
+                        extensionPassIndex, lightIndex, extensionSampler);
+                }
+            }
         }
 
         public static void Cleanup()
         {
             CoreUtils.Destroy(material);
             material = null;
-            material_shader = null;
-            property_block = null;
         }
 
-        private static bool TryEnsureMaterial(Shader shader_override)
+        private static void RecordLight(RenderGraph graph, RenderTargets textures,
+            LightResources lightResources, Material passMaterial, int materialPassIndex,
+            int lightIndex, ProfilingSampler profilingSampler)
         {
-            Shader requested_shader;
-            string resource_name;
-            if (shader_override != null)
-            {
-                requested_shader = shader_override;
-                resource_name = nameof(YutrelDeferredRendererSettings.directionalLightShaderOverride);
-            }
-            else
-            {
-                if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
-                {
-                    return false;
-                }
+            using var builder = graph.AddRasterRenderPass<PassData>(
+                $"{profilingSampler.name} {lightIndex}", out var pass, profilingSampler);
 
-                requested_shader = resources.directional_light_pass;
-                resource_name = nameof(YutrelRPRuntimeShaders.directional_light_pass);
-            }
+            pass.gbufferA = textures.GBuffer_A;
+            pass.gbufferB = textures.GBuffer_B;
+            pass.gbufferC = textures.GBuffer_C;
+            pass.gbufferD = textures.GBuffer_D;
+            pass.sceneDepth = textures.scene_depth;
+            pass.shadowMask = textures.shadow_mask;
+            pass.dfgLut = lightResources.DFG_LUT;
+            pass.directionalLightData = lightResources.directional_light_data_buffer;
+            pass.material = passMaterial;
+            pass.materialPassIndex = materialPassIndex;
+            pass.lightIndex = lightIndex;
 
-            // Renderer data can change without a domain reload. Never keep a
-            // material whose shader no longer matches the selected override.
-            if (material != null && material_shader != requested_shader)
+            builder.UseTexture(pass.gbufferA);
+            builder.UseTexture(pass.gbufferB);
+            builder.UseTexture(pass.gbufferC);
+            builder.UseTexture(pass.gbufferD);
+            builder.UseTexture(pass.sceneDepth);
+            builder.UseTexture(pass.shadowMask);
+            builder.UseTexture(pass.dfgLut);
+            builder.UseBuffer(pass.directionalLightData);
+            builder.SetRenderAttachment(textures.scene_color, 0, AccessFlags.ReadWrite);
+            builder.SetRenderFunc<PassData>(static (data, context) => Render(data, context));
+        }
+
+        private static void Render(PassData pass, RasterGraphContext context)
+        {
+            properties.Clear();
+            properties.SetTexture(RenderTargets.GBuffer_A_ID, pass.gbufferA);
+            properties.SetTexture(RenderTargets.GBuffer_B_ID, pass.gbufferB);
+            properties.SetTexture(RenderTargets.GBuffer_C_ID, pass.gbufferC);
+            properties.SetTexture(RenderTargets.GBuffer_D_ID, pass.gbufferD);
+            properties.SetTexture(RenderTargets.scene_depth_ID, pass.sceneDepth);
+            properties.SetTexture(RenderTargets.shadow_mask_ID, pass.shadowMask);
+            properties.SetTexture(LightResources.dfg_lut_ID, pass.dfgLut);
+            properties.SetBuffer(LightResources.directional_light_data_ID, pass.directionalLightData);
+            properties.SetInteger(lightIndexId, pass.lightIndex);
+
+            CoreUtils.DrawFullScreen(context.cmd, pass.material, properties, pass.materialPassIndex);
+        }
+
+        private static int FindExtensionPass(Material extensionMaterial)
+        {
+            if (extensionMaterial == null)
             {
-                CoreUtils.Destroy(material);
-                material = null;
-                material_shader = null;
+                return -1;
             }
 
-            if (!YutrelRPRuntimeShaderUtility.TryCreateMaterial(
-                    requested_shader, resource_name, ref material))
+            var passIndex = extensionMaterial.FindPass(ExtensionPassName);
+            if (passIndex < 0)
+            {
+                throw new InvalidOperationException(
+                    $"Material '{extensionMaterial.name}' does not contain a pass named '{ExtensionPassName}'.");
+            }
+
+            return passIndex;
+        }
+
+        private static bool TryEnsureMaterial()
+        {
+            if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
             {
                 return false;
             }
 
-            material_shader = requested_shader;
-            return true;
+            return YutrelRPRuntimeShaderUtility.TryCreateMaterial(
+                resources.directional_light_pass,
+                nameof(YutrelRPRuntimeShaders.directional_light_pass),
+                ref material);
         }
 
-        private static bool ValidateLightingResources(LightResources light_resources)
+        private static bool ValidateLightingResources(LightResources lightResources)
         {
-            if (light_resources.has_DFG_LUT)
+            if (lightResources.has_DFG_LUT)
             {
                 return true;
             }
 
-            if (!warned_missing_dfg_lut)
+            if (!warnedMissingDfgLut)
             {
-                Debug.LogError("YutrelRP: DirectionalLightPass skipped because the fixed DFG LUT is missing at Resources/Texture/DFG_LUT.");
-                warned_missing_dfg_lut = true;
+                Debug.LogError(
+                    "YutrelRP: DirectionalLightPass skipped because the fixed DFG LUT is missing at Resources/Texture/DFG_LUT.");
+                warnedMissingDfgLut = true;
             }
 
             return false;
+        }
+
+        private sealed class PassData
+        {
+            public TextureHandle gbufferA;
+            public TextureHandle gbufferB;
+            public TextureHandle gbufferC;
+            public TextureHandle gbufferD;
+            public TextureHandle sceneDepth;
+            public TextureHandle shadowMask;
+            public TextureHandle dfgLut;
+            public BufferHandle directionalLightData;
+            public Material material;
+            public int materialPassIndex;
+            public int lightIndex;
         }
     }
 }

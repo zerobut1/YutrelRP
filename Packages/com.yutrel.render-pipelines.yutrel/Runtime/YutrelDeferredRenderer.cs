@@ -89,11 +89,14 @@ namespace YutrelRP
                 shadowBindings,
                 context.targetSize);
 
+            var directionalLightExtensionMaterial =
+                YutrelSceneRenderSettings.ResolveDirectionalLightExtensionMaterial(
+                    VolumeManager.instance.stack);
             DirectionalLightPass.Record(
                 renderGraph,
                 textures,
                 lightResources,
-                settings.directionalLightShaderOverride);
+                directionalLightExtensionMaterial);
 
             ScreenSpaceAmbientOcclusionPass.Record(
                 renderGraph,

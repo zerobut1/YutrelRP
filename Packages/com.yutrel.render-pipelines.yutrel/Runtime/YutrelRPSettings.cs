@@ -10,9 +10,6 @@ namespace YutrelRP
         [Tooltip("Expose a read-only device-depth snapshot after Base to opaque and transparent forward materials.")]
         public bool copyDepthForForward;
 
-        [Tooltip("Optional host-project implementation of the deferred directional-light pass.")]
-        public Shader directionalLightShaderOverride;
-
         public ShadowSettings shadowSettings = new();
 
         public AmbientOcclusionSettings ambientOcclusionSettings = new();

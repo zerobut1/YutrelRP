@@ -128,6 +128,10 @@ namespace YutrelRP
             ExposureSettings.MinExposureCompensation,
             ExposureSettings.MaxExposureCompensation);
 
+        [Tooltip("Optional material that adds custom deferred directional-light contributions. " +
+                 "The material must contain a pass named DirectionalLightExtension.")]
+        public YutrelMaterialParameter directionalLightExtensionMaterial = new(null);
+
         [Tooltip("Optional full-screen material applied to pre-exposed linear HDR color before tone mapping. " +
                  "The material must contain a pass named BeforeToneMapping.")]
         public YutrelMaterialParameter beforeToneMappingMaterial = new(null);
@@ -140,6 +144,14 @@ namespace YutrelRP
             var resolved = ResolvedPostProcessSettings.Default;
             var sceneSettings = stack?.GetComponent<YutrelSceneRenderSettings>();
             return sceneSettings == null ? resolved : sceneSettings.Resolve(resolved);
+        }
+
+        public static Material ResolveDirectionalLightExtensionMaterial(VolumeStack stack)
+        {
+            var sceneSettings = stack?.GetComponent<YutrelSceneRenderSettings>();
+            return sceneSettings != null && sceneSettings.directionalLightExtensionMaterial.overrideState
+                ? sceneSettings.directionalLightExtensionMaterial.value
+                : null;
         }
 
         private ResolvedPostProcessSettings Resolve(ResolvedPostProcessSettings fallback)

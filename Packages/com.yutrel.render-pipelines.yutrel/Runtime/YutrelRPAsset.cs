@@ -189,7 +189,6 @@ namespace YutrelRP
             {
                 enableDepthPrepass = legacySettings.enableDepthPrepass,
                 copyDepthForForward = legacySettings.copyDepthForForward,
-                directionalLightShaderOverride = legacySettings.directionalLightShaderOverride,
                 shadowSettings = legacySettings.shadowSettings,
                 ambientOcclusionSettings = legacySettings.ambientOcclusionSettings,
                 ddgiSettings = legacySettings.ddgiSettings
