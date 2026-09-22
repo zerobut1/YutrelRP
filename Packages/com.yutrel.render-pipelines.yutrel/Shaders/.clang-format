@@ -1,5 +1,6 @@
 ---
 
+# 直接使用 clang-format 的原生输出，不再由额外脚本做二次格式化。
 BasedOnStyle: LLVM
 
 # Visual Studio的风格
