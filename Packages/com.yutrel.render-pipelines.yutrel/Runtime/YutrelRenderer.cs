@@ -73,10 +73,8 @@ namespace YutrelRP
     public abstract class YutrelRenderer : IDisposable
     {
         private bool disposed;
-        private YutrelRendererData postProcessData;
-        private readonly YutrelPostProcessState postProcessState = new();
-
-        internal void SetPostProcessData(YutrelRendererData data) => postProcessData = data;
+        private readonly BeforeToneMappingPass beforeToneMappingPass = new();
+        private readonly ToneMappingPass toneMappingPass = new();
 
         internal void Render(
             RenderGraph renderGraph,
@@ -154,10 +152,18 @@ namespace YutrelRP
                         GizmoSubset.PreImageEffects);
 #endif
 
-                    var postContext = new YutrelPostProcessContext(cameraContext, output,
-                        postProcessSettings, VolumeManager.instance.stack,
+                    var postProcessColor = beforeToneMappingPass.Record(
+                        renderGraph,
+                        output,
+                        targetSize,
+                        postProcessSettings.before_tone_mapping_material,
+                        sceneColorFormat);
+                    var finalColor = toneMappingPass.Record(
+                        renderGraph,
+                        postProcessColor,
+                        targetSize,
+                        postProcessSettings,
                         GraphicsFormatUtility.GetGraphicsFormat(RenderTextureFormat.Default, true));
-                    var finalColor = RecordPostProcessing(renderGraph, postContext);
 
                     finalColor = RecordAfterPostProcessing(
                         renderGraph,
@@ -205,16 +211,6 @@ namespace YutrelRP
             RenderGraph renderGraph,
             in YutrelCameraRenderContext context);
 
-        internal TextureHandle RecordPostProcessing(RenderGraph graph, in YutrelPostProcessContext context)
-        {
-            if (disposed) throw new ObjectDisposedException(GetType().Name);
-            var processor = postProcessState.GetProcessor(postProcessData != null ? postProcessData.PostProcess : null);
-            var result = processor.Record(graph, context);
-            if (!result.IsValid())
-                throw new InvalidOperationException($"{processor.GetType().Name} returned an invalid post-processed color.");
-            return result;
-        }
-
         protected virtual TextureHandle RecordAfterPostProcessing(
             RenderGraph renderGraph,
             in YutrelCameraRenderContext context,
@@ -233,7 +229,7 @@ namespace YutrelRP
 
             disposed = true;
             try { Dispose(true); }
-            finally { postProcessState.Dispose(); }
+            finally { toneMappingPass.Dispose(); }
             GC.SuppressFinalize(this);
         }
 

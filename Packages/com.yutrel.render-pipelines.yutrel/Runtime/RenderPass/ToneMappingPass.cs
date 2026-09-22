@@ -19,6 +19,7 @@ namespace YutrelRP
             Vector2Int targetSize, in ResolvedPostProcessSettings settings, GraphicsFormat outputFormat)
         {
             if (!sourceColor.IsValid()) throw new ArgumentException("Post-processing requires scene color.");
+            if (settings.tone_mapping.mode == ToneMappingSettings.Mode.None) return sourceColor;
             if (!YutrelRPRuntimeShaderUtility.TryGetResources(out var resources))
                 throw new InvalidOperationException("Default tone-mapping resources are unavailable.");
             if (material != null && material.shader != resources.tone_mapping)

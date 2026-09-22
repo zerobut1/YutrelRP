@@ -80,15 +80,18 @@ namespace YutrelRP
     {
         public readonly ExposureSettings exposure;
         public readonly ToneMappingSettings tone_mapping;
+        public readonly Material before_tone_mapping_material;
 
         public ResolvedPostProcessSettings(ExposureSettings exposure,
-            ToneMappingSettings tone_mapping)
+            ToneMappingSettings tone_mapping, Material beforeToneMappingMaterial = null)
         {
             this.exposure = exposure;
             this.tone_mapping = ToneMappingSettings.Validate(tone_mapping);
+            before_tone_mapping_material = beforeToneMappingMaterial;
         }
 
-        public static ResolvedPostProcessSettings Default => new(ExposureSettings.Default, ToneMappingSettings.Default);
+        public static ResolvedPostProcessSettings Default => new(
+            ExposureSettings.Default, ToneMappingSettings.Default);
     }
 
     [Serializable]
@@ -96,6 +99,14 @@ namespace YutrelRP
     {
         public YutrelToneMappingModeParameter(ToneMappingSettings.Mode value,
             bool overrideState = false) : base(value, overrideState)
+        {
+        }
+    }
+
+    [Serializable]
+    public sealed class YutrelMaterialParameter : VolumeParameter<Material>
+    {
+        public YutrelMaterialParameter(Material value, bool overrideState = false) : base(value, overrideState)
         {
         }
     }
@@ -117,14 +128,18 @@ namespace YutrelRP
             ExposureSettings.MinExposureCompensation,
             ExposureSettings.MaxExposureCompensation);
 
-        [Tooltip("Tone mapping mode used by YutrelRP after scene lighting.")]
+        [Tooltip("Optional full-screen material applied to pre-exposed linear HDR color before tone mapping. " +
+                 "The material must contain a pass named BeforeToneMapping.")]
+        public YutrelMaterialParameter beforeToneMappingMaterial = new(null);
+
+        [Tooltip("Tone mapping mode used by YutrelRP after the optional material pass.")]
         public YutrelToneMappingModeParameter toneMapping = new(ToneMappingSettings.Default.mode);
 
         public static ResolvedPostProcessSettings Resolve(VolumeStack stack)
         {
             var resolved = ResolvedPostProcessSettings.Default;
-            var scene_settings = stack?.GetComponent<YutrelSceneRenderSettings>();
-            return scene_settings == null ? resolved : scene_settings.Resolve(resolved);
+            var sceneSettings = stack?.GetComponent<YutrelSceneRenderSettings>();
+            return sceneSettings == null ? resolved : sceneSettings.Resolve(resolved);
         }
 
         private ResolvedPostProcessSettings Resolve(ResolvedPostProcessSettings fallback)
@@ -140,14 +155,18 @@ namespace YutrelRP
                 exposure.exposureCompensation = exposureCompensation.value;
             }
 
-            var tone_mapping = fallback.tone_mapping;
-            if (toneMapping.overrideState &&
-                ToneMappingSettings.IsValidMode(toneMapping.value))
+            var beforeToneMappingMaterial = this.beforeToneMappingMaterial.overrideState
+                ? this.beforeToneMappingMaterial.value
+                : fallback.before_tone_mapping_material;
+
+            var toneMapping = fallback.tone_mapping;
+            if (this.toneMapping.overrideState &&
+                ToneMappingSettings.IsValidMode(this.toneMapping.value))
             {
-                tone_mapping.mode = toneMapping.value;
+                toneMapping.mode = this.toneMapping.value;
             }
 
-            return new ResolvedPostProcessSettings(exposure, tone_mapping);
+            return new ResolvedPostProcessSettings(exposure, toneMapping, beforeToneMappingMaterial);
         }
     }
 }
