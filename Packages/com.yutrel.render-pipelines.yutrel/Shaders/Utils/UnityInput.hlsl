@@ -54,5 +54,6 @@ float4 _Time;
 float4 _SinTime;
 float4 _CosTime;
 uint _YutrelFrameIndex;
+float4 _MainDirectionalLightDirection;
 
 #endif
