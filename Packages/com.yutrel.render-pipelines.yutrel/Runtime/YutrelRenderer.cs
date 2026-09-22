@@ -129,7 +129,8 @@ namespace YutrelRP
                 using (new RenderGraphProfilingScope(renderGraph, ProfilingSampler.Get(camera.cameraType)))
                 {
                     var cameraOutput = ImportCameraTarget(renderGraph, camera);
-                    SetupPass.Record(renderGraph, camera, targetSize, postProcessSettings);
+                    SetupPass.Record(renderGraph, camera, targetSize, postProcessSettings,
+                        cameraContext.frameIndex);
 
 #if UNITY_EDITOR
                     if (camera.cameraType == CameraType.SceneView)

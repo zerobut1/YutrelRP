@@ -12,7 +12,6 @@ namespace YutrelRP
         private static readonly int scene_pre_exposure_ID = Shader.PropertyToID("_EndfieldScenePreExposure");
         private static readonly int environment_intensity_ID = Shader.PropertyToID("_EndfieldEnvironmentIntensity");
         private static readonly int environment_specular_multiplier_ID = Shader.PropertyToID("_EndfieldEnvironmentSpecularMultiplier");
-        private static readonly int use_screen_space_ao_ID = Shader.PropertyToID("_EndfieldUseScreenSpaceAO");
 
         private readonly Color ambient_color;
         private readonly float ambient_intensity, input_scale, scene_pre_exposure;
@@ -37,7 +36,7 @@ namespace YutrelRP
                 ? lights.environment_specular_multiplier : 0.0f;
         }
 
-        internal void Bind(IBaseCommandBuffer cmd, bool use_screen_space_ao)
+        internal void Bind(IBaseCommandBuffer cmd)
         {
             cmd.SetGlobalVector(ambient_color_ID, ambient_color);
             cmd.SetGlobalFloat(ambient_intensity_ID, ambient_intensity);
@@ -45,7 +44,6 @@ namespace YutrelRP
             cmd.SetGlobalFloat(scene_pre_exposure_ID, scene_pre_exposure);
             cmd.SetGlobalFloat(environment_intensity_ID, environment_intensity);
             cmd.SetGlobalFloat(environment_specular_multiplier_ID, environment_specular_multiplier);
-            cmd.SetGlobalFloat(use_screen_space_ao_ID, use_screen_space_ao ? 1.0f : 0.0f);
         }
     }
 }

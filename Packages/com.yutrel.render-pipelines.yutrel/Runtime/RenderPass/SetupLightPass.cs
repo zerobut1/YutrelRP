@@ -7,6 +7,9 @@ namespace YutrelRP
     internal class SetupLightPass
     {
         private static readonly ProfilingSampler sampler = new("Light Data Pass");
+        private static readonly int directional_light_count_ID = Shader.PropertyToID("_DirectionalLightCount");
+        private static readonly int main_directional_light_direction_ID =
+            Shader.PropertyToID("_MainDirectionalLightDirection");
 
         internal static void Record(RenderGraph render_graph, ScriptableRenderContext context,
             Camera camera, CullingResults culling_results, ResolvedShadowSettings shadow_settings,
@@ -21,6 +24,9 @@ namespace YutrelRP
             pass.directional_light_count = light_resources.directional_light_count;
             pass.directional_light_data = light_resources.directional_light_data;
             pass.directional_light_data_buffer = light_resources.directional_light_data_buffer;
+            pass.main_directional_light_direction = light_resources.directional_light_count > 0
+                ? light_resources.directional_light_data[0].direction
+                : Vector4.zero;
 
             // -------------- Shadow --------------
             shadow_resources.Setup(render_graph, builder, culling_results, shadow_settings, context);
@@ -44,6 +50,8 @@ namespace YutrelRP
 
             // ------------------------------------
 
+            builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc<SetupLightPass>(static (pass, context) => { pass.Render(context); });
         }
 
@@ -54,6 +62,7 @@ namespace YutrelRP
         private LightResources.DirectionalLightData[] directional_light_data;
 
         private BufferHandle directional_light_data_buffer;
+        private Vector4 main_directional_light_direction;
 
         // ------------ Shadow -------------
         private int shadow_cascade_count;
@@ -70,6 +79,8 @@ namespace YutrelRP
 
             // Light
             cmd.SetBufferData(directional_light_data_buffer, directional_light_data, 0, 0, directional_light_count);
+            cmd.SetGlobalInt(directional_light_count_ID, directional_light_count);
+            cmd.SetGlobalVector(main_directional_light_direction_ID, main_directional_light_direction);
 
             // Shadow
             cmd.SetBufferData(shadow_directional_vp_matrices_buffer, shadow_directional_vp_matrices, 0, 0,

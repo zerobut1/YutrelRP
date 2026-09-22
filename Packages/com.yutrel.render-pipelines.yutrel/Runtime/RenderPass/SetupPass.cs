@@ -15,12 +15,14 @@ namespace YutrelRP
             inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP"),
             pre_exposure_ID = Shader.PropertyToID("_PreExposure"),
             one_over_pre_exposure_ID = Shader.PropertyToID("_OneOverPreExposure"),
+            frame_index_ID = Shader.PropertyToID("_YutrelFrameIndex"),
             time_ID = Shader.PropertyToID("_Time"),
             sin_time_ID = Shader.PropertyToID("_SinTime"),
             cos_time_ID = Shader.PropertyToID("_CosTime");
 
         internal static void Record(RenderGraph render_graph, Camera camera,
-            Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings)
+            Vector2Int attachment_size, ResolvedPostProcessSettings post_process_settings,
+            int frame_index)
         {
             var exposure = post_process_settings.exposure;
             var pre_exposure = exposure.pre_exposure;
@@ -30,6 +32,7 @@ namespace YutrelRP
             pass.camera = camera;
             pass.pre_exposure = pre_exposure;
             pass.one_over_pre_exposure = exposure.one_over_pre_exposure;
+            pass.frame_index = frame_index;
 
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
@@ -102,6 +105,7 @@ namespace YutrelRP
         private Vector2Int rt_size;
         private float pre_exposure;
         private float one_over_pre_exposure;
+        private int frame_index;
 
         private void Render(ComputeGraphContext context)
         {
@@ -110,6 +114,7 @@ namespace YutrelRP
             cmd.SetupCameraProperties(camera);
             cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
             cmd.SetGlobalFloat(one_over_pre_exposure_ID, one_over_pre_exposure);
+            cmd.SetGlobalInt(frame_index_ID, frame_index);
 
             // 与 Unity 内置管线相同的 _Time 语义；SRP 不会自动设置，必须由管线每帧写一次。
             var time = Time.timeSinceLevelLoad;

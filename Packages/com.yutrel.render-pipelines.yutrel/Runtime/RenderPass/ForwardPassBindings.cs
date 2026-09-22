@@ -16,20 +16,20 @@ namespace YutrelRP
         private readonly int light_count;
         private readonly BufferHandle light_data;
         private readonly TextureHandle shadow_mask, screen_space_ao, white_texture;
-        private readonly TextureHandle bangs_shadow_mask;
         private readonly TextureHandle environment_cube;
         private readonly TextureHandle gbuffer_a, gbuffer_b, gbuffer_c, gbuffer_d;
         private readonly TextureHandle camera_normal, camera_depth;
         private readonly bool camera_depth_available;
         private static readonly int camera_depth_available_ID = Shader.PropertyToID("_CameraDepthTextureAvailable");
         private readonly Vector4 environment_cube_hdr;
+        private readonly float environment_intensity;
+        private readonly float environment_diffuse_multiplier;
+        private readonly float environment_specular_multiplier;
         private readonly float ibl_roughness_one_level;
-        private readonly bool environment_available;
         private readonly EndfieldShaderGlobals endfield_globals;
         private readonly NteShaderGlobals nte_globals;
         private readonly DirectionalShadowBindings shadows;
         private readonly float pre_exposure;
-        private readonly bool ao_available;
 
         internal ForwardPassBindings(RenderGraph render_graph, RenderTargets textures,
             LightResources lights, DirectionalShadowBindings shadows,
@@ -47,23 +47,25 @@ namespace YutrelRP
                 : SystemInfo.usesReversedZBuffer ? render_graph.defaultResources.blackTexture
                 : render_graph.defaultResources.whiteTexture;
             light_data = lights.directional_light_data_buffer;
-            // Typhoeus EID1069 samples Base prepass RT3. In the current GBuffer
-            // layout that attachment is GBuffer_C; its alpha is emitted by the
-            // ForwardOnlyBase pass as the face/hair shadow mask marker.
-            bangs_shadow_mask = gbuffer_c;
             white_texture = render_graph.defaultResources.whiteTexture;
             shadow_mask = light_count > 0 && textures.shadow_mask.IsValid()
                 ? textures.shadow_mask : white_texture;
-            ao_available = textures.screen_space_ao.IsValid();
+            var ao_available = textures.screen_space_ao.IsValid();
             screen_space_ao = ao_available ? textures.screen_space_ao : white_texture;
             this.shadows = shadows;
             this.endfield_globals = endfield_globals;
             this.nte_globals = nte_globals;
             this.pre_exposure = pre_exposure;
-            environment_available = lights.has_environment_reflection && lights.environment_reflection_cube.IsValid();
+            var environment_available =
+                lights.has_environment_reflection && lights.environment_reflection_cube.IsValid();
             environment_cube = environment_available ? lights.environment_reflection_cube
                 : LightResources.ImportBlackEnvironment(render_graph);
             environment_cube_hdr = environment_available ? lights.environment_reflection_cube_hdr : Vector4.zero;
+            environment_intensity = environment_available ? lights.environment_intensity : 0.0f;
+            environment_diffuse_multiplier = environment_available
+                ? lights.environment_diffuse_multiplier : 0.0f;
+            environment_specular_multiplier = environment_available
+                ? lights.environment_specular_multiplier : 0.0f;
             ibl_roughness_one_level = environment_available ? lights.ibl_roughness_one_level : 0.0f;
         }
 
@@ -72,7 +74,6 @@ namespace YutrelRP
             if (transparent)
             {
                 shadows.DeclareResources(builder);
-                builder.UseTexture(bangs_shadow_mask);
             }
             // LightResources always allocates this camera's buffer, including zero-light cameras.
             builder.UseBuffer(light_data);
@@ -114,7 +115,6 @@ namespace YutrelRP
             if (transparent)
             {
                 shadows.BindGlobals(cmd);
-                cmd.SetGlobalTexture(RenderTargets.GBuffer_C_ID, bangs_shadow_mask);
             }
             // Both forward stages see this camera's completed Base normal/depth.
             // Bind defaults and availability every camera to prevent stale globals.
@@ -132,10 +132,13 @@ namespace YutrelRP
                 use_screen_space_ao ? screen_space_ao : white_texture);
             cmd.SetGlobalTexture(LightResources.environment_reflection_cube_ID, environment_cube);
             cmd.SetGlobalVector(LightResources.environment_reflection_cube_hdr_ID, environment_cube_hdr);
+            cmd.SetGlobalFloat(LightResources.environment_intensity_ID, environment_intensity);
+            cmd.SetGlobalFloat(LightResources.environment_diffuse_multiplier_ID, environment_diffuse_multiplier);
+            cmd.SetGlobalFloat(LightResources.environment_specular_multiplier_ID, environment_specular_multiplier);
             cmd.SetGlobalFloat(LightResources.ibl_roughness_one_level_ID, ibl_roughness_one_level);
             cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
             cmd.SetGlobalFloat(inverse_pre_exposure_ID, 1.0f / pre_exposure);
-            endfield_globals.Bind(cmd, use_screen_space_ao && ao_available);
+            endfield_globals.Bind(cmd);
             nte_globals.Bind(cmd);
         }
     }
