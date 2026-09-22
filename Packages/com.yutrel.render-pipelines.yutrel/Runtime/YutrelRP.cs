@@ -57,6 +57,9 @@ namespace YutrelRP
             {
                 foreach (var camera in cameras)
                 {
+                    // Resolve the camera stack before the public camera event so external
+                    // integrations can consume blended Volume components without owning a renderer.
+                    VolumeManager.instance.Update(camera.transform, ~0);
                     BeginCameraRendering(context, camera);
                     try
                     {

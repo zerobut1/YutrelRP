@@ -90,7 +90,6 @@ namespace YutrelRP
                 throw new ObjectDisposedException(GetType().Name);
             }
 
-            VolumeManager.instance.Update(camera.transform, ~0);
             var postProcessSettings = YutrelSceneRenderSettings.Resolve(VolumeManager.instance.stack);
             var targetSize = GetTargetSize(camera);
             if (targetSize.x <= 0 || targetSize.y <= 0)

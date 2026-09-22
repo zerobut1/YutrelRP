@@ -143,11 +143,9 @@ namespace YutrelRP
                 EnvironmentLightingPass.Record(renderGraph, textures, lightResources);
             }
 
-            var currentEndfieldSettings = EndfieldVolumeSettings.Resolve(VolumeManager.instance.stack);
             var useScreenSpaceAo = settings.ambientOcclusionSettings != null &&
                                    settings.ambientOcclusionSettings.mode != AmbientOcclusionSettings.Mode.Disabled;
             var forwardBindings = new ForwardPassBindings(renderGraph, textures, lightResources, shadowBindings,
-                new EndfieldShaderGlobals(currentEndfieldSettings, lightResources, context.preExposure),
                 nteGlobals,
                 context.preExposure,
                 depthSnapshot);

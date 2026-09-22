@@ -26,14 +26,13 @@ namespace YutrelRP
         private readonly float environment_diffuse_multiplier;
         private readonly float environment_specular_multiplier;
         private readonly float ibl_roughness_one_level;
-        private readonly EndfieldShaderGlobals endfield_globals;
         private readonly NteShaderGlobals nte_globals;
         private readonly DirectionalShadowBindings shadows;
         private readonly float pre_exposure;
 
         internal ForwardPassBindings(RenderGraph render_graph, RenderTargets textures,
             LightResources lights, DirectionalShadowBindings shadows,
-            EndfieldShaderGlobals endfield_globals, NteShaderGlobals nte_globals,
+            NteShaderGlobals nte_globals,
             float pre_exposure, TextureHandle depth_snapshot)
         {
             light_count = lights.directional_light_count;
@@ -53,7 +52,6 @@ namespace YutrelRP
             var ao_available = textures.screen_space_ao.IsValid();
             screen_space_ao = ao_available ? textures.screen_space_ao : white_texture;
             this.shadows = shadows;
-            this.endfield_globals = endfield_globals;
             this.nte_globals = nte_globals;
             this.pre_exposure = pre_exposure;
             var environment_available =
@@ -138,7 +136,6 @@ namespace YutrelRP
             cmd.SetGlobalFloat(LightResources.ibl_roughness_one_level_ID, ibl_roughness_one_level);
             cmd.SetGlobalFloat(pre_exposure_ID, pre_exposure);
             cmd.SetGlobalFloat(inverse_pre_exposure_ID, 1.0f / pre_exposure);
-            endfield_globals.Bind(cmd);
             nte_globals.Bind(cmd);
         }
     }
